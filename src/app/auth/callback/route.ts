@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+// Only allow same-site relative paths — a bare "/x" is safe, but
+// "//evil.com" or "https://evil.com" are protocol-relative/absolute URLs
+// that would redirect off-site after a successful sign-in.
+function sanitizeNext(next: string | null): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return "/dashboard";
+  return next;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = sanitizeNext(searchParams.get("next"));
 
   if (code) {
     const supabase = await createSupabaseServerClient();

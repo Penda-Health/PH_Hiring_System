@@ -21,9 +21,9 @@ export function Topbar() {
   if (!user) return null;
 
   return (
-    <header className="flex items-center justify-between h-16 px-4 md:px-6 border-b border-white/50 dark:border-white/10 bg-white/65 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150">
+    <header className="flex items-center h-16 px-4 md:px-6 border-b border-white/50 dark:border-white/10 bg-white/65 dark:bg-white/[0.04] backdrop-blur-xl backdrop-saturate-150">
       <MobileNav />
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 ml-auto">
         <ThemeToggle />
         <div className="text-right">
           <p className="text-sm font-medium leading-none">{user.name}</p>

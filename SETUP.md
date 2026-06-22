@@ -153,7 +153,7 @@ directly.
      user_email text := event->'claims'->>'email';
    begin
      if user_email is null
-       or (user_email !ilike '%@penda.co.ke' and user_email !ilike '%@pendahealth.com') then
+       or (user_email not ilike '%@penda.co.ke' and user_email not ilike '%@pendahealth.com') then
        raise exception 'Access restricted to Penda Health staff. Use your @penda.co.ke or @pendahealth.com Google account.';
      end if;
      return event;
