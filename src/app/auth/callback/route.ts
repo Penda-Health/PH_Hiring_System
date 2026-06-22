@@ -13,11 +13,23 @@ export async function GET(request: Request) {
       if (!error) {
         return NextResponse.redirect(`${origin}${next}`);
       }
-      console.error("[auth/callback] exchangeCodeForSession failed:", error.message);
-      if (/restricted to penda health staff/i.test(error.message)) {
+      console.error(
+        "[auth/callback] exchangeCodeForSession failed",
+        JSON.stringify({
+          name: error.name,
+          message: error.message,
+          status: error.status,
+          code: error.code,
+        })
+      );
+      if (/restricted to penda health staff/i.test(error.message ?? "")) {
         return NextResponse.redirect(`${origin}/login?error=domain_restricted`);
       }
+    } else {
+      console.error("[auth/callback] createSupabaseServerClient() returned null — env vars not configured");
     }
+  } else {
+    console.error("[auth/callback] no ?code= param on callback request");
   }
 
   return NextResponse.redirect(`${origin}/login?error=auth_failed`);
