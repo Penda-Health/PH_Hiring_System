@@ -7,7 +7,7 @@ import { User } from "@/types";
 import { users } from "@/lib/mock-data";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-const ALLOWED_DOMAIN = "penda.co.ke";
+const ALLOWED_DOMAINS = ["penda.co.ke", "pendahealth.com"];
 const STORAGE_KEY = "penda-hiring-session";
 
 interface AuthContextValue {
@@ -94,8 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const normalized = email.trim().toLowerCase();
 
-      if (!normalized.endsWith(`@${ALLOWED_DOMAIN}`)) {
-        setError(`Access restricted to @${ALLOWED_DOMAIN} accounts`);
+      if (!ALLOWED_DOMAINS.some((domain) => normalized.endsWith(`@${domain}`))) {
+        setError(`Access restricted to ${ALLOWED_DOMAINS.map((d) => `@${d}`).join(" or ")} accounts`);
         return;
       }
 

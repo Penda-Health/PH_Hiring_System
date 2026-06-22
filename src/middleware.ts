@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/config";
 
-const ALLOWED_DOMAIN = "penda.co.ke";
+const ALLOWED_DOMAINS = ["penda.co.ke", "pendahealth.com"];
 
 export async function middleware(request: NextRequest) {
   const env = getSupabaseEnv();
@@ -48,8 +48,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // Defense in depth on top of the Supabase Auth Hook (SETUP.md section 4)
-  // that rejects non-@penda.co.ke sign-ins at token issuance.
-  if (!user.email?.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`)) {
+  // that rejects sign-ins outside the allowed domains at token issuance.
+  const email = user.email?.toLowerCase();
+  if (!email || !ALLOWED_DOMAINS.some((domain) => email.endsWith(`@${domain}`))) {
     await supabase.auth.signOut();
     if (isApiRoute) {
       return NextResponse.json({ error: "Access restricted to Penda Health staff." }, { status: 403 });

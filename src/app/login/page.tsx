@@ -36,7 +36,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-2xl text-penda-teal">Penda✨ Hiring</CardTitle>
-          <CardDescription>Sign in with your @penda.co.ke account</CardDescription>
+          <CardDescription>Sign in with your @penda.co.ke or @pendahealth.com account</CardDescription>
         </CardHeader>
         <CardContent>
           {supabaseConfigured ? (

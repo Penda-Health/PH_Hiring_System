@@ -133,7 +133,7 @@ You need a Google OAuth client so Supabase can run "Sign in with Google."
 
 ---
 
-## 4. Domain restriction (`@penda.co.ke` only) — server-side
+## 4. Domain restriction (`@penda.co.ke` / `@pendahealth.com` only) — server-side
 
 This is enforced with a Supabase **Auth Hook**, not client-side JavaScript,
 so it can't be bypassed by someone editing the page or calling the API
@@ -142,7 +142,7 @@ directly.
 1. In the Supabase dashboard: **Database → Functions** (or **SQL Editor** if
    you prefer running raw SQL).
 2. Create a Postgres function that rejects sign-ins from outside the
-   `penda.co.ke` domain. In the SQL Editor, run:
+   `penda.co.ke` / `pendahealth.com` domains. In the SQL Editor, run:
 
    ```sql
    create or replace function public.restrict_to_penda_domain(event jsonb)
@@ -152,8 +152,9 @@ directly.
    declare
      user_email text := event->'claims'->>'email';
    begin
-     if user_email is null or user_email !ilike '%@penda.co.ke' then
-       raise exception 'Access restricted to Penda Health staff. Use your @penda.co.ke Google account.';
+     if user_email is null
+       or (user_email !ilike '%@penda.co.ke' and user_email !ilike '%@pendahealth.com') then
+       raise exception 'Access restricted to Penda Health staff. Use your @penda.co.ke or @pendahealth.com Google account.';
      end if;
      return event;
    end;
@@ -165,13 +166,13 @@ directly.
    `restrict_to_penda_domain` function and enable the hook.
 5. Save.
 
-With this enabled, a non-`@penda.co.ke` Google account that completes the
-OAuth handshake will have its session rejected at the token-issuance step —
-before any app code runs. The app's client-side sign-in flow should still
-catch the resulting auth error and show:
+With this enabled, an account outside `@penda.co.ke` / `@pendahealth.com`
+that completes the OAuth handshake will have its session rejected at the
+token-issuance step — before any app code runs. The app's client-side
+sign-in flow should still catch the resulting auth error and show:
 
-> "Access restricted to Penda Health staff. Use your @penda.co.ke Google
-> account."
+> "Access restricted to Penda Health staff. Use your @penda.co.ke or
+> @pendahealth.com Google account."
 
 then immediately call `supabase.auth.signOut()` to clear any partial
 session, matching the behavior described in the app's auth requirements.
