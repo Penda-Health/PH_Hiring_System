@@ -13,6 +13,10 @@ export async function GET(request: Request) {
       if (!error) {
         return NextResponse.redirect(`${origin}${next}`);
       }
+      console.error("[auth/callback] exchangeCodeForSession failed:", error.message);
+      if (/restricted to penda health staff/i.test(error.message)) {
+        return NextResponse.redirect(`${origin}/login?error=domain_restricted`);
+      }
     }
   }
 

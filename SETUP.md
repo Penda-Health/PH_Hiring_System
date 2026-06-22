@@ -159,6 +159,18 @@ directly.
      return event;
    end;
    $$;
+
+   -- Required: Supabase's auth service invokes hook functions as
+   -- supabase_auth_admin, not as your own role. Without this grant the hook
+   -- invocation itself fails (closed) and blocks every sign-in, even ones
+   -- that should pass the domain check.
+   grant execute
+     on function public.restrict_to_penda_domain
+     to supabase_auth_admin;
+
+   revoke execute
+     on function public.restrict_to_penda_domain
+     from authenticated, anon, public;
    ```
 
 3. Go to **Authentication → Hooks**.
