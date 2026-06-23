@@ -17,6 +17,7 @@ export async function middleware(request: NextRequest) {
   const isPublicFormRoute =
     request.nextUrl.pathname.startsWith("/work-trial") ||
     request.nextUrl.pathname.startsWith("/bm-feedback") ||
+    request.nextUrl.pathname.startsWith("/referee") ||
     request.nextUrl.pathname.startsWith("/api/public/") ||
     request.nextUrl.pathname.startsWith("/api/forms/issue-link");
   if (isPublicFormRoute) return NextResponse.next();

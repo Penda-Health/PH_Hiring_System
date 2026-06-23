@@ -74,6 +74,24 @@ export interface Branch {
   active: boolean;
 }
 
+export type RequisitionLevel =
+  | "Entry"
+  | "Junior"
+  | "Mid"
+  | "Senior"
+  | "Lead"
+  | "Manager"
+  | "Senior Manager"
+  | "Head/Director";
+
+export type VacancyReasonType =
+  | "Resignation"
+  | "Termination"
+  | "Internal Promotion"
+  | "Retirement"
+  | "Contract End"
+  | "Other";
+
 export interface Requisition {
   id: string;
   reqId: string;
@@ -82,13 +100,17 @@ export interface Requisition {
   department: string;
   segment: Segment;
   gapReason?: GapReason;
+  reasonType?: VacancyReasonType;
   branchId?: string;
+  employmentType?: EmploymentType;
+  level?: RequisitionLevel;
   headcount: number;
   justification: string;
   salaryRangeMin?: number;
   salaryRangeMax?: number;
   urgency: Priority;
   jdAttached: boolean;
+  jdUrl?: string;
   status: RequisitionStatus;
   approverChain: string[];
   currentApproverIndex: number;
@@ -176,6 +198,8 @@ export interface WorkTrial {
   escalation24hSent: boolean;
 }
 
+export type RehireAnswer = "Yes, without hesitation" | "Yes, with some reservations" | "No, I would not recommend them";
+
 export interface RefereeStatus {
   name: string;
   email: string;
@@ -184,6 +208,15 @@ export interface RefereeStatus {
   smsSent: boolean;
   responded: boolean;
   respondedAt?: string;
+  relationship?: string;
+  durationKnown?: string;
+  techScore?: number;
+  reliabilityScore?: number;
+  teamworkScore?: number;
+  wouldRehire?: RehireAnswer;
+  strengthExample?: string;
+  developmentAreas?: string;
+  notes?: string;
 }
 
 export interface ReferenceCheck {

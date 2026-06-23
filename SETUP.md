@@ -199,18 +199,28 @@ page are built — not required to get sign-in itself working.
 
 ---
 
-## 4.5 Public forms (work-trial branch selection, BM feedback)
+## 4.5 Public forms (work-trial branch selection, BM feedback, referee check)
 
-Two no-login forms exist so far, both token-protected instead of behind
+Three no-login forms exist so far, all token-protected instead of behind
 Supabase auth (see `src/middleware.ts`, which exempts them):
 
 - `/work-trial?token=...` — candidate picks a branch + date once they reach
   the Work Trial stage.
 - `/bm-feedback?token=...` — the branch manager confirms arrival and, if the
   candidate showed up, submits the work-trial score.
+- `/referee?token=...` — a referee submits their reference check, scoped to
+  one candidate and one of the two referee slots (`refereeNum: 1 | 2`).
 
-Both forms read/write the same `Work Trials` Airtable table the rest of the
-app uses — there's no separate database for forms.
+These forms read/write the existing `Work Trials` and `Reference Checks`
+Airtable tables the rest of the app uses — there's no separate database for
+forms.
+
+The IPS Gap and SO Requisition forms (`/requisitions/new/ips`,
+`/requisitions/new/so`) are login-required guided forms, not public/token
+forms — they live under the normal `(dashboard)` route group and inherit the
+existing Supabase auth gate, so they needed no middleware changes. They write
+to the same `Requisitions` table as the existing quick-add dialog, via
+`useRecruitmentData().createRequisition`.
 
 ### 4.5.1 Environment variables
 
@@ -259,17 +269,21 @@ NEXT_PUBLIC_APP_URL=      # your deployed URL, e.g. https://ph-hiring-system.ver
 5. Repeat the same pattern for the branch-manager feedback link, triggered
    off the work trial's date (e.g. "the morning of Trial Date") with
    `type: "bm-feedback"` and the BM's email instead.
+6. For referee links, trigger off the Reference Check record being created,
+   running the script twice (once per referee) with
+   `{ "type": "referee", "refCheckId": "<recId>", "refereeNum": 1 }` (and `2`
+   for the second referee), sending each to that referee's email.
 
 To test without waiting on a real automation run, mint a link manually:
 
 ```
 node scripts/generate-form-link.js --type work-trial --work-trial-id recXXXXXXXXXXXXXX
+node scripts/generate-form-link.js --type referee --ref-check-id recXXXXXXXXXXXXXX --referee-num 1
 ```
 
 ### What's deferred
 
-Per the original forms spec, these are intentionally not built yet:
-referee reference-check form, IPS gap form, SO requisition form, actual
+Per the original forms spec, these are intentionally not built yet: actual
 Gmail/SMS sending (Airtable's native "Send email" action covers this for
 now), and a `/forms/test` dev harness.
 
@@ -306,6 +320,7 @@ this system is the SMS-sending automations. When you're ready:
 | Supabase project + Google OAuth wiring | ✅ this guide |
 | `@penda.co.ke` domain restriction (server-side) | ✅ this guide |
 | Default `recruiter` role on first login | ⏳ needs `profiles` table + trigger |
-| Public JWT form routes (`/work-trial`, `/bm-feedback`) | ✅ this guide — referee/IPS/SO forms still pending |
+| Public JWT form routes (`/work-trial`, `/bm-feedback`, `/referee`) | ✅ this guide |
+| IPS Gap / SO Requisition guided forms (login required) | ✅ `/requisitions/new/ips`, `/requisitions/new/so` |
 | Make.com scenario blueprints | ⏳ next phase |
 | Africa's Talking SMS | ⏳ next phase |

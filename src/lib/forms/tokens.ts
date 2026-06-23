@@ -21,6 +21,13 @@ export type BmFeedbackTokenPayload = {
   candidateId: string;
 };
 
+export type RefereeTokenPayload = {
+  type: "referee";
+  refCheckId: string;
+  candidateId: string;
+  refereeNum: 1 | 2;
+};
+
 export async function signWorkTrialToken(payload: Omit<WorkTrialTokenPayload, "type">): Promise<string> {
   return new SignJWT({ type: "work-trial", ...payload })
     .setProtectedHeader({ alg: "HS256" })
@@ -34,6 +41,14 @@ export async function signBmFeedbackToken(payload: Omit<BmFeedbackTokenPayload, 
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("5d")
+    .sign(secret());
+}
+
+export async function signRefereeToken(payload: Omit<RefereeTokenPayload, "type">): Promise<string> {
+  return new SignJWT({ type: "referee", ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("14d")
     .sign(secret());
 }
 
@@ -52,6 +67,16 @@ export async function verifyBmFeedbackToken(token: string): Promise<BmFeedbackTo
     const { payload } = await jwtVerify(token, secret());
     if (payload.type !== "bm-feedback") return null;
     return payload as unknown as BmFeedbackTokenPayload;
+  } catch {
+    return null;
+  }
+}
+
+export async function verifyRefereeToken(token: string): Promise<RefereeTokenPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    if (payload.type !== "referee") return null;
+    return payload as unknown as RefereeTokenPayload;
   } catch {
     return null;
   }

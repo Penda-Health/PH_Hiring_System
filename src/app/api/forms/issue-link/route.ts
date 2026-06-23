@@ -1,20 +1,28 @@
 // Called by an Airtable automation's "Run script" step (via fetch) when a
-// candidate's Stage changes to "Work Trial" or when a Work Trial's branch
-// manager needs to confirm arrival / submit scores. Returns a signed link
-// the automation's "Send email" step embeds in the candidate/BM email.
+// candidate's Stage changes to "Work Trial", when a Work Trial's branch
+// manager needs to confirm arrival / submit scores, or when a reference
+// check is created. Returns a signed link the automation's "Send email"
+// step embeds in the candidate/BM/referee email.
 // Authenticated with a static bearer secret (FORMS_ISSUE_SECRET) rather than
 // Supabase — Airtable automations can't carry a staff login session.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getRecord } from "@/lib/airtable/client";
 import { TABLE_NAMES } from "@/lib/airtable/field-names";
-import { workTrialFromAirtable } from "@/lib/airtable/mappers";
-import { signWorkTrialToken, signBmFeedbackToken } from "@/lib/forms/tokens";
+import { workTrialFromAirtable, referenceCheckFromAirtable } from "@/lib/airtable/mappers";
+import { signWorkTrialToken, signBmFeedbackToken, signRefereeToken } from "@/lib/forms/tokens";
 
-const schema = z.object({
-  type: z.enum(["work-trial", "bm-feedback"]),
-  workTrialId: z.string().min(1),
-});
+const schema = z.union([
+  z.object({
+    type: z.enum(["work-trial", "bm-feedback"]),
+    workTrialId: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("referee"),
+    refCheckId: z.string().min(1),
+    refereeNum: z.union([z.literal(1), z.literal(2)]),
+  }),
+]);
 
 function appUrl() {
   const base = process.env.NEXT_PUBLIC_APP_URL;
@@ -38,6 +46,17 @@ export async function POST(request: NextRequest) {
   if (!result.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
 
   try {
+    if (result.data.type === "referee") {
+      const record = await getRecord(TABLE_NAMES.ReferenceChecks, result.data.refCheckId);
+      const refCheck = referenceCheckFromAirtable(record);
+      const token = await signRefereeToken({
+        refCheckId: refCheck.id,
+        candidateId: refCheck.candidateId,
+        refereeNum: result.data.refereeNum,
+      });
+      return NextResponse.json({ url: `${appUrl()}/referee?token=${token}` });
+    }
+
     const record = await getRecord(TABLE_NAMES.WorkTrials, result.data.workTrialId);
     const trial = workTrialFromAirtable(record);
 
