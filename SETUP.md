@@ -199,6 +199,82 @@ page are built — not required to get sign-in itself working.
 
 ---
 
+## 4.5 Public forms (work-trial branch selection, BM feedback)
+
+Two no-login forms exist so far, both token-protected instead of behind
+Supabase auth (see `src/middleware.ts`, which exempts them):
+
+- `/work-trial?token=...` — candidate picks a branch + date once they reach
+  the Work Trial stage.
+- `/bm-feedback?token=...` — the branch manager confirms arrival and, if the
+  candidate showed up, submits the work-trial score.
+
+Both forms read/write the same `Work Trials` Airtable table the rest of the
+app uses — there's no separate database for forms.
+
+### 4.5.1 Environment variables
+
+Add to `.env.local` (and to Vercel's Production env vars):
+
+```
+PUBLIC_FORM_JWT_SECRET=   # already set — openssl rand -base64 48
+FORMS_ISSUE_SECRET=       # already set — openssl rand -base64 48
+NEXT_PUBLIC_APP_URL=      # your deployed URL, e.g. https://ph-hiring-system.vercel.app
+```
+
+`FORMS_ISSUE_SECRET` is the bearer token Airtable's automation uses to call
+`/api/forms/issue-link` and get back a signed link — it never sees
+`PUBLIC_FORM_JWT_SECRET` directly.
+
+### 4.5.2 Wire the "send work-trial link" automation in Airtable
+
+1. In the Airtable base, go to **Automations → Create automation**.
+2. Trigger: **When a record matches conditions**, table `Candidates`,
+   condition `Stage = Work Trial`.
+3. Action 1: **Run a script** —
+   ```javascript
+   let candidate = input.config(); // pass Candidate record via input variables
+   let workTrial = /* the linked Work Trials record for this candidate —
+     create it first if your process doesn't already create one when a
+     candidate reaches Work Trial stage */;
+
+   let response = await fetch("https://YOUR_APP_URL/api/forms/issue-link", {
+     method: "POST",
+     headers: {
+       "Content-Type": "application/json",
+       "Authorization": "Bearer YOUR_FORMS_ISSUE_SECRET",
+     },
+     body: JSON.stringify({ type: "work-trial", workTrialId: workTrial.id }),
+   });
+   let { url } = await response.json();
+   output.set("link", url);
+   ```
+4. Action 2: **Send email** (Airtable's native email action) to the
+   candidate's email field, with a body like:
+
+   > Hi {{Name}}, you've moved forward to the work trial stage for the
+   > {{Role}} role at Penda Health! Please select your preferred branch and
+   > date here: {{link}}
+
+5. Repeat the same pattern for the branch-manager feedback link, triggered
+   off the work trial's date (e.g. "the morning of Trial Date") with
+   `type: "bm-feedback"` and the BM's email instead.
+
+To test without waiting on a real automation run, mint a link manually:
+
+```
+node scripts/generate-form-link.js --type work-trial --work-trial-id recXXXXXXXXXXXXXX
+```
+
+### What's deferred
+
+Per the original forms spec, these are intentionally not built yet:
+referee reference-check form, IPS gap form, SO requisition form, actual
+Gmail/SMS sending (Airtable's native "Send email" action covers this for
+now), and a `/forms/test` dev harness.
+
+---
+
 ## 5. Make.com
 
 Deferred for now. Once the Airtable base and Supabase auth are confirmed
@@ -230,6 +306,6 @@ this system is the SMS-sending automations. When you're ready:
 | Supabase project + Google OAuth wiring | ✅ this guide |
 | `@penda.co.ke` domain restriction (server-side) | ✅ this guide |
 | Default `recruiter` role on first login | ⏳ needs `profiles` table + trigger |
-| Public JWT form routes (`/forms/...`) | ⏳ next phase |
+| Public JWT form routes (`/work-trial`, `/bm-feedback`) | ✅ this guide — referee/IPS/SO forms still pending |
 | Make.com scenario blueprints | ⏳ next phase |
 | Africa's Talking SMS | ⏳ next phase |

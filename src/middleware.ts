@@ -10,6 +10,17 @@ export async function middleware(request: NextRequest) {
   const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
   const isLoginPage = request.nextUrl.pathname.startsWith("/login");
 
+  // No-login public forms (candidate work-trial selection, branch-manager
+  // feedback) and the Airtable-automation link issuer authenticate via their
+  // own signed token / bearer secret instead of a Supabase session — see
+  // src/lib/forms/tokens.ts and src/app/api/forms/issue-link/route.ts.
+  const isPublicFormRoute =
+    request.nextUrl.pathname.startsWith("/work-trial") ||
+    request.nextUrl.pathname.startsWith("/bm-feedback") ||
+    request.nextUrl.pathname.startsWith("/api/public/") ||
+    request.nextUrl.pathname.startsWith("/api/forms/issue-link");
+  if (isPublicFormRoute) return NextResponse.next();
+
   // Supabase isn't provisioned yet (see SETUP.md sections 2-4) — fall back to
   // the existing client-side-only auth gate instead of locking everyone out.
   // Remove this branch once NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY

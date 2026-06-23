@@ -74,6 +74,10 @@ export async function listRecords(tableName: string): Promise<AirtableRecord[]> 
   return records;
 }
 
+export async function getRecord(tableName: string, recordId: string): Promise<AirtableRecord> {
+  return airtableRequest(`${encodeURIComponent(tableName)}/${recordId}`, tableName);
+}
+
 export async function createRecord(
   tableName: string,
   fields: Record<string, unknown>
