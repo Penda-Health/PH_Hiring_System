@@ -4,10 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getSegmentSplit } from "@/lib/dashboard-metrics";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
+import { DashboardFilterState, filterDashboardData } from "@/lib/dashboard-filters";
 
-export function SegmentSplit() {
-  const { openRoles, candidates } = useRecruitmentData();
-  const splits = getSegmentSplit(openRoles, candidates);
+export function SegmentSplit({ filters }: { filters: DashboardFilterState }) {
+  const { openRoles, candidates, offers, workTrials, interviews, relievers, locums } = useRecruitmentData();
+  const filtered = filterDashboardData(
+    { openRoles, candidates, offers, workTrials, interviews, relievers, locums },
+    filters
+  );
+  const splits = getSegmentSplit(filtered.openRoles, filtered.candidates);
 
   return (
     <Card>

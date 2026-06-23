@@ -41,18 +41,3 @@ export function getCoverageRate(relievers: Reliever[], locums: Locum[]): number 
   return (zones.filter((z) => z.covered).length / zones.length) * 100;
 }
 
-let nextRelieverNumber = 100;
-
-export function generateRelieverId(): string {
-  const id = `rel-${nextRelieverNumber}`;
-  nextRelieverNumber += 1;
-  return id;
-}
-
-let nextLocumNumber = 100;
-
-export function generateLocumId(): string {
-  const id = `loc-${nextLocumNumber}`;
-  nextLocumNumber += 1;
-  return id;
-}

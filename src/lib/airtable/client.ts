@@ -11,31 +11,54 @@ export type AirtableRecord = {
 
 type AirtableListResponse = { records: AirtableRecord[]; offset?: string };
 
+const MAX_RETRIES = 3;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function airtableRequest(
   path: string,
   tableName: string,
   options: RequestInit = {}
 ): Promise<AirtableRecord & Partial<AirtableListResponse>> {
   const { apiKey, baseUrl } = getAirtableConfig();
-  const res = await fetch(`${baseUrl}/${path}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    // Reads are cached briefly and tagged per table so a write can invalidate
-    // just that table's cache via revalidateTag instead of going stale for a
-    // full minute or re-fetching Airtable on every single page load.
-    ...(options.method && options.method !== "GET"
-      ? { cache: "no-store" as const }
-      : { next: { revalidate: 30, tags: [`airtable:${tableName}`] } }),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(`${baseUrl}/${path}`, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      // Reads are cached briefly and tagged per table so a write can invalidate
+      // just that table's cache via revalidateTag instead of going stale for a
+      // full minute or re-fetching Airtable on every single page load.
+      ...(options.method && options.method !== "GET"
+        ? { cache: "no-store" as const }
+        : { next: { revalidate: 30, tags: [`airtable:${tableName}`] } }),
+    });
+
+    if (res.ok) {
+      return await res.json().catch(() => ({}));
+    }
+
+    // Airtable rate-limits at 5 req/sec per base (429) and occasionally
+    // returns transient 5xx — both are worth a short backoff retry before
+    // giving up, since a burst of parallel table fetches can easily trip
+    // the rate limit on every page load.
+    const isRetryable = res.status === 429 || res.status >= 500;
+    if (isRetryable && attempt < MAX_RETRIES) {
+      await sleep(2 ** attempt * 300);
+      continue;
+    }
+
+    const json = await res.json().catch(() => ({}));
     throw new Error(`Airtable API error ${res.status}: ${JSON.stringify(json)}`);
   }
-  return json;
+
+  throw new Error("Airtable API error: exhausted retries");
 }
 
 export async function listRecords(tableName: string): Promise<AirtableRecord[]> {

@@ -14,7 +14,22 @@ export async function middleware(request: NextRequest) {
   // the existing client-side-only auth gate instead of locking everyone out.
   // Remove this branch once NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY
   // are set, at which point every request below is enforced server-side.
+  //
+  // In production this must fail closed instead: a missing env var there is
+  // a deploy misconfiguration, not "not set up yet", and silently disabling
+  // auth would expose every route.
   if (!env) {
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        "[middleware] NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY are missing in production — blocking all requests"
+      );
+      if (isApiRoute) {
+        return NextResponse.json({ error: "Service misconfigured" }, { status: 503 });
+      }
+      return new NextResponse("Service temporarily unavailable. Please contact an administrator.", {
+        status: 503,
+      });
+    }
     return NextResponse.next();
   }
 

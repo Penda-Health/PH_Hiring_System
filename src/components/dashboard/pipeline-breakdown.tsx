@@ -4,10 +4,15 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStageCounts } from "@/lib/dashboard-metrics";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
+import { DashboardFilterState, filterDashboardData } from "@/lib/dashboard-filters";
 
-export function PipelineBreakdown() {
-  const { candidates } = useRecruitmentData();
-  const stageCounts = getStageCounts(candidates);
+export function PipelineBreakdown({ filters }: { filters: DashboardFilterState }) {
+  const { candidates, openRoles, offers, workTrials, interviews, relievers, locums } = useRecruitmentData();
+  const { candidates: filteredCandidates } = filterDashboardData(
+    { candidates, openRoles, offers, workTrials, interviews, relievers, locums },
+    filters
+  );
+  const stageCounts = getStageCounts(filteredCandidates);
   const max = Math.max(...stageCounts.map((s) => s.count), 1);
 
   return (

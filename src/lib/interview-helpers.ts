@@ -30,11 +30,3 @@ export function computeWeekLabel(dateStr: string): { weekLabel: string; month: s
   const year = d.getFullYear();
   return { weekLabel: `W${weekOfMonth} ${monthShort} ${year}`, month: `${monthShort} ${year}` };
 }
-
-let nextSchedNumber = 100;
-
-export function generateSchedId(): string {
-  const id = `SCH-${String(nextSchedNumber).padStart(3, "0")}`;
-  nextSchedNumber += 1;
-  return id;
-}

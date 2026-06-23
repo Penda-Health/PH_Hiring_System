@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Locum } from "@/types";
 import { coverageZones } from "@/lib/mock-data/clusters";
-import { generateLocumId } from "@/lib/pools-helpers";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +41,7 @@ export function NewLocumDialog({ onCreate }: { onCreate: (locum: Locum) => Promi
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const locum: Locum = {
-      id: generateLocumId(),
+      id: `loc-${Date.now()}`, // Locum ID field is assigned by the server on create
       name: form.name,
       speciality: form.speciality,
       branchesCovered: form.zones,

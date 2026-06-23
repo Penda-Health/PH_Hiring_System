@@ -26,11 +26,3 @@ export function daysInStage(stageEnteredAt: string): number {
 export function getUniqueRecruiters(openRoles: OpenRole[]): string[] {
   return Array.from(new Set(openRoles.map((r) => r.recruiter))).sort();
 }
-
-let nextCandNumber = 100;
-
-export function generateCandId(): string {
-  const id = `CAND-${String(nextCandNumber).padStart(3, "0")}`;
-  nextCandNumber += 1;
-  return id;
-}

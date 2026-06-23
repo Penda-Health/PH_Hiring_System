@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Candidate, Interview, InterviewStage, InterviewType } from "@/types";
-import { computeWeekLabel, generateSchedId, interviewStages } from "@/lib/interview-helpers";
+import { computeWeekLabel, interviewStages } from "@/lib/interview-helpers";
 import {
   Dialog,
   DialogContent,
@@ -48,7 +48,7 @@ export function ScheduleInterviewDialog({
     const { weekLabel, month } = computeWeekLabel(form.date);
     const interview: Interview = {
       id: `int-${Date.now()}`,
-      schedId: generateSchedId(),
+      schedId: "", // assigned by the server on create
       candidateId: candidate.id,
       roleId: candidate.roleId,
       date: form.date,

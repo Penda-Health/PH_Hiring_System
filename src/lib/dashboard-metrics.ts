@@ -41,6 +41,7 @@ export function getAllMetrics(data: {
   const { candidates, openRoles, offers, workTrials, interviews, relievers, locums } = data;
   const coverageRate = getCoverageRate(relievers, locums);
   const roleById = new Map(openRoles.map((r) => [r.id, r]));
+  const candidateById = new Map(candidates.map((c) => [c.id, c]));
 
   const openRolesList = openRoles.filter((r) => r.status === "Open");
   const hcRemaining = openRolesList.reduce((sum, r) => sum + Math.max(r.hcApproved - r.hcFilled, 0), 0);
@@ -76,7 +77,7 @@ export function getAllMetrics(data: {
   const postOfferDropRate = acceptedOffers.length ? (postOfferDrops / acceptedOffers.length) * 100 : 0;
 
   const ipsWorkTrials = workTrials.filter((wt) => {
-    const candidate = candidates.find((c) => c.id === wt.candidateId);
+    const candidate = candidateById.get(wt.candidateId);
     const segment = candidate ? roleById.get(candidate.roleId)?.segment : undefined;
     return segment === "IPS";
   });

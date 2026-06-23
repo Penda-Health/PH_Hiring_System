@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Branch, Requisition, RequisitionType, Segment, Priority, GapReason } from "@/types";
-import { generateReqId } from "@/lib/requisitions-helpers";
 import {
   Dialog,
   DialogContent,
@@ -55,7 +54,7 @@ export function NewRequisitionDialog({
     e.preventDefault();
     const req: Requisition = {
       id: `req-${Date.now()}`,
-      reqId: generateReqId(),
+      reqId: "", // assigned by the server on create
       type: form.type,
       roleTitle: form.roleTitle,
       department: form.department,

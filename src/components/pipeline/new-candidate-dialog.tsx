@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Candidate, EmploymentType, OpenRole } from "@/types";
-import { generateCandId } from "@/lib/pipeline-helpers";
 import {
   Dialog,
   DialogContent,
@@ -46,7 +45,7 @@ export function NewCandidateDialog({
     const now = new Date().toISOString();
     const candidate: Candidate = {
       id: `cand-${Date.now()}`,
-      candId: generateCandId(),
+      candId: "", // assigned by the server on create
       name: form.name,
       phone: form.phone,
       email: form.email,

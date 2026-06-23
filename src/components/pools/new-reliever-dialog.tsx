@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Reliever } from "@/types";
 import { RELIEVER_CADRES, branchClusters, standaloneBranches } from "@/lib/mock-data/clusters";
-import { generateRelieverId } from "@/lib/pools-helpers";
 import {
   Dialog,
   DialogContent,
@@ -44,7 +43,7 @@ export function NewRelieverDialog({ onCreate }: { onCreate: (reliever: Reliever)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const reliever: Reliever = {
-      id: generateRelieverId(),
+      id: `rel-${Date.now()}`, // Reliever ID field is assigned by the server on create
       name: form.name,
       role: form.role,
       branchesCovered: form.branches,

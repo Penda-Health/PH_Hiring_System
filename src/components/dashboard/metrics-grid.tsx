@@ -22,6 +22,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { getAllMetrics, type MetricRow } from "@/lib/dashboard-metrics";
+import { DashboardFilterState, filterDashboardData } from "@/lib/dashboard-filters";
 
 const ICONS: Record<string, LucideIcon> = {
   "Open Roles": Briefcase,
@@ -58,9 +59,13 @@ function MetricCard({ metric }: { metric: MetricRow }) {
   );
 }
 
-export function MetricsGrid() {
+export function MetricsGrid({ filters }: { filters: DashboardFilterState }) {
   const { candidates, openRoles, offers, workTrials, interviews, relievers, locums } = useRecruitmentData();
-  const metrics = getAllMetrics({ candidates, openRoles, offers, workTrials, interviews, relievers, locums });
+  const filtered = filterDashboardData(
+    { candidates, openRoles, offers, workTrials, interviews, relievers, locums },
+    filters
+  );
+  const metrics = getAllMetrics(filtered);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
