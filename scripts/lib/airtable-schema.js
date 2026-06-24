@@ -85,6 +85,8 @@ const F = {
     RECRUITER: "Recruiter",
     HIRING_MANAGER: "Hiring Manager",
     DATE_POSTED: "Date Posted",
+    EMPLOYMENT_TYPE: "Employment Type",
+    NOTES: "Notes",
     REQUISITION: "Requisition",
   },
   Candidates: {
@@ -312,6 +314,12 @@ const TABLES = [
       { name: F.OpenRoles.RECRUITER, type: "singleLineText" },
       { name: F.OpenRoles.HIRING_MANAGER, type: "singleLineText" },
       { name: F.OpenRoles.DATE_POSTED, type: "date", options: dateOpts },
+      {
+        name: F.OpenRoles.EMPLOYMENT_TYPE,
+        type: "singleSelect",
+        options: choices(["Full-time", "Part-time", "Contract", "Reliever", "Locum"]),
+      },
+      { name: F.OpenRoles.NOTES, type: "multilineText" },
       { name: F.OpenRoles.REQUISITION, type: "multipleRecordLinks", linkedTable: "Requisitions" },
     ],
   },

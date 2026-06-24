@@ -138,6 +138,8 @@ export function openRoleFromAirtable(r: AirtableRecord): OpenRole {
     recruiter: str(f[F.OpenRoles.RECRUITER]),
     hiringManager: str(f[F.OpenRoles.HIRING_MANAGER]),
     datePosted: str(f[F.OpenRoles.DATE_POSTED]),
+    employmentType: opt(f[F.OpenRoles.EMPLOYMENT_TYPE]) as OpenRole["employmentType"],
+    notes: opt(f[F.OpenRoles.NOTES]),
     requisitionId: firstLink(f[F.OpenRoles.REQUISITION]),
   };
 }
@@ -156,6 +158,8 @@ export function openRoleToAirtable(r: Partial<OpenRole>) {
     [F.OpenRoles.RECRUITER]: r.recruiter,
     [F.OpenRoles.HIRING_MANAGER]: r.hiringManager,
     [F.OpenRoles.DATE_POSTED]: r.datePosted,
+    [F.OpenRoles.EMPLOYMENT_TYPE]: r.employmentType,
+    [F.OpenRoles.NOTES]: r.notes,
     [F.OpenRoles.REQUISITION]: r.requisitionId !== undefined ? link(r.requisitionId) : undefined,
   });
 }

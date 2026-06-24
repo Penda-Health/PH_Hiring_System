@@ -59,6 +59,8 @@ export const openRoleSchema = z.object({
   recruiter: z.string().min(1),
   hiringManager: z.string().min(1),
   datePosted: z.string(),
+  employmentType: z.enum(["Full-time", "Part-time", "Contract", "Reliever", "Locum"]).optional(),
+  notes: z.string().optional(),
   requisitionId: z.string().optional(),
 });
 

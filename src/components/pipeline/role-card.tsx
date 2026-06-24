@@ -4,6 +4,7 @@ import { OpenRole } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { daysOpen, headcountRemaining } from "@/lib/pipeline-helpers";
 
 export function RoleCard({
   role,
@@ -30,6 +31,11 @@ export function RoleCard({
           <Badge variant={role.segment === "IPS" ? "ips" : "so"}>{role.segment}</Badge>
         </div>
         <p className="text-xs text-muted-foreground">{role.location}</p>
+        <p className="text-xs text-muted-foreground">
+          {role.employmentType && <>{role.employmentType} · </>}
+          {headcountRemaining(role)} of {role.hcApproved} open · {daysOpen(role.datePosted)}d open
+        </p>
+        {role.notes && <p className="text-xs text-muted-foreground truncate italic">{role.notes}</p>}
         <div className="flex items-center justify-between">
           <Badge
             variant={role.priority === "Critical" ? "critical" : role.priority === "High" ? "high" : "outline"}
