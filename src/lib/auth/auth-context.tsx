@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { User } from "@/types";
 import { users } from "@/lib/mock-data";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { fetchOwnProfile } from "@/lib/supabase/profiles";
 
 const ALLOWED_DOMAINS = ["penda.co.ke", "pendahealth.com"];
 const STORAGE_KEY = "penda-hiring-session";
@@ -19,11 +20,13 @@ interface AuthContextValue {
   /** Legacy mock sign-in, only used while Supabase isn't provisioned yet. */
   login: (email: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Re-fetch the signed-in user's profile row, e.g. after saving /profile edits. */
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
 
-function userFromSession(session: Session): User {
+function fallbackUserFromSession(session: Session): User {
   const email = session.user.email ?? "";
   const name =
     (session.user.user_metadata?.full_name as string | undefined) ??
@@ -33,10 +36,17 @@ function userFromSession(session: Session): User {
     id: session.user.id,
     name,
     email,
-    // No `profiles` table yet (SETUP.md 4.1) — everyone defaults to
-    // Recruiter until that's built and an admin promotes them.
-    role: "Recruiter",
+    // The `profiles` row should exist via the handle_new_user trigger
+    // (SETUP.md 4.6) — this only fires if that row can't be read yet
+    // (trigger not wired up, or RLS not applied). Defaults to the
+    // least-privileged role rather than failing closed.
+    role: "contributor",
   };
+}
+
+async function userFromSession(supabase: SupabaseClient, session: Session): Promise<User> {
+  const profile = await fetchOwnProfile(supabase, session.user.id);
+  return profile ?? fallbackUserFromSession(session);
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -54,12 +64,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (supabase) {
-      supabase.auth.getSession().then(({ data }) => {
-        setUser(data.session ? userFromSession(data.session) : null);
+      supabase.auth.getSession().then(async ({ data }) => {
+        setUser(data.session ? await userFromSession(supabase, data.session) : null);
         setLoading(false);
       });
       const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session ? userFromSession(session) : null);
+        if (!session) {
+          setUser(null);
+          return;
+        }
+        userFromSession(supabase, session).then(setUser);
       });
       return () => subscription.subscription.unsubscribe();
     }
@@ -121,8 +135,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/login");
   }, [supabase, router]);
 
+  const refreshProfile = React.useCallback(async () => {
+    if (!supabase) return;
+    const { data } = await supabase.auth.getSession();
+    if (data.session) setUser(await userFromSession(supabase, data.session));
+  }, [supabase]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, error, supabaseConfigured, loginWithGoogle, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, error, supabaseConfigured, loginWithGoogle, login, logout, refreshProfile }}
+    >
       {children}
     </AuthContext.Provider>
   );

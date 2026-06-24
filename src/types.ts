@@ -49,16 +49,20 @@ export type JoinStatus = "Pending" | "Joined" | "Did Not Join";
 
 export type EmploymentType = "Full-time" | "Part-time" | "Contract" | "Reliever" | "Locum";
 
-export type UserRoleName =
-  | "Recruiter"
-  | "TA Manager"
-  | "Hiring Manager"
-  | "HRBP"
-  | "Regional Manager"
-  | "Branch Manager"
-  | "Director, People & Culture"
-  | "HR Ops"
-  | "Admin";
+// Permission tier — distinct from `jobTitle`, which is free text describing
+// what the person actually does at Penda. This enum is what gates access.
+export type UserRoleName = "recruitment_manager" | "recruitment_user" | "contributor" | "branch_manager";
+
+export const USER_ROLE_LABELS: Record<UserRoleName, string> = {
+  recruitment_manager: "Recruitment Manager",
+  recruitment_user: "Recruitment User",
+  contributor: "Contributor",
+  branch_manager: "Branch Manager",
+};
+
+export type DashboardDefaultView = "dashboard" | "pipeline" | "requisitions" | "work-trials" | "offers";
+
+export type EmailNotificationPreference = "all" | "urgent" | "none";
 
 // Entities — mirror the 11 linked Airtable tables
 
@@ -297,5 +301,11 @@ export interface User {
   name: string;
   email: string;
   role: UserRoleName;
+  /** Free text — what this person's actual title is, not a permission tier. */
+  jobTitle?: string;
+  phone?: string;
+  /** Airtable Branch record ID (e.g. "recXXXX") — only set for branch_manager. No FK; Branches live in Airtable, not Postgres. */
   branchId?: string;
+  dashboardDefault?: DashboardDefaultView;
+  emailNotifications?: EmailNotificationPreference;
 }

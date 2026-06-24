@@ -1,9 +1,18 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { LogOut, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth/auth-context";
+import { USER_ROLE_LABELS } from "@/types";
 import { MobileNav } from "./mobile-nav";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -27,16 +36,32 @@ export function Topbar() {
         <ThemeToggle />
         <div className="text-right">
           <p className="text-sm font-medium leading-none">{user.name}</p>
-          <p className="text-xs text-muted-foreground">{user.role}</p>
+          <p className="text-xs text-muted-foreground">{USER_ROLE_LABELS[user.role]}</p>
         </div>
-        <Avatar>
-          <AvatarFallback className="bg-penda-teal text-white">
-            {initials(user.name)}
-          </AvatarFallback>
-        </Avatar>
-        <Button variant="ghost" size="icon" onClick={logout} aria-label="Log out">
-          <LogOut className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button aria-label="Open profile menu" className="rounded-full">
+              <Avatar>
+                <AvatarFallback className="bg-penda-teal text-white">{initials(user.name)}</AvatarFallback>
+              </Avatar>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/profile" className="flex items-center gap-2">
+                <UserIcon className="h-4 w-4" />
+                Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={logout} className="text-destructive">
+              <LogOut className="h-4 w-4" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

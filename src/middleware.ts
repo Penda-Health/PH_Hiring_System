@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/config";
+import { isRouteAllowed } from "@/lib/permissions";
+import type { UserRoleName } from "@/types";
 
 const ALLOWED_DOMAINS = ["penda.co.ke", "pendahealth.com"];
 
@@ -85,6 +87,18 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("error", "domain_restricted");
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Role-gated routes (SETUP.md section 4.6) — e.g. /settings is
+  // recruitment_manager-only. A missing/unreadable profile row fails closed
+  // (treated as no role) rather than open.
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const role = profile?.role as UserRoleName | undefined;
+  if (!isRouteAllowed(request.nextUrl.pathname, role)) {
+    if (isApiRoute) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return response;

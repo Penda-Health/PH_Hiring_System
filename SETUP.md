@@ -191,11 +191,157 @@ session, matching the behavior described in the app's auth requirements.
 
 ### 4.1 Default role on first sign-in
 
-New users should default to the `recruiter` role; an admin changes it later
-from Settings. This is handled by a `handle_new_user` trigger on
-`auth.users` that inserts a row into a `profiles` table with
-`role = 'recruiter'`. Wire this up when the `profiles` table and Settings
-page are built — not required to get sign-in itself working.
+Superseded by section 4.6 below — the `profiles` table and its
+`handle_new_user` trigger are now built; new sign-ins default to the
+`contributor` role (the least-privileged of the four) and a
+`recruitment_manager` promotes them from Settings > Users.
+
+---
+
+## 4.6 User roles, permissions, and profiles
+
+The app has four permission tiers (`role` on the `profiles` table), distinct
+from `job_title` (free text — what someone's actual title is, has no bearing
+on access):
+
+| Role | Who | Access |
+|---|---|---|
+| `recruitment_manager` | Mash — super admin | Everything: change roles, delete records, see all financials, manage Settings |
+| `recruitment_user` | Samwel + future recruiters | Full pipeline management incl. offers; can archive, not delete; no role/Settings access |
+| `contributor` | Hiring Managers, HRBPs, RMs, Director P&C | Read-only + form submission (IPS Gap, SO Requisition) + comments + reports; salary/offer values masked as "Confidential" everywhere |
+| `branch_manager` | Medical centre branch managers | Scoped to their own branch's work trials/open roles only; no financial visibility; primarily acts via emailed token links (see section 4.5), UI login optional |
+
+This is the only place real **data** (not just auth) lives in Postgres —
+everything else stays in Airtable, per the architecture in this guide's
+intro. `branch_id` on `profiles` stores a raw Airtable Branch record ID
+(`recXXXX...`) as plain text — there's no Postgres `branches` table to
+foreign-key against, so validity is checked at the app level only.
+
+Run this once in the Supabase SQL Editor (**Database → SQL Editor**):
+
+```sql
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  display_name text,
+  job_title text,
+  phone text,
+  role text not null default 'contributor'
+    check (role in ('recruitment_manager', 'recruitment_user', 'contributor', 'branch_manager')),
+  branch_id text,
+  dashboard_default text not null default 'dashboard',
+  email_notifications text not null default 'all'
+    check (email_notifications in ('all', 'urgent', 'none')),
+  avatar_initials text generated always as (
+    upper(
+      substring(coalesce(display_name, email) from 1 for 1) ||
+      coalesce(substring(split_part(coalesce(display_name, ''), ' ', 2) from 1 for 1), '')
+    )
+  ) stored,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+-- Avoids infinite recursion in RLS policies that need to check "is this
+-- user a manager" against the same table they're applied to.
+create or replace function public.is_recruitment_manager()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'recruitment_manager');
+$$;
+
+create policy profiles_select_own_or_manager
+  on public.profiles for select
+  using (auth.uid() = id or public.is_recruitment_manager());
+
+create policy profiles_update_own_or_manager
+  on public.profiles for update
+  using (auth.uid() = id or public.is_recruitment_manager())
+  with check (auth.uid() = id or public.is_recruitment_manager());
+
+-- Field-level guard: only a recruitment_manager may change someone's role
+-- or branch assignment, even though the row-level policy above lets people
+-- update their own row (for display_name, job_title, phone, etc).
+create or replace function public.guard_profile_role_branch_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (new.role is distinct from old.role or new.branch_id is distinct from old.branch_id)
+    and not public.is_recruitment_manager() then
+    raise exception 'Only a Recruitment Manager can change role or branch assignment.';
+  end if;
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger profiles_guard_role_branch_change
+  before update on public.profiles
+  for each row execute function public.guard_profile_role_branch_change();
+
+-- Auto-create a profile row on first sign-in, defaulting to the
+-- least-privileged role. A recruitment_manager promotes people afterward
+-- from Settings > Users.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email, display_name, role)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', new.email),
+    'contributor'
+  );
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+```
+
+After running this, promote your own account to `recruitment_manager` once
+(no UI for the very first manager, since Settings > Users requires being a
+manager already):
+
+```sql
+update public.profiles set role = 'recruitment_manager' where email = 'your-email@penda.co.ke';
+```
+
+### What this gives you
+
+- **`/profile`** — every signed-in user can view/edit their display name,
+  job title, phone, default dashboard view, and email notification
+  preference, plus a "Pending tasks" list (overdue work-trial scores, offers
+  past deadline, referee chases >48h with no response, unconfirmed
+  interviews) scoped to them via a case-insensitive name/email match against
+  Airtable's free-text assignee fields (`WorkTrials.SUPERVISOR`,
+  `Interviews.INTERVIEWERS`, `OpenRoles.RECRUITER`) — there's no foreign key
+  from Airtable to a Supabase user, so this is a heuristic, not an exact
+  join.
+- **`/settings`** — recruitment_manager-only (enforced both in
+  `src/middleware.ts` via `ROLE_ROUTES` and by the
+  `profiles_guard_role_branch_change` trigger above). Lists every user with a
+  role dropdown and, for `branch_manager`, a branch picker. Changing a role
+  shows: "Changing this user's role will immediately affect what they can
+  see and do in the system."
+- **Salary masking** — `src/lib/permissions.ts`'s `maskSalary()` renders
+  "Confidential" instead of real figures for `contributor` and
+  `branch_manager`, applied in the offer cards and locum daily-rate
+  displays.
 
 ---
 
@@ -319,7 +465,7 @@ this system is the SMS-sending automations. When you're ready:
 | Airtable schema + seed scripts | ✅ `npm run airtable:schema` / `npm run airtable:seed` |
 | Supabase project + Google OAuth wiring | ✅ this guide |
 | `@penda.co.ke` domain restriction (server-side) | ✅ this guide |
-| Default `recruiter` role on first login | ⏳ needs `profiles` table + trigger |
+| User roles, `/profile`, `/settings` (Users & roles) | ✅ section 4.6 |
 | Public JWT form routes (`/work-trial`, `/bm-feedback`, `/referee`) | ✅ this guide |
 | IPS Gap / SO Requisition guided forms (login required) | ✅ `/requisitions/new/ips`, `/requisitions/new/so` |
 | Make.com scenario blueprints | ⏳ next phase |

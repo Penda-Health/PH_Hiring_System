@@ -1,8 +1,11 @@
 import { Locum } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { useAuth } from "@/lib/auth/auth-context";
+import { canSeeSalary, maskSalary } from "@/lib/permissions";
 
 export function LocumListItem({ locum }: { locum: Locum }) {
+  const { user } = useAuth();
   return (
     <Card>
       <CardContent className="p-3 flex items-center gap-4">
@@ -16,7 +19,10 @@ export function LocumListItem({ locum }: { locum: Locum }) {
           ))}
         </div>
         <span className="text-xs text-muted-foreground w-32 shrink-0 truncate">License: {locum.licenseNumber}</span>
-        <span className="text-xs font-medium w-28 shrink-0 text-right">KES {locum.dailyRate.toLocaleString()}/day</span>
+        <span className="text-xs font-medium w-28 shrink-0 text-right">
+          {maskSalary(locum.dailyRate, user?.role)}
+          {canSeeSalary(user?.role) ? "/day" : ""}
+        </span>
         <Badge variant="outline" className="shrink-0">
           {locum.availability}
         </Badge>

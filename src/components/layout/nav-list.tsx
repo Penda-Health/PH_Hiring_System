@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth/auth-context";
 import { sidebarNavItems } from "./sidebar-nav-items";
 
 export function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const visibleItems = sidebarNavItems.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
 
   return (
     <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-      {sidebarNavItems.map((item) => {
+      {visibleItems.map((item) => {
         const Icon = item.icon;
         const active = pathname?.startsWith(item.href);
         return (

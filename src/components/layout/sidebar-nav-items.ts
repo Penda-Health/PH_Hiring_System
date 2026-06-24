@@ -8,9 +8,11 @@ import {
   PhoneCall,
   HandCoins,
   Users,
+  Settings,
 } from "lucide-react";
+import { UserRoleName } from "@/types";
 
-export const sidebarNavItems = [
+export const sidebarNavItems: { href: string; label: string; icon: typeof LayoutDashboard; roles?: UserRoleName[] }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
   { href: "/interviews", label: "Interview Schedule", icon: CalendarClock },
@@ -20,4 +22,5 @@ export const sidebarNavItems = [
   { href: "/reference-checks", label: "Reference Checks", icon: PhoneCall },
   { href: "/offers", label: "Offer Tracker", icon: HandCoins },
   { href: "/pools", label: "Relievers & Locums", icon: Users },
+  { href: "/settings", label: "Settings", icon: Settings, roles: ["recruitment_manager"] },
 ];

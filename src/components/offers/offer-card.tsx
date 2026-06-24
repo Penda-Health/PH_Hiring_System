@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCandidateForOffer, getRoleForOffer, daysUntilDeadline, JOIN_STATUS_STYLES } from "@/lib/offers-helpers";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
+import { useAuth } from "@/lib/auth/auth-context";
+import { maskSalary } from "@/lib/permissions";
 
 export function OfferCard({
   offer,
@@ -21,6 +23,7 @@ export function OfferCard({
   onWithdraw: (id: string) => void;
 }) {
   const { candidates, openRoles } = useRecruitmentData();
+  const { user } = useAuth();
   const candidate = getCandidateForOffer(offer, candidates);
   const role = getRoleForOffer(offer, candidates, openRoles);
   const daysLeft = daysUntilDeadline(offer.deadline);
@@ -45,10 +48,10 @@ export function OfferCard({
         </div>
 
         <div className="text-xs text-muted-foreground space-y-0.5">
-          <p>Offered: KES {offer.offeredSalary.toLocaleString()}</p>
-          <p>Budgeted: KES {offer.budgetedSalary.toLocaleString()}</p>
-          {offer.counterOfferAmount && <p>Counter: KES {offer.counterOfferAmount.toLocaleString()}</p>}
-          {offer.finalAcceptedSalary && <p>Final: KES {offer.finalAcceptedSalary.toLocaleString()}</p>}
+          <p>Offered: {maskSalary(offer.offeredSalary, user?.role)}</p>
+          <p>Budgeted: {maskSalary(offer.budgetedSalary, user?.role)}</p>
+          {offer.counterOfferAmount && <p>Counter: {maskSalary(offer.counterOfferAmount, user?.role)}</p>}
+          {offer.finalAcceptedSalary && <p>Final: {maskSalary(offer.finalAcceptedSalary, user?.role)}</p>}
           {offer.startDate && <p>Start: {offer.startDate}</p>}
         </div>
 
