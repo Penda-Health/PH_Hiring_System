@@ -9,11 +9,18 @@ import { RecruitmentDataProvider, useRecruitmentData } from "@/lib/data-store/re
 import { PacmanLoader } from "@/components/ui/pacman-loader";
 
 function DataLoadingGate({ children }: { children: React.ReactNode }) {
-  const { loading } = useRecruitmentData();
+  const { loading, error } = useRecruitmentData();
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <PacmanLoader label="Loading recruitment data" />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center px-6 text-center text-sm text-critical-fg">
+        Failed to load data from Airtable: {error}
       </div>
     );
   }

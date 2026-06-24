@@ -366,22 +366,6 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     ]
   );
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
-        Loading data from Airtable…
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-screen items-center justify-center px-6 text-center text-sm text-critical-fg">
-        Failed to load data from Airtable: {error}
-      </div>
-    );
-  }
-
   return <RecruitmentDataContext.Provider value={value}>{children}</RecruitmentDataContext.Provider>;
 }
 
