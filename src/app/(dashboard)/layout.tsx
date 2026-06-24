@@ -5,7 +5,20 @@ import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { useAuth } from "@/lib/auth/auth-context";
-import { RecruitmentDataProvider } from "@/lib/data-store/recruitment-context";
+import { RecruitmentDataProvider, useRecruitmentData } from "@/lib/data-store/recruitment-context";
+import { PacmanLoader } from "@/components/ui/pacman-loader";
+
+function DataLoadingGate({ children }: { children: React.ReactNode }) {
+  const { loading } = useRecruitmentData();
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <PacmanLoader label="Loading recruitment data" />
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -16,7 +29,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [loading, user, router]);
 
   if (loading || !user) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <PacmanLoader />
+      </div>
+    );
   }
 
   return (
@@ -25,7 +42,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Sidebar />
         <div className="flex-1 flex flex-col">
           <Topbar />
-          <main className="flex-1 p-4 md:p-6">{children}</main>
+          <main className="flex-1 p-4 md:p-6">
+            <DataLoadingGate>{children}</DataLoadingGate>
+          </main>
         </div>
       </div>
     </RecruitmentDataProvider>

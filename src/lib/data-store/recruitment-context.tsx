@@ -23,6 +23,7 @@ type RecruitmentDataContextValue = {
 
   branches: Branch[];
   openRoles: OpenRole[];
+  updateOpenRoleStatus: (id: string, status: OpenRole["status"]) => void;
   newEmployees: NewEmployee[];
 
   requisitions: Requisition[];
@@ -145,18 +146,61 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     setRequisitions((prev) => [created, ...prev]);
   }, []);
 
-  const approveRequisition = React.useCallback((id: string) => {
-    setRequisitions((prev) =>
-      prev.map((req) => {
-        if (req.id !== id) return req;
+  const convertToOpenRole = React.useCallback(
+    async (req: Requisition) => {
+      const branch = branches.find((b) => b.id === req.branchId);
+      const newRole: Partial<OpenRole> = {
+        roleId: `OR-${req.reqId.replace(/^REQ-?/i, "")}`,
+        title: req.roleTitle,
+        segment: req.segment,
+        department: req.department,
+        location: branch ? `${branch.name} (${branch.city})` : "Unassigned",
+        branchId: req.branchId,
+        priority: req.urgency,
+        status: "Open",
+        hcApproved: req.headcount,
+        hcFilled: 0,
+        recruiter: req.submittedBy,
+        hiringManager: req.submittedBy,
+        datePosted: new Date().toISOString(),
+        employmentType: req.employmentType,
+        notes: req.context,
+        requisitionId: req.id,
+      };
+      const created = await createResource<OpenRole>("open-roles", newRole);
+      setOpenRoles((prev) => [created, ...prev]);
+    },
+    [branches]
+  );
+
+  const updateOpenRoleStatus = React.useCallback((id: string, status: OpenRole["status"]) => {
+    const patch: Partial<OpenRole> = { status };
+    if (status !== "Open") {
+      patch.dateClosed = new Date().toISOString();
+    }
+    persist<OpenRole>("open-roles", id, patch);
+    setOpenRoles((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }, []);
+
+  const approveRequisition = React.useCallback(
+    (id: string) => {
+      setRequisitions((prev) => {
+        const req = prev.find((r) => r.id === id);
+        if (!req) return prev;
         const nextIndex = req.currentApproverIndex + 1;
         const fullyApproved = nextIndex >= req.approverChain.length;
-        const status = fullyApproved ? "Approved" : "Pending Approval";
+        const status = fullyApproved ? "Converted to Open Role" : "Pending Approval";
         persist<Requisition>("requisitions", id, { currentApproverIndex: nextIndex, status });
-        return { ...req, currentApproverIndex: nextIndex, status };
-      })
-    );
-  }, []);
+        if (fullyApproved) {
+          convertToOpenRole(req).catch((err) =>
+            console.error(`Failed to create Open Role from requisition ${req.reqId}:`, err)
+          );
+        }
+        return prev.map((r) => (r.id === id ? { ...r, currentApproverIndex: nextIndex, status } : r));
+      });
+    },
+    [convertToOpenRole]
+  );
 
   const rejectRequisition = React.useCallback((id: string) => {
     persist<Requisition>("requisitions", id, { status: "Rejected" });
@@ -263,6 +307,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       error,
       branches,
       openRoles,
+      updateOpenRoleStatus,
       newEmployees,
       requisitions,
       createRequisition,
@@ -293,6 +338,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       error,
       branches,
       openRoles,
+      updateOpenRoleStatus,
       newEmployees,
       requisitions,
       createRequisition,

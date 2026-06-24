@@ -1,8 +1,12 @@
 "use client";
 
-import { Candidate, CandidateStage, OpenRole } from "@/types";
+import { Candidate, CandidateStage, OpenRole, RoleStatus } from "@/types";
 import { PIPELINE_STAGES } from "@/lib/dashboard-metrics";
 import { PipelineColumn } from "./pipeline-column";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
+
+const STATUS_OPTIONS: RoleStatus[] = ["Open", "Filled", "On Hold", "Cancelled"];
 
 export function RoleBreakdown({
   role,
@@ -13,6 +17,7 @@ export function RoleBreakdown({
   candidates: Candidate[];
   onSelectCandidate: (candidate: Candidate) => void;
 }) {
+  const { updateOpenRoleStatus } = useRecruitmentData();
   const roleCandidates = candidates.filter((c) => c.roleId === role.id);
   const byStage = (stage: CandidateStage) => roleCandidates.filter((c) => c.stage === stage);
 
@@ -21,6 +26,18 @@ export function RoleBreakdown({
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold">{role.title}</h2>
         <span className="text-sm text-muted-foreground">{role.location}</span>
+        <Select value={role.status} onValueChange={(v) => updateOpenRoleStatus(role.id, v as RoleStatus)}>
+          <SelectTrigger className="w-32 h-8 ml-auto" onClick={(e) => e.stopPropagation()}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((status) => (
+              <SelectItem key={status} value={status}>
+                {status}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex gap-4 overflow-x-auto pb-2">
         {PIPELINE_STAGES.map((stage) => (

@@ -139,6 +139,7 @@ export interface OpenRole {
   recruiter: string;
   hiringManager: string;
   datePosted: string;
+  dateClosed?: string;
   employmentType?: EmploymentType;
   notes?: string;
   requisitionId?: string;

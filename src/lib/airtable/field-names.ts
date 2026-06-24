@@ -68,6 +68,7 @@ export const F = {
     RECRUITER: "Recruiter",
     HIRING_MANAGER: "Hiring Manager",
     DATE_POSTED: "Date Posted",
+    DATE_CLOSED: "Date Closed",
     EMPLOYMENT_TYPE: "Employment Type",
     NOTES: "Notes",
     REQUISITION: "Requisition",

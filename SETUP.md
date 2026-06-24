@@ -274,7 +274,13 @@ security definer
 set search_path = public
 as $$
 begin
+  -- auth.uid() is null when this runs outside an authenticated request (e.g.
+  -- the Supabase SQL Editor or a service-role connection) — that's the
+  -- legitimate admin/bootstrap path, not a user trying to self-escalate, so
+  -- it's exempted. The app's browser client always carries a real session,
+  -- so auth.uid() is set there and this guard still applies in full.
   if (new.role is distinct from old.role or new.branch_id is distinct from old.branch_id)
+    and auth.uid() is not null
     and not public.is_recruitment_manager() then
     raise exception 'Only a Recruitment Manager can change role or branch assignment.';
   end if;

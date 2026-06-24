@@ -8,12 +8,14 @@ import { CandidateDetailDialog } from "@/components/pipeline/candidate-detail-di
 import { PipelineRoleExplorer } from "@/components/pipeline/pipeline-role-explorer";
 import { NewCandidateDialog } from "@/components/pipeline/new-candidate-dialog";
 import { ViewMode, ViewToggle } from "@/components/ui/view-toggle";
+import { isRoleInMonthRange } from "@/lib/pipeline-helpers";
 
 export default function PipelinePage() {
   const { candidates, openRoles, createCandidate } = useRecruitmentData();
   const [filters, setFilters] = React.useState<PipelineFilterState>({
     segment: "All",
     recruiter: "All",
+    monthRange: "1",
   });
   const [selected, setSelected] = React.useState<Candidate | null>(null);
   const [selectedRoleId, setSelectedRoleId] = React.useState<string | null>(null);
@@ -22,6 +24,7 @@ export default function PipelinePage() {
   const filteredRoles = openRoles.filter((role) => {
     if (filters.segment !== "All" && role.segment !== filters.segment) return false;
     if (filters.recruiter !== "All" && role.recruiter !== filters.recruiter) return false;
+    if (!isRoleInMonthRange(role, filters.monthRange)) return false;
     return true;
   });
 

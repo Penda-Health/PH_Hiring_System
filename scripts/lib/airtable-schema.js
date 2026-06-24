@@ -85,6 +85,7 @@ const F = {
     RECRUITER: "Recruiter",
     HIRING_MANAGER: "Hiring Manager",
     DATE_POSTED: "Date Posted",
+    DATE_CLOSED: "Date Closed",
     EMPLOYMENT_TYPE: "Employment Type",
     NOTES: "Notes",
     REQUISITION: "Requisition",
@@ -314,6 +315,7 @@ const TABLES = [
       { name: F.OpenRoles.RECRUITER, type: "singleLineText" },
       { name: F.OpenRoles.HIRING_MANAGER, type: "singleLineText" },
       { name: F.OpenRoles.DATE_POSTED, type: "date", options: dateOpts },
+      { name: F.OpenRoles.DATE_CLOSED, type: "date", options: dateOpts },
       {
         name: F.OpenRoles.EMPLOYMENT_TYPE,
         type: "singleSelect",

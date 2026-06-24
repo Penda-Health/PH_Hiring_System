@@ -1,12 +1,13 @@
 "use client";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getUniqueRecruiters } from "@/lib/pipeline-helpers";
+import { getUniqueRecruiters, MONTH_RANGE_OPTIONS, MonthRangeOption } from "@/lib/pipeline-helpers";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 
 export interface PipelineFilterState {
   segment: "All" | "IPS" | "SO";
   recruiter: string;
+  monthRange: MonthRangeOption;
 }
 
 export function PipelineFilters({
@@ -47,6 +48,22 @@ export function PipelineFilters({
           {uniqueRecruiters.map((recruiter) => (
             <SelectItem key={recruiter} value={recruiter}>
               {recruiter}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.monthRange}
+        onValueChange={(v) => onChange({ ...filters, monthRange: v as MonthRangeOption })}
+      >
+        <SelectTrigger className="w-40">
+          <SelectValue placeholder="Time range" />
+        </SelectTrigger>
+        <SelectContent>
+          {MONTH_RANGE_OPTIONS.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
             </SelectItem>
           ))}
         </SelectContent>

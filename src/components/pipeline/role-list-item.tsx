@@ -23,6 +23,7 @@ export function RoleListItem({
       onClick={onSelect}
       className={cn(
         "cursor-pointer transition-all",
+        role.segment === "IPS" ? "bg-ips-bg/50" : "bg-so-bg/50",
         selected && "ring-2 ring-penda-teal border-penda-teal/60"
       )}
     >
