@@ -2,7 +2,13 @@
 
 import * as React from "react";
 import { Candidate, OpenRole } from "@/types";
-import { activeCandidateCountForRole, compareRoleGroups, roleGroup, RoleGroup } from "@/lib/pipeline-helpers";
+import {
+  activeCandidateCountForRole,
+  compareRoleGroups,
+  roleGroup,
+  RoleGroup,
+  summarizeHeadcount,
+} from "@/lib/pipeline-helpers";
 import { ViewMode } from "@/components/ui/view-toggle";
 import { RoleCard } from "./role-card";
 import { RoleListItem } from "./role-list-item";
@@ -41,10 +47,16 @@ export function PipelineRoleExplorer({
 
   return (
     <div className="space-y-6">
-      {groups.map(({ group, roles: groupRolesList }) => (
+      {groups.map(({ group, roles: groupRolesList }) => {
+        const hc = summarizeHeadcount(groupRolesList);
+        return (
         <div key={group} className="space-y-2">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            {group} <span className="font-normal">({groupRolesList.length})</span>
+            {group}{" "}
+            <span className="font-normal">
+              ({hc.roleCount} role{hc.roleCount === 1 ? "" : "s"} · {hc.filled}/{hc.approved} HC filled
+              {hc.remaining > 0 ? `, ${hc.remaining} open` : ""})
+            </span>
           </h2>
           {view === "list" ? (
             <div className="space-y-2">
@@ -82,7 +94,8 @@ export function PipelineRoleExplorer({
             </div>
           )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

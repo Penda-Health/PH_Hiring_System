@@ -192,9 +192,9 @@ export function getAllMetrics(data: {
     },
     {
       num: 11,
-      metric: "3-Month Confirm Rate",
+      metric: "6-Month Confirm Rate",
       category: "Quality",
-      formula: "COUNT(confirmation_3mo = confirmed) / COUNT(all hired, 3mo+ ago) × 100",
+      formula: "COUNT(confirmation_6mo = confirmed) / COUNT(all hired, 6mo+ ago) × 100",
       target: "≥85%",
       updates: "Weekly",
       value: "—",

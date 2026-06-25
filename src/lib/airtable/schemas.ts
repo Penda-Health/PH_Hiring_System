@@ -53,7 +53,7 @@ export const openRoleSchema = z.object({
   location: z.string().min(1),
   branchId: z.string().optional(),
   priority,
-  status: z.enum(["Open", "Filled", "On Hold", "Cancelled"]),
+  status: z.enum(["Open", "Allocated", "Filled", "On Hold", "Cancelled"]),
   hcApproved: z.number(),
   hcFilled: z.number(),
   recruiter: z.string().min(1),

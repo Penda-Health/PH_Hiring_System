@@ -37,13 +37,32 @@ export function headcountRemaining(role: OpenRole): number {
   return Math.max(0, role.hcApproved - role.hcFilled);
 }
 
+export interface HeadcountSummary {
+  roleCount: number;
+  approved: number;
+  filled: number;
+  remaining: number;
+}
+
+export function summarizeHeadcount(roles: OpenRole[]): HeadcountSummary {
+  return roles.reduce<HeadcountSummary>(
+    (acc, role) => ({
+      roleCount: acc.roleCount + 1,
+      approved: acc.approved + role.hcApproved,
+      filled: acc.filled + role.hcFilled,
+      remaining: acc.remaining + headcountRemaining(role),
+    }),
+    { roleCount: 0, approved: 0, filled: 0, remaining: 0 }
+  );
+}
+
 export type RoleGroup = "Open" | "Allocated" | "Closed";
 
 const GROUP_ORDER: RoleGroup[] = ["Open", "Allocated", "Closed"];
 
 export function roleGroup(role: OpenRole): RoleGroup {
   if (role.status === "Open") return "Open";
-  if (role.status === "Filled") return "Allocated";
+  if (role.status === "Allocated" || role.status === "Filled") return "Allocated";
   return "Closed";
 }
 

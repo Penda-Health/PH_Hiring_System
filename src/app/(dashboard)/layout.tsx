@@ -6,14 +6,14 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { useAuth } from "@/lib/auth/auth-context";
 import { RecruitmentDataProvider, useRecruitmentData } from "@/lib/data-store/recruitment-context";
-import { PacmanLoader } from "@/components/ui/pacman-loader";
+import { Spinner } from "@/components/ui/spinner";
 
 function DataLoadingGate({ children }: { children: React.ReactNode }) {
-  const { loading, error } = useRecruitmentData();
+  const { loading, error, canEdit } = useRecruitmentData();
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <PacmanLoader label="Loading recruitment data" />
+        <Spinner label="Loading recruitment data" />
       </div>
     );
   }
@@ -24,7 +24,16 @@ function DataLoadingGate({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  return <>{children}</>;
+  return (
+    <>
+      {!canEdit && (
+        <div className="mb-4 rounded-md border border-penda-teal/30 bg-penda-teal-light/40 px-4 py-2 text-sm text-penda-teal-dark">
+          View only — you can browse recruitment data, but only Recruitment Users and Managers can create or edit it.
+        </div>
+      )}
+      {children}
+    </>
+  );
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -38,7 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <PacmanLoader />
+        <Spinner />
       </div>
     );
   }

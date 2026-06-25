@@ -22,21 +22,22 @@ export function OfferCard({
   onCounter: (id: string) => void;
   onWithdraw: (id: string) => void;
 }) {
-  const { candidates, openRoles } = useRecruitmentData();
+  const { candidates, openRoles, canEdit } = useRecruitmentData();
   const { user } = useAuth();
   const candidate = getCandidateForOffer(offer, candidates);
   const role = getRoleForOffer(offer, candidates, openRoles);
   const daysLeft = daysUntilDeadline(offer.deadline);
-  const isActionable = offer.outcome === "Pending" || offer.outcome === "Negotiating";
+  const isActionable = canEdit && (offer.outcome === "Pending" || offer.outcome === "Negotiating");
 
   return (
     <Card
-      draggable
+      draggable={canEdit}
       onDragStart={(e) => {
+        if (!canEdit) return;
         e.dataTransfer.setData("text/offer-id", offer.id);
         e.dataTransfer.effectAllowed = "move";
       }}
-      className="cursor-grab active:cursor-grabbing"
+      className={canEdit ? "cursor-grab active:cursor-grabbing" : ""}
     >
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">

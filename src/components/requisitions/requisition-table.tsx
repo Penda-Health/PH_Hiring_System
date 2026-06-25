@@ -17,11 +17,13 @@ export function RequisitionTable({
   branches,
   onApprove,
   onReject,
+  canEdit,
 }: {
   requisitions: Requisition[];
   branches: Branch[];
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  canEdit: boolean;
 }) {
   return (
     <Table>
@@ -62,7 +64,7 @@ export function RequisitionTable({
               <RequisitionStatusBadge status={req.status} />
             </TableCell>
             <TableCell>
-              {req.status === "Pending Approval" ? (
+              {req.status === "Pending Approval" && canEdit ? (
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => onApprove(req.id)}>
                     Approve

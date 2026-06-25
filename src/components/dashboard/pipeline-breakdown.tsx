@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStageCounts } from "@/lib/dashboard-metrics";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { DashboardFilterState, filterDashboardData } from "@/lib/dashboard-filters";
+
+const BAR_COLOR = "#005B5E";
 
 export function PipelineBreakdown({ filters }: { filters: DashboardFilterState }) {
   const { candidates, openRoles, offers, workTrials, interviews, relievers, locums } = useRecruitmentData();
@@ -13,30 +16,29 @@ export function PipelineBreakdown({ filters }: { filters: DashboardFilterState }
     filters
   );
   const stageCounts = getStageCounts(filteredCandidates);
-  const max = Math.max(...stageCounts.map((s) => s.count), 1);
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Pipeline by Stage</CardTitle>
+        <Link href="/pipeline" className="text-xs font-medium text-penda-teal hover:underline">
+          View full pipeline →
+        </Link>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {stageCounts.map(({ stage, count }) => (
-          <Link
-            key={stage}
-            href="/pipeline"
-            className="flex items-center gap-3 group"
-          >
-            <span className="w-32 text-sm text-foreground/80 group-hover:text-penda-teal">{stage}</span>
-            <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full bg-penda-teal rounded-full"
-                style={{ width: `${(count / max) * 100}%` }}
-              />
-            </div>
-            <span className="w-8 text-sm text-right font-medium">{count}</span>
-          </Link>
-        ))}
+      <CardContent>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={stageCounts} layout="vertical" margin={{ left: 16, right: 16 }}>
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5ECEB" />
+            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
+            <YAxis type="category" dataKey="stage" width={110} tick={{ fontSize: 12 }} />
+            <Tooltip cursor={{ fill: "#F1F8F6" }} />
+            <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={18}>
+              {stageCounts.map((entry) => (
+                <Cell key={entry.stage} fill={BAR_COLOR} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   );

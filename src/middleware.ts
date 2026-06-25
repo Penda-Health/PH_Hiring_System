@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/config";
-import { isRouteAllowed } from "@/lib/permissions";
+import { isRouteAllowed, isGatedMutation, canEditRecruitmentData } from "@/lib/permissions";
 import type { UserRoleName } from "@/types";
 
 const ALLOWED_DOMAINS = ["penda.co.ke", "pendahealth.com"];
@@ -99,6 +99,16 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Recruitment data (Airtable-backed) is readable by every signed-in staff
+  // member, but only Recruitment User/Manager can create or edit it —
+  // Branch Manager and Contributor are view-only. This is the real
+  // enforcement boundary; any UI-level disabling is just affordance on top.
+  if (isGatedMutation(request.method, request.nextUrl.pathname)) {
+    if (!canEditRecruitmentData(role)) {
+      return NextResponse.json({ error: "You don't have permission to edit recruitment data." }, { status: 403 });
+    }
   }
 
   return response;

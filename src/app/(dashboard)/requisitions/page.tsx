@@ -10,7 +10,8 @@ import { NewRequisitionDialog } from "@/components/requisitions/new-requisition-
 
 export default function RequisitionsPage() {
   const { user } = useAuth();
-  const { requisitions, branches, createRequisition, approveRequisition, rejectRequisition } = useRecruitmentData();
+  const { requisitions, branches, createRequisition, approveRequisition, rejectRequisition, canEdit } =
+    useRecruitmentData();
 
   return (
     <div className="space-y-4">
@@ -33,6 +34,7 @@ export default function RequisitionsPage() {
             branches={branches}
             onApprove={approveRequisition}
             onReject={rejectRequisition}
+            canEdit={canEdit}
           />
         </CardContent>
       </Card>

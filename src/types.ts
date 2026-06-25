@@ -4,7 +4,7 @@ export type Segment = "IPS" | "SO";
 
 export type Priority = "Critical" | "High" | "Medium" | "Low";
 
-export type RoleStatus = "Open" | "Filled" | "On Hold" | "Cancelled";
+export type RoleStatus = "Open" | "Allocated" | "Filled" | "On Hold" | "Cancelled";
 
 export type CandidateStage =
   | "First Interview"

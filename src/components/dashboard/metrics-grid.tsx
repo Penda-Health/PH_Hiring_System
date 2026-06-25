@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Briefcase,
   AlertTriangle,
@@ -19,10 +17,8 @@ import {
   Stethoscope,
   type LucideIcon,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
-import { getAllMetrics, type MetricRow } from "@/lib/dashboard-metrics";
-import { DashboardFilterState, filterDashboardData } from "@/lib/dashboard-filters";
+import { KpiStrip, type KpiTileData } from "@/components/dashboard/kpi-strip";
+import { type MetricRow } from "@/lib/dashboard-metrics";
 
 const ICONS: Record<string, LucideIcon> = {
   "Open Roles": Briefcase,
@@ -35,7 +31,7 @@ const ICONS: Record<string, LucideIcon> = {
   "Offer Acceptance Rate": CheckCircle2,
   "Post-Offer Drop Rate": TrendingDown,
   "Work Trial Pass Rate": ClipboardCheck,
-  "3-Month Confirm Rate": BadgeCheck,
+  "6-Month Confirm Rate": BadgeCheck,
   "Hard-to-Fill Watch": ShieldAlert,
   "Recruiter Role Ratio": Scale,
   "Referral Hire Rate": Share2,
@@ -43,35 +39,74 @@ const ICONS: Record<string, LucideIcon> = {
   "Locum & Reliever Coverage": Stethoscope,
 };
 
-function MetricCard({ metric }: { metric: MetricRow }) {
-  const Icon = ICONS[metric.metric] ?? Briefcase;
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{metric.metric}</CardTitle>
-        <Icon className="h-4 w-4 text-penda-teal" />
-      </CardHeader>
-      <CardContent>
-        <p className="text-3xl font-semibold">{metric.value}</p>
-        <p className="text-xs text-muted-foreground mt-1">Target: {metric.target}</p>
-      </CardContent>
-    </Card>
-  );
+const ACCENTS: Record<string, KpiTileData["accent"]> = {
+  "Open Roles": "teal",
+  "HC Remaining": "amber",
+  "Active Candidates": "blue",
+  "Offers Out": "blue",
+  "Hired MTD": "teal",
+  "Avg Time to Hire": "amber",
+  "No-Show Rate": "rose",
+  "Offer Acceptance Rate": "teal",
+  "Post-Offer Drop Rate": "rose",
+  "Work Trial Pass Rate": "teal",
+  "6-Month Confirm Rate": "teal",
+  "Hard-to-Fill Watch": "rose",
+  "Recruiter Role Ratio": "blue",
+  "Referral Hire Rate": "blue",
+  "Pipeline Coverage Rate": "amber",
+  "Locum & Reliever Coverage": "amber",
+};
+
+/** Pulls a named subset of metrics out of getAllMetrics() and shapes them for KpiStrip, preserving the requested order. */
+export function buildKpiTiles(metrics: MetricRow[], names: string[]): KpiTileData[] {
+  const byName = new Map(metrics.map((m) => [m.metric, m]));
+  return names
+    .map((name) => byName.get(name))
+    .filter((m): m is MetricRow => !!m)
+    .map((m) => ({
+      label: m.metric,
+      value: m.value,
+      sublabel: `Target: ${m.target}`,
+      icon: ICONS[m.metric] ?? Briefcase,
+      accent: ACCENTS[m.metric] ?? "teal",
+    }));
 }
 
-export function MetricsGrid({ filters }: { filters: DashboardFilterState }) {
-  const { candidates, openRoles, offers, workTrials, interviews, relievers, locums } = useRecruitmentData();
-  const filtered = filterDashboardData(
-    { candidates, openRoles, offers, workTrials, interviews, relievers, locums },
-    filters
-  );
-  const metrics = getAllMetrics(filtered);
+export function getMetricValue(metrics: MetricRow[], name: string): number {
+  const metric = metrics.find((m) => m.metric === name);
+  if (!metric) return 0;
+  return parseFloat(metric.value) || 0;
+}
 
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {metrics.map((metric) => (
-        <MetricCard key={metric.num} metric={metric} />
-      ))}
-    </div>
-  );
+export const OVERVIEW_METRIC_NAMES = [
+  "Open Roles",
+  "HC Remaining",
+  "Active Candidates",
+  "Offers Out",
+  "Hired MTD",
+  "Avg Time to Hire",
+];
+
+export const DETAIL_METRIC_NAMES = [
+  "Post-Offer Drop Rate",
+  "Work Trial Pass Rate",
+  "6-Month Confirm Rate",
+  "Hard-to-Fill Watch",
+  "Recruiter Role Ratio",
+  "Referral Hire Rate",
+  "Pipeline Coverage Rate",
+  "Locum & Reliever Coverage",
+];
+
+export function MetricsGrid({
+  metrics,
+  names,
+  columns,
+}: {
+  metrics: MetricRow[];
+  names: string[];
+  columns?: 3 | 4;
+}) {
+  return <KpiStrip tiles={buildKpiTiles(metrics, names)} columns={columns} />;
 }

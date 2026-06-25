@@ -309,7 +309,7 @@ const TABLES = [
       { name: F.OpenRoles.LOCATION, type: "singleLineText" },
       { name: F.OpenRoles.BRANCH, type: "multipleRecordLinks", linkedTable: "Branches" },
       { name: F.OpenRoles.PRIORITY, type: "singleSelect", options: choices(["Critical", "High", "Medium", "Low"]) },
-      { name: F.OpenRoles.STATUS, type: "singleSelect", options: choices(["Open", "Filled", "On Hold", "Cancelled"]) },
+      { name: F.OpenRoles.STATUS, type: "singleSelect", options: choices(["Open", "Allocated", "Filled", "On Hold", "Cancelled"]) },
       { name: F.OpenRoles.HC_APPROVED, type: "number", options: intOpts },
       { name: F.OpenRoles.HC_FILLED, type: "number", options: intOpts },
       { name: F.OpenRoles.RECRUITER, type: "singleLineText" },

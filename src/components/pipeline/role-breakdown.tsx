@@ -6,7 +6,7 @@ import { PipelineColumn } from "./pipeline-column";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 
-const STATUS_OPTIONS: RoleStatus[] = ["Open", "Filled", "On Hold", "Cancelled"];
+const STATUS_OPTIONS: RoleStatus[] = ["Open", "Allocated", "Filled", "On Hold", "Cancelled"];
 
 export function RoleBreakdown({
   role,
@@ -17,7 +17,7 @@ export function RoleBreakdown({
   candidates: Candidate[];
   onSelectCandidate: (candidate: Candidate) => void;
 }) {
-  const { updateOpenRoleStatus } = useRecruitmentData();
+  const { updateOpenRoleStatus, canEdit } = useRecruitmentData();
   const roleCandidates = candidates.filter((c) => c.roleId === role.id);
   const byStage = (stage: CandidateStage) => roleCandidates.filter((c) => c.stage === stage);
 
@@ -26,8 +26,16 @@ export function RoleBreakdown({
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold">{role.title}</h2>
         <span className="text-sm text-muted-foreground">{role.location}</span>
-        <Select value={role.status} onValueChange={(v) => updateOpenRoleStatus(role.id, v as RoleStatus)}>
-          <SelectTrigger className="w-32 h-8 ml-auto" onClick={(e) => e.stopPropagation()}>
+        <Select
+          value={role.status}
+          onValueChange={(v) => updateOpenRoleStatus(role.id, v as RoleStatus)}
+          disabled={!canEdit}
+        >
+          <SelectTrigger
+            className="w-32 h-8 ml-auto"
+            onClick={(e) => e.stopPropagation()}
+            title={canEdit ? undefined : "View only — contact a Recruitment Manager to change status"}
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
