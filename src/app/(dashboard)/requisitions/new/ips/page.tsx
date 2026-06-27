@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
+import { IPS_FUNCTIONS } from "@/lib/department-options";
 
 const GAP_REASONS: { value: GapReason; label: string; description: string }[] = [
   { value: "Transfer", label: "Transfer", description: "Employee moved to a different branch or department" },
@@ -135,7 +136,18 @@ export default function NewIpsGapRequisitionPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Department</Label>
-              <Input value={department} onChange={(e) => setDepartment(e.target.value)} required />
+              <Select value={department || undefined} onValueChange={setDepartment}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a function" />
+                </SelectTrigger>
+                <SelectContent>
+                  {IPS_FUNCTIONS.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

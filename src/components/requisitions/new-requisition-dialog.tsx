@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { departmentOptionsFor } from "@/lib/department-options";
 
 const REQ_TYPES: RequisitionType[] = ["SO New Role", "SO Replacement", "IPS Gap"];
 const SEGMENTS: Segment[] = ["IPS", "SO"];
@@ -48,6 +49,12 @@ export function NewRequisitionDialog({
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  const departmentOptions = departmentOptionsFor(form.segment);
+
+  function updateSegment(segment: Segment) {
+    setForm((prev) => ({ ...prev, segment, department: "" }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -108,7 +115,7 @@ export function NewRequisitionDialog({
               </Select>
             </Field>
             <Field label="Segment">
-              <Select value={form.segment} onValueChange={(v) => update("segment", v as Segment)}>
+              <Select value={form.segment} onValueChange={(v) => updateSegment(v as Segment)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -128,7 +135,18 @@ export function NewRequisitionDialog({
               <Input value={form.roleTitle} onChange={(e) => update("roleTitle", e.target.value)} required />
             </Field>
             <Field label="Department">
-              <Input value={form.department} onChange={(e) => update("department", e.target.value)} required />
+              <Select value={form.department || undefined} onValueChange={(v) => update("department", v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={form.segment === "SO" ? "Select a department" : "Select a function"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {departmentOptions.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
           </div>
 

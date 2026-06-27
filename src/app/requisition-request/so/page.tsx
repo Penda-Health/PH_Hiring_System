@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormShell, FormMessage } from "@/components/forms/form-shell";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
+import { SO_DEPARTMENTS } from "@/lib/department-options";
 
 const SO_TYPES: { value: RequisitionType; label: string; description: string }[] = [
   { value: "SO New Role", label: "New Role", description: "A brand-new support office role that doesn't replace anyone" },
@@ -192,7 +193,18 @@ export default function PublicSoRequisitionRequestPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Department</Label>
-              <Input value={department} onChange={(e) => setDepartment(e.target.value)} required />
+              <Select value={department || undefined} onValueChange={setDepartment}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SO_DEPARTMENTS.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
