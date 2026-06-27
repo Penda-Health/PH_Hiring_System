@@ -36,11 +36,15 @@ export function DepartmentPipelineOverview() {
   const { openRoles } = useRecruitmentData();
   const [segment, setSegment] = React.useState<Segment>("IPS");
   const departments = React.useMemo(() => groupByDepartment(openRoles, segment), [openRoles, segment]);
+  const totalOpen = React.useMemo(() => departments.reduce((sum, d) => sum + d.total, 0), [departments]);
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-4">
-        <CardTitle>Pipeline by Department</CardTitle>
+        <div className="flex items-center gap-3">
+          <CardTitle>Pipeline by Department</CardTitle>
+          <span className="text-sm font-medium text-muted-foreground">{totalOpen} open</span>
+        </div>
         <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
           {SEGMENTS.map((s) => (
             <button
