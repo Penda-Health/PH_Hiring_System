@@ -10,8 +10,10 @@ import {
   PERIOD_LABELS,
   getDashboardFilterOptions,
 } from "@/lib/dashboard-filters";
+import { Segment } from "@/types";
 
 const PERIODS: DashboardPeriod[] = ["all", "7d", "30d", "mtd", "qtd"];
+const SEGMENTS: Segment[] = ["IPS", "SO"];
 
 export function DashboardFilters({
   filters,
@@ -21,12 +23,34 @@ export function DashboardFilters({
   onChange: (filters: DashboardFilterState) => void;
 }) {
   const { openRoles, branches } = useRecruitmentData();
-  const { departments, roles, branchOptions } = getDashboardFilterOptions(openRoles, branches);
+  const { departments, roles, branchOptions } = getDashboardFilterOptions(openRoles, branches, filters);
   const isDefault = JSON.stringify(filters) === JSON.stringify(DEFAULT_DASHBOARD_FILTERS);
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Select value={filters.branchId} onValueChange={(v) => onChange({ ...filters, branchId: v })}>
+      <Select
+        value={filters.segment}
+        onValueChange={(v) =>
+          onChange({ ...filters, segment: v as "All" | Segment, department: "All", role: "All" })
+        }
+      >
+        <SelectTrigger className="w-32">
+          <SelectValue placeholder="Segment" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="All">All Segments</SelectItem>
+          {SEGMENTS.map((s) => (
+            <SelectItem key={s} value={s}>
+              {s}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.branchId}
+        onValueChange={(v) => onChange({ ...filters, branchId: v, department: "All", role: "All" })}
+      >
         <SelectTrigger className="w-40">
           <SelectValue placeholder="Branch" />
         </SelectTrigger>
@@ -40,7 +64,10 @@ export function DashboardFilters({
         </SelectContent>
       </Select>
 
-      <Select value={filters.department} onValueChange={(v) => onChange({ ...filters, department: v })}>
+      <Select
+        value={filters.department}
+        onValueChange={(v) => onChange({ ...filters, department: v, role: "All" })}
+      >
         <SelectTrigger className="w-40">
           <SelectValue placeholder="Department" />
         </SelectTrigger>

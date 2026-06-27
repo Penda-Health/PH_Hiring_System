@@ -1,8 +1,9 @@
-import { Branch, Candidate, Interview, Locum, Offer, OpenRole, Reliever, WorkTrial } from "@/types";
+import { Branch, Candidate, Interview, Locum, Offer, OpenRole, Reliever, Segment, WorkTrial } from "@/types";
 
 export type DashboardPeriod = "all" | "7d" | "30d" | "mtd" | "qtd";
 
 export interface DashboardFilterState {
+  segment: "All" | Segment;
   branchId: "All" | string;
   department: "All" | string;
   role: "All" | string;
@@ -10,6 +11,7 @@ export interface DashboardFilterState {
 }
 
 export const DEFAULT_DASHBOARD_FILTERS: DashboardFilterState = {
+  segment: "All",
   branchId: "All",
   department: "All",
   role: "All",
@@ -75,11 +77,16 @@ export function filterDashboardData(
   filters: DashboardFilterState
 ): DashboardSourceData {
   const { openRoles, candidates, interviews, offers, workTrials, relievers, locums } = data;
-  const roleFilterActive = filters.branchId !== "All" || filters.department !== "All" || filters.role !== "All";
+  const roleFilterActive =
+    filters.segment !== "All" ||
+    filters.branchId !== "All" ||
+    filters.department !== "All" ||
+    filters.role !== "All";
 
   const matchedRoleIds = new Set(
     openRoles
       .filter((r) => {
+        if (filters.segment !== "All" && r.segment !== filters.segment) return false;
         if (filters.branchId !== "All" && r.branchId !== filters.branchId) return false;
         if (filters.department !== "All" && r.department !== filters.department) return false;
         if (filters.role !== "All" && r.title !== filters.role) return false;
@@ -121,9 +128,31 @@ export function filterDashboardData(
   };
 }
 
-export function getDashboardFilterOptions(openRoles: OpenRole[], branches: Branch[]) {
-  const departments = Array.from(new Set(openRoles.map((r) => r.department))).sort();
-  const roles = Array.from(new Set(openRoles.map((r) => r.title))).sort();
+// Cascades segment -> branch -> department -> role: each dropdown's options
+// are scoped to roles matching the filters above it, so e.g. selecting "SO"
+// never leaves an IPS-only function (Nursing, Pharmacy, ...) in the
+// Department list, and selecting a department never leaves a role from a
+// different department in the Role list.
+export function getDashboardFilterOptions(
+  openRoles: OpenRole[],
+  branches: Branch[],
+  filters: Pick<DashboardFilterState, "segment" | "branchId" | "department"> = {
+    segment: "All",
+    branchId: "All",
+    department: "All",
+  }
+) {
+  const rolesInSegment = openRoles.filter((r) => filters.segment === "All" || r.segment === filters.segment);
+  const rolesInSegmentAndBranch = rolesInSegment.filter(
+    (r) => filters.branchId === "All" || r.branchId === filters.branchId
+  );
+  const departments = Array.from(new Set(rolesInSegmentAndBranch.map((r) => r.department))).sort();
+
+  const rolesScopedToDept = rolesInSegmentAndBranch.filter(
+    (r) => filters.department === "All" || r.department === filters.department
+  );
+  const roles = Array.from(new Set(rolesScopedToDept.map((r) => r.title))).sort();
+
   const branchOptions = branches
     .filter((b) => b.active)
     .map((b) => ({ id: b.id, name: b.name }))
