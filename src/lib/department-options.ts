@@ -14,6 +14,7 @@ export const IPS_FUNCTIONS = [
   "Dental",
   "Sonography",
   "Reproductive Health",
+  "Front Office",
 ] as const;
 
 export const SO_DEPARTMENTS = [
