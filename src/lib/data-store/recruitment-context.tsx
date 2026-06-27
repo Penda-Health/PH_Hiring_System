@@ -15,6 +15,7 @@ import {
   Locum,
 } from "@/types";
 import { computeWeightedTotal, PASS_THRESHOLD } from "@/lib/work-trial-helpers";
+import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
 import { listResource, createResource, updateResource } from "@/lib/airtable/browser-api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canEditRecruitmentData } from "@/lib/permissions";
@@ -166,25 +167,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   const convertToOpenRole = React.useCallback(
     async (req: Requisition) => {
       if (!guardEdit(canEdit, "convertToOpenRole")) return;
-      const branch = branches.find((b) => b.id === req.branchId);
-      const newRole: Partial<OpenRole> = {
-        roleId: `OR-${req.reqId.replace(/^REQ-?/i, "")}`,
-        title: req.roleTitle,
-        segment: req.segment,
-        department: req.department,
-        location: branch ? `${branch.name} (${branch.city})` : "Unassigned",
-        branchId: req.branchId,
-        priority: req.urgency,
-        status: "Open",
-        hcApproved: req.headcount,
-        hcFilled: 0,
-        recruiter: req.submittedBy,
-        hiringManager: req.submittedBy,
-        datePosted: new Date().toISOString(),
-        employmentType: req.employmentType,
-        notes: req.context,
-        requisitionId: req.id,
-      };
+      const newRole = buildOpenRoleFromRequisition(req, branches);
       const created = await createResource<OpenRole>("open-roles", newRole);
       setOpenRoles((prev) => [created, ...prev]);
     },

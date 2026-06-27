@@ -10,7 +10,7 @@ import { z } from "zod";
 import { getRecord } from "@/lib/airtable/client";
 import { TABLE_NAMES } from "@/lib/airtable/field-names";
 import { workTrialFromAirtable, referenceCheckFromAirtable } from "@/lib/airtable/mappers";
-import { signWorkTrialToken, signBmFeedbackToken, signRefereeToken } from "@/lib/forms/tokens";
+import { signWorkTrialToken, signBmFeedbackToken, signRefereeToken, signConfirmEmploymentToken } from "@/lib/forms/tokens";
 
 const schema = z.union([
   z.object({
@@ -21,6 +21,10 @@ const schema = z.union([
     type: z.literal("referee"),
     refCheckId: z.string().min(1),
     refereeNum: z.union([z.literal(1), z.literal(2)]),
+  }),
+  z.object({
+    type: z.literal("confirm-employment"),
+    newEmployeeId: z.string().min(1),
   }),
 ]);
 
@@ -55,6 +59,11 @@ export async function POST(request: NextRequest) {
         refereeNum: result.data.refereeNum,
       });
       return NextResponse.json({ url: `${appUrl()}/referee?token=${token}` });
+    }
+
+    if (result.data.type === "confirm-employment") {
+      const token = await signConfirmEmploymentToken({ newEmployeeId: result.data.newEmployeeId });
+      return NextResponse.json({ url: `${appUrl()}/confirm-employment?token=${token}` });
     }
 
     const record = await getRecord(TABLE_NAMES.WorkTrials, result.data.workTrialId);

@@ -15,12 +15,12 @@ import { DashboardFilterState, DEFAULT_DASHBOARD_FILTERS, filterDashboardData } 
 
 export default function DashboardPage() {
   const [filters, setFilters] = React.useState<DashboardFilterState>(DEFAULT_DASHBOARD_FILTERS);
-  const { candidates, openRoles, offers, workTrials, interviews, relievers, locums } = useRecruitmentData();
+  const { candidates, openRoles, offers, workTrials, interviews, relievers, locums, newEmployees } = useRecruitmentData();
   const filtered = filterDashboardData(
     { candidates, openRoles, offers, workTrials, interviews, relievers, locums },
     filters
   );
-  const metrics = getAllMetrics(filtered);
+  const metrics = getAllMetrics({ ...filtered, newEmployees });
 
   return (
     <div className="space-y-6">

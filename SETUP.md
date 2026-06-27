@@ -351,6 +351,208 @@ update public.profiles set role = 'recruitment_manager' where email = 'your-emai
 
 ---
 
+## 4.7 IPS Meeting Board (`ips_meetings`, `ips_allocations`, `ips_meeting_notes`, `ips_board_editors`)
+
+The recurring IPS staffing meeting (`/ips-meeting`) is the first feature
+where Supabase holds new *operational* data, not just `profiles`, and the
+first to use Supabase Realtime. Run this once in the Supabase SQL Editor,
+after section 4.6's `profiles` table already exists (these tables reference
+it):
+
+```sql
+-- Who, besides a recruitment_manager, can edit the IPS board — a
+-- Google-Sheets-style shared editor list rather than a role tier.
+create table public.ips_board_editors (
+  profile_id uuid primary key references public.profiles(id) on delete cascade,
+  added_by uuid references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+create table public.ips_meetings (
+  id uuid primary key default gen_random_uuid(),
+  meeting_date date not null,
+  status text not null default 'open' check (status in ('open', 'closed')),
+  created_by uuid references public.profiles(id),
+  -- Explicit link instead of inferring "the previous meeting" by date at
+  -- carry-forward time, which would be ambiguous if two meetings share a date.
+  previous_meeting_id uuid references public.ips_meetings(id),
+  created_at timestamptz not null default now()
+);
+
+create index ips_meetings_date_idx on public.ips_meetings (meeting_date desc);
+
+-- One row per role-slot-in-a-meeting (the unit an "allocation card" renders).
+-- open_role_id / branch_id / candidate_id are plain text, no FK — they're
+-- Airtable record ids, and Airtable (not Postgres) is the source of truth
+-- for those entities, same as profiles.branch_id in section 4.6.
+create table public.ips_allocations (
+  id uuid primary key default gen_random_uuid(),
+  meeting_id uuid not null references public.ips_meetings(id) on delete cascade,
+  open_role_id text not null,
+  branch_id text not null,
+  -- Snapshotted at creation time, not joined live, so a past meeting's
+  -- grouping/priority doesn't shift if the title->group mapping or the
+  -- Airtable role's priority changes later.
+  role_group text not null,
+  priority text not null,
+  candidate_id text,
+  note text,
+  updated_by uuid references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (meeting_id, open_role_id)
+);
+
+create index ips_allocations_meeting_idx on public.ips_allocations (meeting_id);
+create index ips_allocations_branch_idx on public.ips_allocations (meeting_id, branch_id);
+
+create table public.ips_meeting_notes (
+  id uuid primary key default gen_random_uuid(),
+  meeting_id uuid not null references public.ips_meetings(id) on delete cascade,
+  note_type text not null check (note_type in ('General', 'Action', 'Risk', 'Decision')),
+  body text not null,
+  resolved boolean not null default false,
+  author_id uuid references public.profiles(id),
+  -- Traceability when an unresolved Action/Risk note carries forward into a
+  -- new meeting, so the UI can show "Carried from {date}" instead of
+  -- presenting it as brand-new noise.
+  carried_from_note_id uuid references public.ips_meeting_notes(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index ips_meeting_notes_meeting_idx on public.ips_meeting_notes (meeting_id);
+
+alter table public.ips_board_editors enable row level security;
+alter table public.ips_meetings enable row level security;
+alter table public.ips_allocations enable row level security;
+alter table public.ips_meeting_notes enable row level security;
+
+-- Mirrors is_recruitment_manager() in section 4.6, extended with the
+-- shared-editor allow-list.
+create or replace function public.is_ips_editor()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select public.is_recruitment_manager()
+    or exists (select 1 from public.ips_board_editors where profile_id = auth.uid());
+$$;
+
+-- View: anyone with a profile row sees everything (no per-branch or
+-- per-meeting visibility scoping today).
+create policy ips_meetings_select_any_profile on public.ips_meetings for select
+  using (exists (select 1 from public.profiles where id = auth.uid()));
+create policy ips_allocations_select_any_profile on public.ips_allocations for select
+  using (exists (select 1 from public.profiles where id = auth.uid()));
+create policy ips_meeting_notes_select_any_profile on public.ips_meeting_notes for select
+  using (exists (select 1 from public.profiles where id = auth.uid()));
+create policy ips_board_editors_select_any_profile on public.ips_board_editors for select
+  using (exists (select 1 from public.profiles where id = auth.uid()));
+
+-- Edit: recruitment_manager or anyone on the shared editor list.
+create policy ips_meetings_write_editor on public.ips_meetings for all
+  using (public.is_ips_editor()) with check (public.is_ips_editor());
+create policy ips_allocations_write_editor on public.ips_allocations for all
+  using (public.is_ips_editor()) with check (public.is_ips_editor());
+create policy ips_meeting_notes_write_editor on public.ips_meeting_notes for all
+  using (public.is_ips_editor()) with check (public.is_ips_editor());
+
+-- Managing the editor list itself is stricter than being an editor — an
+-- editor must not be able to grant themselves or others access.
+create policy ips_board_editors_write_manager on public.ips_board_editors for all
+  using (public.is_recruitment_manager()) with check (public.is_recruitment_manager());
+
+create or replace function public.touch_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger ips_allocations_touch_updated_at
+  before update on public.ips_allocations
+  for each row execute function public.touch_updated_at();
+
+create trigger ips_meeting_notes_touch_updated_at
+  before update on public.ips_meeting_notes
+  for each row execute function public.touch_updated_at();
+
+-- Creating a new meeting carries forward (a) allocations nobody filled yet
+-- and (b) Action/Risk notes nobody resolved yet, from whichever meeting was
+-- most recent. A single security-definer function keeps this atomic and
+-- self-documenting, instead of a plain insert silently fanning out into
+-- dozens of copied rows via a trigger.
+create or replace function public.create_ips_meeting_with_carryforward(p_meeting_date date)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_prev_id uuid;
+  v_new_id uuid;
+begin
+  if not public.is_ips_editor() then
+    raise exception 'Only IPS board editors can create a new meeting.';
+  end if;
+
+  select id into v_prev_id from public.ips_meetings order by meeting_date desc, created_at desc limit 1;
+
+  insert into public.ips_meetings (meeting_date, created_by, previous_meeting_id)
+  values (p_meeting_date, auth.uid(), v_prev_id)
+  returning id into v_new_id;
+
+  if v_prev_id is not null then
+    insert into public.ips_allocations (meeting_id, open_role_id, branch_id, role_group, priority, note, updated_by)
+    select v_new_id, open_role_id, branch_id, role_group, priority, note, updated_by
+    from public.ips_allocations
+    where meeting_id = v_prev_id and candidate_id is null;
+
+    insert into public.ips_meeting_notes (meeting_id, note_type, body, author_id, carried_from_note_id)
+    select v_new_id, note_type, body, author_id, id
+    from public.ips_meeting_notes
+    where meeting_id = v_prev_id and note_type in ('Action', 'Risk') and resolved = false;
+  end if;
+
+  return v_new_id;
+end;
+$$;
+
+grant execute on function public.create_ips_meeting_with_carryforward(date) to authenticated;
+
+-- Lets Realtime push changes to subscribed clients. ips_board_editors is
+-- deliberately excluded — access-list changes don't need to be live, and
+-- this keeps the realtime surface off access-control data.
+alter publication supabase_realtime add table public.ips_meetings;
+alter publication supabase_realtime add table public.ips_allocations;
+alter publication supabase_realtime add table public.ips_meeting_notes;
+```
+
+### What this gives you
+
+- **`/ips-meeting`** — viewable by any signed-in user with a profile (same
+  as `/dashboard`); editing (allocations, notes, creating a new meeting) is
+  gated by `is_ips_editor()` — `recruitment_manager` always qualifies, plus
+  anyone a manager has added to the shared editor list. The list itself is
+  managed from a manager-only dialog on the page, not from `/settings`.
+- Allocation cards and the three views (by role / by branch / priority-only)
+  are derived from live `OpenRole` data in Airtable (via
+  `src/lib/ips-role-groups.ts`'s `deriveIpsSlots()`), then persisted as
+  `ips_allocations` rows scoped to one `ips_meetings` row at a time — there's
+  no calendar-week concept, "this week" just means "the current open
+  meeting."
+- Realtime is wired in `src/lib/supabase/use-ips-realtime.ts` — this is the
+  first feature in the app to use `supabase.channel()` /
+  `postgres_changes`; nothing else in the codebase needs live multi-user
+  sync today.
+
+---
+
 ## 4.5 Public forms (work-trial branch selection, BM feedback, referee check)
 
 Three no-login forms exist so far, all token-protected instead of behind
@@ -441,6 +643,108 @@ now), and a `/forms/test` dev harness.
 
 ---
 
+## 4.5.3 Public requisition-request links + 6-month employment confirmation
+
+Two more no-login flows, same pattern as section 4.5 (no Supabase session,
+no `/api/forms/issue-link` token needed for the requisition links since
+they're static reusable URLs, not record-bound):
+
+- `/requisition-request/so` and `/requisition-request/ips` — copy/paste or
+  embed these anywhere (Slack, email signature, an intranet page). Anyone
+  who opens one fills in their name, **`@pendahealth.com` work email**
+  (anything else is rejected, not just warned), their own role, and the
+  requisition details — no login. Get the links from the **Copy public
+  link** button on `/requisitions` (visible to Recruitment User/Manager
+  only).
+
+  Submitting **skips the in-app approver chain entirely** — these links are
+  meant to be used only after approval and budget evaluation already
+  happened over email, so the requisition is created as already
+  `Converted to Open Role` and a matching Open Role appears immediately in
+  the pipeline. There's no Approve/Reject step and no human gate inside the
+  app for this entry path — that's intentional, not a bug, but it does mean
+  anyone with the link can create a real Open Role, so don't post these
+  links anywhere outside trusted internal channels.
+
+- `/confirm-employment?token=...` — record-bound like the section 4.5 forms.
+  Sent to the original requisition submitter roughly 6 months after their
+  hire's start date, asking them to confirm the person is still employed.
+  Mint a link via `/api/forms/issue-link` with
+  `{ "type": "confirm-employment", "newEmployeeId": "recXXXX..." }`; the
+  token is valid for 30 days (enough slack for an automation/email to land
+  near the 6-month mark). Updates `NewEmployees.Confirmation 6mo` /
+  `Confirmation 6mo At`, which feeds the dashboard's "6-Month Confirm Rate"
+  KPI. Single-use — a second submission is rejected.
+
+### New Airtable columns
+
+Already defined in `scripts/lib/airtable-schema.js` — just re-run
+`npm run airtable:schema` to create them (safe to re-run, only adds what's
+missing):
+
+| Table | New columns |
+|---|---|
+| Requisitions | `Submitter Name`, `Submitter Email`, `Submitter Role`, `Source` (`internal` / `public-link`), `Budget Evaluation Confirmed` (checkbox, SO only) |
+| Open Roles | `Requisition Submitter Name`, `Requisition Submitter Email` |
+| New Employees | `Confirmation 6mo` (`Pending` / `Confirmed` / `Not Confirmed`), `Confirmation 6mo At`, `Requisition Submitter Name`, `Requisition Submitter Email` |
+
+No new env vars — `PUBLIC_FORM_JWT_SECRET`, `FORMS_ISSUE_SECRET`, and
+`NEXT_PUBLIC_APP_URL` (section 4.5.1) are reused as-is.
+
+### Airtable automations to configure
+
+All five are plain "watch a field, send an email" automations — no app code
+involved, same **Run a script → Send email** shape as section 4.5.2. Build
+each as: **Automations → Create automation** in the Airtable base.
+
+1. **Request received & approved** — trigger: *When a record matches
+   conditions*, table `Requisitions`, condition `Source = public-link`
+   (record created). The public-link path auto-converts to an Open Role
+   immediately, so "received" and "approved" collapse into a single email.
+   Send to `Submitter Email`, merge `Submitter Name`, `Role Title`.
+
+2. **Allocated to a recruiter** — trigger: *When a record matches
+   conditions*, table `Open Roles`, condition `Recruiter is not empty` (only
+   fires once, when it goes from blank to set — add a second condition
+   tracking "previous value was empty" if your Airtable plan supports it,
+   otherwise accept it may refire on later recruiter changes). Send to
+   `Requisition Submitter Email`, merge `Requisition Submitter Name`,
+   `Recruiter`, `Title`.
+
+3. **Offer extended** — trigger: *When a record is created*, table `Offers`.
+   You'll need a lookup field on Offers (via Candidate → Open Role) to reach
+   `Requisition Submitter Email` if one doesn't already exist — add it as a
+   lookup/rollup field in Airtable's UI before wiring this automation. Send
+   to that looked-up email, merge `Requisition Submitter Name`, role title,
+   offer details.
+
+4. **Joining confirmed** — trigger: *When a record matches conditions*,
+   table `Offers`, condition `Joined = Joined` (or `Start Date is not
+   empty`, whichever your process sets first). Same merge-chain lookup as
+   #3.
+
+5. **6-month confirmation request** — trigger: *At a scheduled time*
+   (daily), table `New Employees`, condition `Start Date` is ~180 days ago
+   **and** `Confirmation 6mo` is empty. Action: **Run a script** calling
+   `/api/forms/issue-link` with
+   `{ "type": "confirm-employment", "newEmployeeId": input.config().recordId }`
+   (same auth pattern as section 4.5.2's script), then **Send email** to
+   `Requisition Submitter Email` with the returned link.
+
+### Known limitations
+
+- No CAPTCHA on the requisition-request links — a hidden honeypot field is
+  the only spam deterrent, acceptable since these are meant for
+  internal-only distribution, not a public-indexed page.
+- If a requisition's headcount is greater than 1 (multiple simultaneous
+  hires for one role), status-update emails (#2–#4 above) follow whichever
+  one candidate gets linked first — there's no per-candidate fan-out yet.
+- Automation timing/reliability (scheduled triggers, email delivery) is
+  entirely Airtable's responsibility — outside this app's control or
+  monitoring.
+
+---
+
 ## 5. Make.com
 
 Deferred for now. Once the Airtable base and Supabase auth are confirmed
@@ -474,5 +778,6 @@ this system is the SMS-sending automations. When you're ready:
 | User roles, `/profile`, `/settings` (Users & roles) | ✅ section 4.6 |
 | Public JWT form routes (`/work-trial`, `/bm-feedback`, `/referee`) | ✅ this guide |
 | IPS Gap / SO Requisition guided forms (login required) | ✅ `/requisitions/new/ips`, `/requisitions/new/so` |
+| Public requisition-request links + 6-month confirmation | ✅ section 4.5.3 (app side) / ⏳ you configure the 5 Airtable automations |
 | Make.com scenario blueprints | ⏳ next phase |
 | Africa's Talking SMS | ⏳ next phase |

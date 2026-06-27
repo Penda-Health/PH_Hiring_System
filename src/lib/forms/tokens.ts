@@ -28,6 +28,11 @@ export type RefereeTokenPayload = {
   refereeNum: 1 | 2;
 };
 
+export type ConfirmEmploymentTokenPayload = {
+  type: "confirm-employment";
+  newEmployeeId: string;
+};
+
 export async function signWorkTrialToken(payload: Omit<WorkTrialTokenPayload, "type">): Promise<string> {
   return new SignJWT({ type: "work-trial", ...payload })
     .setProtectedHeader({ alg: "HS256" })
@@ -49,6 +54,16 @@ export async function signRefereeToken(payload: Omit<RefereeTokenPayload, "type"
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("14d")
+    .sign(secret());
+}
+
+export async function signConfirmEmploymentToken(
+  payload: Omit<ConfirmEmploymentTokenPayload, "type">
+): Promise<string> {
+  return new SignJWT({ type: "confirm-employment", ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("30d")
     .sign(secret());
 }
 
@@ -77,6 +92,16 @@ export async function verifyRefereeToken(token: string): Promise<RefereeTokenPay
     const { payload } = await jwtVerify(token, secret());
     if (payload.type !== "referee") return null;
     return payload as unknown as RefereeTokenPayload;
+  } catch {
+    return null;
+  }
+}
+
+export async function verifyConfirmEmploymentToken(token: string): Promise<ConfirmEmploymentTokenPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    if (payload.type !== "confirm-employment") return null;
+    return payload as unknown as ConfirmEmploymentTokenPayload;
   } catch {
     return null;
   }

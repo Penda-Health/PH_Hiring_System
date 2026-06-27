@@ -1,4 +1,4 @@
-import { Candidate, CandidateStage, Interview, Locum, Offer, OpenRole, Reliever, Segment, WorkTrial } from "@/types";
+import { Candidate, CandidateStage, Interview, Locum, NewEmployee, Offer, OpenRole, Reliever, Segment, WorkTrial } from "@/types";
 import { getCoverageRate } from "@/lib/pools-helpers";
 
 const HARD_TO_FILL_TITLES = ["Pharm Tech", "COHO", "Dentist"];
@@ -37,8 +37,9 @@ export function getAllMetrics(data: {
   interviews: Interview[];
   relievers: Reliever[];
   locums: Locum[];
+  newEmployees: NewEmployee[];
 }): MetricRow[] {
-  const { candidates, openRoles, offers, workTrials, interviews, relievers, locums } = data;
+  const { candidates, openRoles, offers, workTrials, interviews, relievers, locums, newEmployees } = data;
   const coverageRate = getCoverageRate(relievers, locums);
   const roleById = new Map(openRoles.map((r) => [r.id, r]));
   const candidateById = new Map(candidates.map((c) => [c.id, c]));
@@ -83,6 +84,12 @@ export function getAllMetrics(data: {
   });
   const ipsPasses = ipsWorkTrials.filter((wt) => wt.passFail === "Pass").length;
   const workTrialPassRate = ipsWorkTrials.length ? (ipsPasses / ipsWorkTrials.length) * 100 : 0;
+
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const eligibleForConfirmation = newEmployees.filter((e) => new Date(`${e.startDate}T00:00:00`) <= sixMonthsAgo);
+  const confirmed6mo = eligibleForConfirmation.filter((e) => e.confirmation6mo === "Confirmed").length;
+  const confirmRate6mo = eligibleForConfirmation.length ? (confirmed6mo / eligibleForConfirmation.length) * 100 : null;
 
   const hardToFillOpen = openRolesList.filter((r) => HARD_TO_FILL_TITLES.includes(r.title)).length;
 
@@ -197,7 +204,7 @@ export function getAllMetrics(data: {
       formula: "COUNT(confirmation_6mo = confirmed) / COUNT(all hired, 6mo+ ago) × 100",
       target: "≥85%",
       updates: "Weekly",
-      value: "—",
+      value: confirmRate6mo === null ? "—" : `${confirmRate6mo.toFixed(1)}%`,
     },
     {
       num: 12,

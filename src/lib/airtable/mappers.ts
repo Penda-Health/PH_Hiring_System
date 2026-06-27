@@ -89,6 +89,11 @@ export function requisitionFromAirtable(r: AirtableRecord): Requisition {
     submittedAt: str(f[F.Requisitions.SUBMITTED_AT]),
     expectedStartDate: opt(f[F.Requisitions.EXPECTED_START_DATE]),
     context: opt(f[F.Requisitions.CONTEXT]),
+    submitterName: opt(f[F.Requisitions.SUBMITTER_NAME]),
+    submitterEmail: opt(f[F.Requisitions.SUBMITTER_EMAIL]),
+    submitterRole: opt(f[F.Requisitions.SUBMITTER_ROLE]),
+    source: opt(f[F.Requisitions.SOURCE]),
+    budgetEvaluationConfirmed: bool(f[F.Requisitions.BUDGET_EVALUATION_CONFIRMED]),
   };
 }
 export function requisitionToAirtable(r: Partial<Requisition>) {
@@ -117,6 +122,11 @@ export function requisitionToAirtable(r: Partial<Requisition>) {
     [F.Requisitions.SUBMITTED_AT]: r.submittedAt,
     [F.Requisitions.EXPECTED_START_DATE]: r.expectedStartDate,
     [F.Requisitions.CONTEXT]: r.context,
+    [F.Requisitions.SUBMITTER_NAME]: r.submitterName,
+    [F.Requisitions.SUBMITTER_EMAIL]: r.submitterEmail,
+    [F.Requisitions.SUBMITTER_ROLE]: r.submitterRole,
+    [F.Requisitions.SOURCE]: r.source,
+    [F.Requisitions.BUDGET_EVALUATION_CONFIRMED]: r.budgetEvaluationConfirmed,
   });
 }
 
@@ -142,6 +152,8 @@ export function openRoleFromAirtable(r: AirtableRecord): OpenRole {
     employmentType: opt(f[F.OpenRoles.EMPLOYMENT_TYPE]) as OpenRole["employmentType"],
     notes: opt(f[F.OpenRoles.NOTES]),
     requisitionId: firstLink(f[F.OpenRoles.REQUISITION]),
+    requisitionSubmitterName: opt(f[F.OpenRoles.REQ_SUBMITTER_NAME]),
+    requisitionSubmitterEmail: opt(f[F.OpenRoles.REQ_SUBMITTER_EMAIL]),
   };
 }
 export function openRoleToAirtable(r: Partial<OpenRole>) {
@@ -163,6 +175,8 @@ export function openRoleToAirtable(r: Partial<OpenRole>) {
     [F.OpenRoles.EMPLOYMENT_TYPE]: r.employmentType,
     [F.OpenRoles.NOTES]: r.notes,
     [F.OpenRoles.REQUISITION]: r.requisitionId !== undefined ? link(r.requisitionId) : undefined,
+    [F.OpenRoles.REQ_SUBMITTER_NAME]: r.requisitionSubmitterName,
+    [F.OpenRoles.REQ_SUBMITTER_EMAIL]: r.requisitionSubmitterEmail,
   });
 }
 
@@ -457,6 +471,10 @@ export function newEmployeeFromAirtable(r: AirtableRecord): NewEmployee {
     startDate: str(f[F.NewEmployees.START_DATE]),
     employmentType: f[F.NewEmployees.EMPLOYMENT_TYPE] as NewEmployee["employmentType"],
     contractEnd: opt(f[F.NewEmployees.CONTRACT_END]),
+    confirmation6mo: opt(f[F.NewEmployees.CONFIRMATION_6MO]),
+    confirmation6moAt: opt(f[F.NewEmployees.CONFIRMATION_6MO_AT]),
+    requisitionSubmitterName: opt(f[F.NewEmployees.REQ_SUBMITTER_NAME]),
+    requisitionSubmitterEmail: opt(f[F.NewEmployees.REQ_SUBMITTER_EMAIL]),
   };
 }
 export function newEmployeeToAirtable(e: Partial<NewEmployee>) {
@@ -470,6 +488,10 @@ export function newEmployeeToAirtable(e: Partial<NewEmployee>) {
     [F.NewEmployees.START_DATE]: e.startDate,
     [F.NewEmployees.EMPLOYMENT_TYPE]: e.employmentType,
     [F.NewEmployees.CONTRACT_END]: e.contractEnd,
+    [F.NewEmployees.CONFIRMATION_6MO]: e.confirmation6mo,
+    [F.NewEmployees.CONFIRMATION_6MO_AT]: e.confirmation6moAt,
+    [F.NewEmployees.REQ_SUBMITTER_NAME]: e.requisitionSubmitterName,
+    [F.NewEmployees.REQ_SUBMITTER_EMAIL]: e.requisitionSubmitterEmail,
   });
 }
 

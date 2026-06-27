@@ -122,6 +122,11 @@ export interface Requisition {
   submittedAt: string;
   expectedStartDate?: string;
   context?: string;
+  submitterName?: string;
+  submitterEmail?: string;
+  submitterRole?: string;
+  source?: "internal" | "public-link";
+  budgetEvaluationConfirmed?: boolean;
 }
 
 export interface OpenRole {
@@ -143,6 +148,8 @@ export interface OpenRole {
   employmentType?: EmploymentType;
   notes?: string;
   requisitionId?: string;
+  requisitionSubmitterName?: string;
+  requisitionSubmitterEmail?: string;
 }
 
 export interface Candidate {
@@ -264,6 +271,10 @@ export interface NewEmployee {
   startDate: string;
   employmentType: EmploymentType;
   contractEnd?: string;
+  confirmation6mo?: "Pending" | "Confirmed" | "Not Confirmed";
+  confirmation6moAt?: string;
+  requisitionSubmitterName?: string;
+  requisitionSubmitterEmail?: string;
 }
 
 export interface Reliever {

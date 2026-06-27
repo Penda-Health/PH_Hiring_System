@@ -43,7 +43,43 @@ export const requisitionSchema = z.object({
   submittedAt: z.string(),
   expectedStartDate: z.string().optional(),
   context: z.string().optional(),
+  submitterName: z.string().optional(),
+  submitterEmail: z.string().optional(),
+  submitterRole: z.string().optional(),
+  source: z.enum(["internal", "public-link"]).optional(),
+  budgetEvaluationConfirmed: z.boolean().optional(),
 });
+
+const PENDA_EMAIL_DOMAIN = "@pendahealth.com";
+
+// Stricter schema for the unauthenticated /api/public/requisition-request
+// endpoint: submitter identity fields are required here (optional on the
+// base schema above since the logged-in flow doesn't collect them), and the
+// email domain is enforced server-side too, mirroring the client-side check.
+export const publicRequisitionRequestSchema = requisitionSchema
+  .omit({
+    status: true,
+    approverChain: true,
+    currentApproverIndex: true,
+    submittedBy: true,
+    submittedAt: true,
+    source: true,
+    submitterName: true,
+    submitterEmail: true,
+    submitterRole: true,
+  })
+  .extend({
+    submitterName: z.string().min(1, "Name is required"),
+    submitterEmail: z
+      .string()
+      .email("Enter a valid email")
+      .toLowerCase()
+      .refine((email) => email.endsWith(PENDA_EMAIL_DOMAIN), {
+        message: `Email must be a ${PENDA_EMAIL_DOMAIN} address`,
+      }),
+    submitterRole: z.string().min(1, "Role is required"),
+    honeypot: z.string().max(0).optional(),
+  });
 
 export const openRoleSchema = z.object({
   roleId: z.string().min(1),
@@ -63,6 +99,8 @@ export const openRoleSchema = z.object({
   employmentType: z.enum(["Full-time", "Part-time", "Contract", "Reliever", "Locum"]).optional(),
   notes: z.string().optional(),
   requisitionId: z.string().optional(),
+  requisitionSubmitterName: z.string().optional(),
+  requisitionSubmitterEmail: z.string().optional(),
 });
 
 export const candidateSchema = z.object({
@@ -178,6 +216,10 @@ export const newEmployeeSchema = z.object({
   startDate: z.string().min(1),
   employmentType: z.enum(["Full-time", "Part-time", "Contract", "Reliever", "Locum"]),
   contractEnd: z.string().optional(),
+  confirmation6mo: z.enum(["Pending", "Confirmed", "Not Confirmed"]).optional(),
+  confirmation6moAt: z.string().optional(),
+  requisitionSubmitterName: z.string().optional(),
+  requisitionSubmitterEmail: z.string().optional(),
 });
 
 export const relieverSchema = z.object({

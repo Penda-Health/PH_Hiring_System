@@ -70,6 +70,11 @@ const F = {
     SUBMITTED_AT: "Submitted At",
     EXPECTED_START_DATE: "Expected Start Date",
     CONTEXT: "Context",
+    SUBMITTER_NAME: "Submitter Name",
+    SUBMITTER_EMAIL: "Submitter Email",
+    SUBMITTER_ROLE: "Submitter Role",
+    SOURCE: "Source",
+    BUDGET_EVALUATION_CONFIRMED: "Budget Evaluation Confirmed",
   },
   OpenRoles: {
     ROLE_ID: "Role ID",
@@ -89,6 +94,8 @@ const F = {
     EMPLOYMENT_TYPE: "Employment Type",
     NOTES: "Notes",
     REQUISITION: "Requisition",
+    REQ_SUBMITTER_NAME: "Requisition Submitter Name",
+    REQ_SUBMITTER_EMAIL: "Requisition Submitter Email",
   },
   Candidates: {
     CAND_ID: "Cand ID",
@@ -211,6 +218,10 @@ const F = {
     START_DATE: "Start Date",
     EMPLOYMENT_TYPE: "Employment Type",
     CONTRACT_END: "Contract End",
+    CONFIRMATION_6MO: "Confirmation 6mo",
+    CONFIRMATION_6MO_AT: "Confirmation 6mo At",
+    REQ_SUBMITTER_NAME: "Requisition Submitter Name",
+    REQ_SUBMITTER_EMAIL: "Requisition Submitter Email",
   },
   Relievers: {
     RELIEVER_ID: "Reliever ID",
@@ -297,6 +308,11 @@ const TABLES = [
       { name: F.Requisitions.SUBMITTED_AT, type: "date", options: dateOpts },
       { name: F.Requisitions.EXPECTED_START_DATE, type: "date", options: dateOpts },
       { name: F.Requisitions.CONTEXT, type: "multilineText" },
+      { name: F.Requisitions.SUBMITTER_NAME, type: "singleLineText" },
+      { name: F.Requisitions.SUBMITTER_EMAIL, type: "email" },
+      { name: F.Requisitions.SUBMITTER_ROLE, type: "singleLineText" },
+      { name: F.Requisitions.SOURCE, type: "singleSelect", options: choices(["internal", "public-link"]) },
+      { name: F.Requisitions.BUDGET_EVALUATION_CONFIRMED, type: "checkbox", options: checkboxOpts },
     ],
   },
   {
@@ -323,6 +339,8 @@ const TABLES = [
       },
       { name: F.OpenRoles.NOTES, type: "multilineText" },
       { name: F.OpenRoles.REQUISITION, type: "multipleRecordLinks", linkedTable: "Requisitions" },
+      { name: F.OpenRoles.REQ_SUBMITTER_NAME, type: "singleLineText" },
+      { name: F.OpenRoles.REQ_SUBMITTER_EMAIL, type: "email" },
     ],
   },
   {
@@ -510,6 +528,14 @@ const TABLES = [
         options: choices(["Full-time", "Part-time", "Contract", "Reliever", "Locum"]),
       },
       { name: F.NewEmployees.CONTRACT_END, type: "date", options: dateOpts },
+      {
+        name: F.NewEmployees.CONFIRMATION_6MO,
+        type: "singleSelect",
+        options: choices(["Pending", "Confirmed", "Not Confirmed"]),
+      },
+      { name: F.NewEmployees.CONFIRMATION_6MO_AT, type: "date", options: dateOpts },
+      { name: F.NewEmployees.REQ_SUBMITTER_NAME, type: "singleLineText" },
+      { name: F.NewEmployees.REQ_SUBMITTER_EMAIL, type: "email" },
     ],
   },
   {
