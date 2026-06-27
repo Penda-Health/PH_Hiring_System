@@ -23,8 +23,7 @@ export const SO_DEPARTMENTS = [
   "IT & BI",
   "Growth & Brand",
   "Integrated Supply Chain, Facilities & Assets",
-  "Legal",
-  "Partnerships & Public Affairs",
+  "Partnerships & External Affairs",
   "Office of the CMO",
   "Office of the CEO",
 ] as const;
