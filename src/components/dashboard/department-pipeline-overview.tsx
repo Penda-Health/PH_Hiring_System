@@ -8,12 +8,12 @@ import { cn } from "@/lib/utils";
 
 const SEGMENTS: Segment[] = ["IPS", "SO"];
 
-// rgb triplets of the same colors used for IPS/SO elsewhere on the dashboard
-// (segment-split.tsx's donut, the ips/so Badge variants) so this widget reads
-// as the same segment at a glance.
+// Matches segment-split.tsx's donut colors (#0EA968 / #2563EB) — a brighter,
+// hue-distinct pair chosen because the brand ips/so Badge tokens are both
+// dark and desaturated, reading as near-identical at a glance.
 const SEGMENT_RGB: Record<Segment, string> = {
-  IPS: "8, 80, 65",
-  SO: "12, 68, 124",
+  IPS: "14, 169, 104",
+  SO: "37, 99, 235",
 };
 
 function groupByDepartment(openRoles: OpenRole[], segment: Segment) {

@@ -7,7 +7,9 @@ import { getSegmentSplit } from "@/lib/dashboard-metrics";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { DashboardFilterState, filterDashboardData } from "@/lib/dashboard-filters";
 
-const SEGMENT_COLORS: Record<string, string> = { IPS: "#085041", SO: "#0C447C" };
+// Brighter, hue-distinct pair than the brand ips/so Badge tokens (#085041/
+// #0C447C) — those two read as near-identical dark blobs at donut/dot size.
+const SEGMENT_COLORS: Record<string, string> = { IPS: "#0EA968", SO: "#2563EB" };
 
 export function SegmentSplit({ filters }: { filters: DashboardFilterState }) {
   const { openRoles, candidates, offers, workTrials, interviews, relievers, locums } = useRecruitmentData();
