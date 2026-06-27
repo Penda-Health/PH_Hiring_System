@@ -768,6 +768,40 @@ this system is the SMS-sending automations. When you're ready:
 
 ---
 
+## 7. AI assistant ("Penny")
+
+Penny (the floating chat button on the dashboard) calls one of three free-tier
+LLM providers, switchable per-conversation. Each is independent — set up as
+many as you want; a provider with no key just won't work if selected.
+
+**Data-safety design**: Penny's context is built only from aggregate metrics
+and a PII-free open-roles roster (`src/lib/ai/build-context.ts`) — candidate
+names, emails, and salaries are never sent to any provider, regardless of
+which one is selected.
+
+1. **Groq** (hosts Llama 3.3) — sign up at
+   [console.groq.com/keys](https://console.groq.com/keys), create a key, put
+   it in `GROQ_API_KEY`.
+2. **Gemini** — get a free key at
+   [aistudio.google.com/apikey](https://aistudio.google.com/apikey), put it
+   in `GOOGLE_GENERATIVE_AI_API_KEY`. Note: Google's free/AI-Studio tier ToS
+   allows prompt data to be used for product improvement (the paid/Vertex
+   tier does not) — acceptable here only because of the aggregate-only
+   context rule above.
+3. **Cloudflare Workers AI** — in the Cloudflare dashboard, your account ID is
+   in the URL (`dash.cloudflare.com/<account-id>/...`); put it in
+   `CLOUDFLARE_ACCOUNT_ID`. Create an API token under **My Profile → API
+   Tokens** scoped to Workers AI, put it in `CLOUDFLARE_API_TOKEN`.
+
+**Actions**: Penny can propose changing an open role's status (e.g. "mark
+IPS-014 as filled"). It always renders a Confirm/Cancel card first — nothing
+is applied until you confirm — and reuses the same `canEdit` permission check
+and Airtable-backed mutator the rest of the app uses, so Branch
+Manager/Contributor accounts see a "no permission" message instead of the
+change silently failing.
+
+---
+
 ## Quick reference: what's done vs. pending
 
 | Piece | Status |
@@ -781,3 +815,4 @@ this system is the SMS-sending automations. When you're ready:
 | Public requisition-request links + 6-month confirmation | ✅ section 4.5.3 (app side) / ⏳ you configure the 5 Airtable automations |
 | Make.com scenario blueprints | ⏳ next phase |
 | Africa's Talking SMS | ⏳ next phase |
+| AI assistant ("Penny") — Groq/Gemini/Cloudflare, agentic actions | ✅ section 7 (app side) / ⏳ you add the API keys |
