@@ -184,7 +184,6 @@ export default function PublicSoRequisitionRequestPage() {
             <div className="space-y-1.5">
               <Label>Role title</Label>
               <RoleTitleInput
-                listId="so-public-role-title-suggestions"
                 value={roleTitle}
                 onChange={setRoleTitle}
                 suggestions={roleTitleSuggestions}

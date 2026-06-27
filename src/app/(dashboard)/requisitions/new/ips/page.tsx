@@ -127,7 +127,6 @@ export default function NewIpsGapRequisitionPage() {
             <div className="space-y-1.5">
               <Label>Role title</Label>
               <RoleTitleInput
-                listId="ips-role-title-suggestions"
                 value={roleTitle}
                 onChange={setRoleTitle}
                 suggestions={roleTitleSuggestions}

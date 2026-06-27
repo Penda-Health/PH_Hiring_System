@@ -182,7 +182,6 @@ export default function PublicIpsRequisitionRequestPage() {
             <div className="space-y-1.5">
               <Label>Role title</Label>
               <RoleTitleInput
-                listId="ips-public-role-title-suggestions"
                 value={roleTitle}
                 onChange={setRoleTitle}
                 suggestions={roleTitleSuggestions}

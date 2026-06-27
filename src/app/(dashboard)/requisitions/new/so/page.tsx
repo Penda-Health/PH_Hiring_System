@@ -140,7 +140,6 @@ export default function NewSoRequisitionPage() {
             <div className="space-y-1.5">
               <Label>Role title</Label>
               <RoleTitleInput
-                listId="so-role-title-suggestions"
                 value={roleTitle}
                 onChange={setRoleTitle}
                 suggestions={roleTitleSuggestions}
