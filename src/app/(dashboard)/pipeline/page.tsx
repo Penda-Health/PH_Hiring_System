@@ -14,6 +14,7 @@ export default function PipelinePage() {
   const { candidates, openRoles, createCandidate } = useRecruitmentData();
   const [filters, setFilters] = React.useState<PipelineFilterState>({
     segment: "All",
+    department: "All",
     recruiter: "All",
     monthRange: "1",
   });
@@ -23,6 +24,7 @@ export default function PipelinePage() {
 
   const filteredRoles = openRoles.filter((role) => {
     if (filters.segment !== "All" && role.segment !== filters.segment) return false;
+    if (filters.department !== "All" && role.department !== filters.department) return false;
     if (filters.recruiter !== "All" && role.recruiter !== filters.recruiter) return false;
     if (!isRoleInMonthRange(role, filters.monthRange)) return false;
     return true;

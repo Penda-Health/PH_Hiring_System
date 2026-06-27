@@ -6,6 +6,7 @@ import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 
 export interface PipelineFilterState {
   segment: "All" | "IPS" | "SO";
+  department: string;
   recruiter: string;
   monthRange: MonthRangeOption;
 }
@@ -19,12 +20,21 @@ export function PipelineFilters({
 }) {
   const { openRoles } = useRecruitmentData();
   const uniqueRecruiters = getUniqueRecruiters(openRoles);
+  const departments = Array.from(
+    new Set(
+      openRoles
+        .filter((r) => filters.segment === "All" || r.segment === filters.segment)
+        .map((r) => r.department)
+    )
+  ).sort();
 
   return (
     <div className="flex flex-wrap gap-3">
       <Select
         value={filters.segment}
-        onValueChange={(v) => onChange({ ...filters, segment: v as PipelineFilterState["segment"] })}
+        onValueChange={(v) =>
+          onChange({ ...filters, segment: v as PipelineFilterState["segment"], department: "All" })
+        }
       >
         <SelectTrigger className="w-36">
           <SelectValue placeholder="Segment" />
@@ -33,6 +43,23 @@ export function PipelineFilters({
           <SelectItem value="All">All Segments</SelectItem>
           <SelectItem value="IPS">IPS</SelectItem>
           <SelectItem value="SO">SO</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.department}
+        onValueChange={(v) => onChange({ ...filters, department: v })}
+      >
+        <SelectTrigger className="w-44">
+          <SelectValue placeholder="Department" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="All">All Departments</SelectItem>
+          {departments.map((d) => (
+            <SelectItem key={d} value={d}>
+              {d}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
 
