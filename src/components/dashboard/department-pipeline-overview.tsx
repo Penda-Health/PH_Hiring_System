@@ -8,6 +8,14 @@ import { cn } from "@/lib/utils";
 
 const SEGMENTS: Segment[] = ["IPS", "SO"];
 
+// rgb triplets of the same colors used for IPS/SO elsewhere on the dashboard
+// (segment-split.tsx's donut, the ips/so Badge variants) so this widget reads
+// as the same segment at a glance.
+const SEGMENT_RGB: Record<Segment, string> = {
+  IPS: "8, 80, 65",
+  SO: "12, 68, 124",
+};
+
 function groupByDepartment(openRoles: OpenRole[], segment: Segment) {
   // "Open" only, matching the dashboard-wide HC Remaining convention
   // (dashboard-metrics.ts) — Allocated/On Hold/Filled/Cancelled are excluded.
@@ -43,7 +51,7 @@ export function DepartmentPipelineOverview() {
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <CardTitle>Pipeline by Department</CardTitle>
-          <span className="rounded-full border border-penda-teal/30 bg-penda-teal/10 px-2.5 py-1 text-xs font-semibold text-penda-teal">
+          <span className="rounded-full bg-penda-teal px-2.5 py-1 text-xs font-semibold text-white">
             {totalOpen} open
           </span>
         </div>
@@ -79,6 +87,7 @@ export function DepartmentPipelineOverview() {
               roles={d.roles}
               widthPct={widthPct}
               opacity={opacity}
+              rgb={SEGMENT_RGB[segment]}
             />
           );
         })}
@@ -93,12 +102,14 @@ function DepartmentBar({
   roles,
   widthPct,
   opacity,
+  rgb,
 }: {
   department: string;
   total: number;
   roles: { title: string; count: number }[];
   widthPct: number;
   opacity: number;
+  rgb: string;
 }) {
   const [hovered, setHovered] = React.useState(false);
   const [roleIndex, setRoleIndex] = React.useState(0);
@@ -124,7 +135,7 @@ function DepartmentBar({
     >
       <div
         className="flex items-center justify-between gap-3 rounded-md px-3 py-2 text-white transition-transform"
-        style={{ backgroundColor: `rgba(0, 91, 94, ${opacity})` }}
+        style={{ backgroundColor: `rgba(${rgb}, ${opacity})` }}
       >
         <span className="truncate text-sm font-medium">{department}</span>
         <span className="text-sm font-semibold shrink-0">{total}</span>
