@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 const SEGMENTS: Segment[] = ["IPS", "SO"];
 
 function groupByDepartment(openRoles: OpenRole[], segment: Segment) {
-  const active = openRoles.filter(
-    (r) => r.segment === segment && r.status !== "Filled" && r.status !== "Cancelled"
-  );
+  // "Open" only, matching the dashboard-wide HC Remaining convention
+  // (dashboard-metrics.ts) — Allocated/On Hold/Filled/Cancelled are excluded.
+  const active = openRoles.filter((r) => r.segment === segment && r.status === "Open");
   const byDept = new Map<string, Map<string, number>>();
   for (const role of active) {
     // A role record can have multiple unfilled slots (e.g. hcApproved: 2,

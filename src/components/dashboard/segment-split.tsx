@@ -16,43 +16,47 @@ export function SegmentSplit({ filters }: { filters: DashboardFilterState }) {
     filters
   );
   const splits = getSegmentSplit(filtered.openRoles, filtered.candidates);
-  const total = splits.reduce((sum, s) => sum + s.candidateCount, 0);
+  const totalOpen = splits.reduce((sum, s) => sum + s.openRoleCount, 0);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>IPS vs SO Pipeline Split</CardTitle>
+        <CardTitle>IPS vs SO Pipeline Overview</CardTitle>
       </CardHeader>
-      <CardContent className="flex items-center gap-4">
-        <div className="relative h-32 w-32 shrink-0">
+      <CardContent className="flex items-center gap-6">
+        <div className="relative h-36 w-36 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={splits}
-                dataKey="candidateCount"
+                dataKey="openRoleCount"
                 nameKey="segment"
-                innerRadius={36}
-                outerRadius={56}
-                paddingAngle={2}
+                innerRadius={44}
+                outerRadius={64}
+                paddingAngle={4}
+                cornerRadius={6}
+                stroke="none"
               >
                 {splits.map((s) => (
                   <Cell key={s.segment} fill={SEGMENT_COLORS[s.segment]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-lg font-semibold">{total}</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span className="text-2xl font-bold leading-none">{totalOpen}</span>
+            <span className="text-[11px] text-muted-foreground">open roles</span>
           </div>
         </div>
-        <div className="flex-1 space-y-2">
-          {splits.map(({ segment, candidateCount, openRoleCount }) => (
-            <div key={segment} className="flex items-center justify-between text-sm">
+        <div className="flex-1 space-y-3">
+          {splits.map(({ segment }) => (
+            <div key={segment} className="flex items-center gap-3">
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: SEGMENT_COLORS[segment] }}
+              />
               <Badge variant={segment === "IPS" ? "ips" : "so"}>{segment}</Badge>
-              <span className="text-muted-foreground">
-                {candidateCount} in pipeline · {openRoleCount} open
-              </span>
             </div>
           ))}
         </div>
