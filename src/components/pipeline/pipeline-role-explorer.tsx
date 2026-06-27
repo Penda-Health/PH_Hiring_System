@@ -44,6 +44,7 @@ export function PipelineRoleExplorer({
 
   const sorted = [...roles].sort(compareRoleGroups);
   const groups = groupRoles(sorted);
+  const allocatedCount = groups.find((g) => g.group === "Allocated")?.roles.length ?? 0;
 
   return (
     <div className="space-y-6">
@@ -55,7 +56,10 @@ export function PipelineRoleExplorer({
             {group}{" "}
             <span className="font-normal">
               ({hc.roleCount} role{hc.roleCount === 1 ? "" : "s"} · {hc.filled}/{hc.approved} HC filled
-              {hc.remaining > 0 ? `, ${hc.remaining} open` : ""})
+              {hc.remaining > 0 ? `, ${hc.remaining} open` : ""}
+              {group === "Open" && allocatedCount > 0
+                ? `, ${allocatedCount} allocated (pending join)`
+                : ""})
             </span>
           </h2>
           {view === "list" ? (
