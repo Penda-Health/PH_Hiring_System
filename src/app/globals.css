@@ -47,6 +47,35 @@
     --input: 200 20% 22%;
     --ring: 162 65% 55%;
   }
+
+  /*
+   * Public, no-login forms (FormShell) always render in light mode, even if
+   * the visitor's OS/browser prefers dark — they're shared externally (email,
+   * Slack) and the page's hardcoded light gradient background doesn't switch,
+   * so letting --foreground etc. flip dark here produced unreadable
+   * light-on-light text and near-black inputs.
+   */
+  .light {
+    --background: 165 100% 99%;
+    --foreground: 192 60% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 192 60% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 192 60% 13%;
+    --primary: 182 100% 18%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 162 50% 84%;
+    --secondary-foreground: 192 60% 13%;
+    --muted: 165 40% 96%;
+    --muted-foreground: 192 15% 40%;
+    --accent: 162 50% 90%;
+    --accent-foreground: 192 60% 13%;
+    --destructive: 0 65% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 165 25% 88%;
+    --input: 165 25% 88%;
+    --ring: 182 100% 18%;
+  }
 }
 
 @layer base {
