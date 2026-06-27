@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormShell, FormMessage } from "@/components/forms/form-shell";
+import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 
 const SO_TYPES: { value: RequisitionType; label: string; description: string }[] = [
   { value: "SO New Role", label: "New Role", description: "A brand-new support office role that doesn't replace anyone" },
@@ -45,6 +46,14 @@ export default function PublicSoRequisitionRequestPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [roleTitleSuggestions, setRoleTitleSuggestions] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    fetch("/api/public/requisition-request?segment=SO")
+      .then((res) => res.json())
+      .then((body) => setRoleTitleSuggestions(body.roleTitles ?? []))
+      .catch(() => {});
+  }, []);
 
   const isNewRole = type === "SO New Role";
 
@@ -174,7 +183,13 @@ export default function PublicSoRequisitionRequestPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Role title</Label>
-              <Input value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} required />
+              <RoleTitleInput
+                listId="so-public-role-title-suggestions"
+                value={roleTitle}
+                onChange={setRoleTitle}
+                suggestions={roleTitleSuggestions}
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Department</Label>

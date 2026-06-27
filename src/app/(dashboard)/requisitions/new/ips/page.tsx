@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 
 const GAP_REASONS: { value: GapReason; label: string; description: string }[] = [
   { value: "Transfer", label: "Transfer", description: "Employee moved to a different branch or department" },
@@ -20,18 +21,22 @@ const GAP_REASONS: { value: GapReason; label: string; description: string }[] = 
   { value: "New Addition", label: "New Addition", description: "A brand new headcount, not a replacement" },
 ];
 
-const IPS_ROLES = ["Nurse", "Clinical Officer", "Pharmacist", "Lab Technician", "Pharmacy Technician", "Other"];
+const IPS_ROLES = ["Nurse", "Clinical Officer", "Pharmacist", "Lab Technician", "Pharmacy Technician"];
 const EMPLOYMENT_TYPES: EmploymentType[] = ["Full-time", "Part-time", "Contract", "Reliever", "Locum"];
 const URGENCIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 
 export default function NewIpsGapRequisitionPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { createRequisition, branches } = useRecruitmentData();
+  const { createRequisition, branches, openRoles } = useRecruitmentData();
+
+  const roleTitleSuggestions = React.useMemo(() => {
+    const existing = openRoles.filter((r) => r.segment === "IPS").map((r) => r.title);
+    return Array.from(new Set([...IPS_ROLES, ...existing])).sort((a, b) => a.localeCompare(b));
+  }, [openRoles]);
 
   const [gapReason, setGapReason] = React.useState<GapReason>("New Addition");
-  const [roleTitle, setRoleTitle] = React.useState(IPS_ROLES[0]);
-  const [customRoleTitle, setCustomRoleTitle] = React.useState("");
+  const [roleTitle, setRoleTitle] = React.useState("");
   const [department, setDepartment] = React.useState("");
   const [branchId, setBranchId] = React.useState(branches[0]?.id ?? "");
   const [employmentType, setEmploymentType] = React.useState<EmploymentType>("Full-time");
@@ -46,8 +51,7 @@ export default function NewIpsGapRequisitionPage() {
     if (!branchId && branches[0]) setBranchId(branches[0].id);
   }, [branches, branchId]);
 
-  const finalRoleTitle = roleTitle === "Other" ? customRoleTitle : roleTitle;
-  const canSubmit = finalRoleTitle.trim() && department.trim() && branchId && context.trim().length >= 20;
+  const canSubmit = roleTitle.trim() && department.trim() && branchId && context.trim().length >= 20;
 
   async function handleSubmit() {
     setError(null);
@@ -55,7 +59,7 @@ export default function NewIpsGapRequisitionPage() {
       id: `req-${Date.now()}`,
       reqId: "",
       type: "IPS Gap",
-      roleTitle: finalRoleTitle,
+      roleTitle: roleTitle.trim(),
       department,
       segment: "IPS",
       gapReason,
@@ -122,26 +126,13 @@ export default function NewIpsGapRequisitionPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Role title</Label>
-              <Select value={roleTitle} onValueChange={setRoleTitle}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {IPS_ROLES.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {r}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {roleTitle === "Other" && (
-                <Input
-                  className="mt-2"
-                  placeholder="Enter role title"
-                  value={customRoleTitle}
-                  onChange={(e) => setCustomRoleTitle(e.target.value)}
-                />
-              )}
+              <RoleTitleInput
+                listId="ips-role-title-suggestions"
+                value={roleTitle}
+                onChange={setRoleTitle}
+                suggestions={roleTitleSuggestions}
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Department</Label>

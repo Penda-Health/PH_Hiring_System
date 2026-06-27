@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormShell, FormMessage } from "@/components/forms/form-shell";
+import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 
 const GAP_REASONS: { value: GapReason; label: string; description: string }[] = [
   { value: "Transfer", label: "Transfer", description: "Employee moved to a different branch or department" },
@@ -17,7 +18,7 @@ const GAP_REASONS: { value: GapReason; label: string; description: string }[] = 
   { value: "New Addition", label: "New Addition", description: "A brand new headcount, not a replacement" },
 ];
 
-const IPS_ROLES = ["Nurse", "Clinical Officer", "Pharmacist", "Lab Technician", "Pharmacy Technician", "Other"];
+const IPS_ROLES = ["Nurse", "Clinical Officer", "Pharmacist", "Lab Technician", "Pharmacy Technician"];
 const EMPLOYMENT_TYPES: EmploymentType[] = ["Full-time", "Part-time", "Contract", "Reliever", "Locum"];
 const URGENCIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 const PENDA_EMAIL_DOMAIN = "@pendahealth.com";
@@ -27,6 +28,7 @@ type Branch = { id: string; name: string; city: string };
 export default function PublicIpsRequisitionRequestPage() {
   const [branches, setBranches] = React.useState<Branch[]>([]);
   const [branchesLoading, setBranchesLoading] = React.useState(true);
+  const [roleTitleSuggestions, setRoleTitleSuggestions] = React.useState<string[]>(IPS_ROLES);
 
   const [submitterName, setSubmitterName] = React.useState("");
   const [submitterEmail, setSubmitterEmail] = React.useState("");
@@ -34,8 +36,7 @@ export default function PublicIpsRequisitionRequestPage() {
   const [honeypot, setHoneypot] = React.useState("");
 
   const [gapReason, setGapReason] = React.useState<GapReason>("New Addition");
-  const [roleTitle, setRoleTitle] = React.useState(IPS_ROLES[0]);
-  const [customRoleTitle, setCustomRoleTitle] = React.useState("");
+  const [roleTitle, setRoleTitle] = React.useState("");
   const [department, setDepartment] = React.useState("");
   const [branchId, setBranchId] = React.useState("");
   const [employmentType, setEmploymentType] = React.useState<EmploymentType>("Full-time");
@@ -49,22 +50,22 @@ export default function PublicIpsRequisitionRequestPage() {
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    fetch("/api/public/requisition-request")
+    fetch("/api/public/requisition-request?segment=IPS")
       .then((res) => res.json())
       .then((body) => {
         setBranches(body.branches ?? []);
         if (body.branches?.[0]) setBranchId(body.branches[0].id);
+        setRoleTitleSuggestions(Array.from(new Set([...IPS_ROLES, ...(body.roleTitles ?? [])])).sort((a, b) => a.localeCompare(b)));
       })
       .finally(() => setBranchesLoading(false));
   }, []);
 
-  const finalRoleTitle = roleTitle === "Other" ? customRoleTitle : roleTitle;
   const emailValid = submitterEmail.trim().toLowerCase().endsWith(PENDA_EMAIL_DOMAIN);
   const canSubmit =
     submitterName.trim() &&
     emailValid &&
     submitterRole.trim() &&
-    finalRoleTitle.trim() &&
+    roleTitle.trim() &&
     department.trim() &&
     branchId &&
     context.trim().length >= 20;
@@ -82,7 +83,7 @@ export default function PublicIpsRequisitionRequestPage() {
           submitterRole,
           honeypot,
           type: "IPS Gap",
-          roleTitle: finalRoleTitle,
+          roleTitle: roleTitle.trim(),
           department,
           segment: "IPS",
           gapReason,
@@ -180,26 +181,13 @@ export default function PublicIpsRequisitionRequestPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Role title</Label>
-              <Select value={roleTitle} onValueChange={setRoleTitle}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {IPS_ROLES.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {r}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {roleTitle === "Other" && (
-                <Input
-                  className="mt-2"
-                  placeholder="Enter role title"
-                  value={customRoleTitle}
-                  onChange={(e) => setCustomRoleTitle(e.target.value)}
-                />
-              )}
+              <RoleTitleInput
+                listId="ips-public-role-title-suggestions"
+                value={roleTitle}
+                onChange={setRoleTitle}
+                suggestions={roleTitleSuggestions}
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Department</Label>

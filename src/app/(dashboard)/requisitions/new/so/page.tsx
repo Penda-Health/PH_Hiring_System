@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 
 const SO_TYPES: { value: RequisitionType; label: string; description: string }[] = [
   { value: "SO New Role", label: "New Role", description: "A brand-new support office role that doesn't replace anyone" },
@@ -28,7 +29,12 @@ const REPLACEMENT_CHAIN = ["Hiring Manager", "HOD", "Director of People"];
 export default function NewSoRequisitionPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { createRequisition } = useRecruitmentData();
+  const { createRequisition, openRoles } = useRecruitmentData();
+
+  const roleTitleSuggestions = React.useMemo(
+    () => Array.from(new Set(openRoles.filter((r) => r.segment === "SO").map((r) => r.title))).sort((a, b) => a.localeCompare(b)),
+    [openRoles]
+  );
 
   const [type, setType] = React.useState<RequisitionType>("SO New Role");
   const [roleTitle, setRoleTitle] = React.useState("");
@@ -133,7 +139,13 @@ export default function NewSoRequisitionPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Role title</Label>
-              <Input value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} required />
+              <RoleTitleInput
+                listId="so-role-title-suggestions"
+                value={roleTitle}
+                onChange={setRoleTitle}
+                suggestions={roleTitleSuggestions}
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Department</Label>

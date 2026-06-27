@@ -6,8 +6,14 @@
 // already happened over email before the link was shared.
 import { createRecord, listRecords } from "@/lib/airtable/client";
 import { TABLE_NAMES } from "@/lib/airtable/field-names";
-import { branchFromAirtable, requisitionFromAirtable, requisitionToAirtable, openRoleToAirtable } from "@/lib/airtable/mappers";
-import { Requisition } from "@/types";
+import {
+  branchFromAirtable,
+  openRoleFromAirtable,
+  requisitionFromAirtable,
+  requisitionToAirtable,
+  openRoleToAirtable,
+} from "@/lib/airtable/mappers";
+import { Requisition, Segment } from "@/types";
 import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
 
 export async function loadActiveBranches(): Promise<{ id: string; name: string; city: string }[]> {
@@ -17,6 +23,13 @@ export async function loadActiveBranches(): Promise<{ id: string; name: string; 
     .filter((b) => b.active)
     .map((b) => ({ id: b.id, name: b.name, city: b.city }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Distinct existing Open Role titles for a segment, used to power role-title autocomplete suggestions. */
+export async function loadRoleTitleSuggestions(segment: Segment): Promise<string[]> {
+  const records = await listRecords(TABLE_NAMES.OpenRoles);
+  const titles = records.map(openRoleFromAirtable).filter((r) => r.segment === segment).map((r) => r.title);
+  return Array.from(new Set(titles)).sort((a, b) => a.localeCompare(b));
 }
 
 /**

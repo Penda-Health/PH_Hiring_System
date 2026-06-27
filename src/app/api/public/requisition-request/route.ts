@@ -5,12 +5,13 @@
 // every valid POST here creates an already-approved Requisition + Open Role.
 import { NextRequest, NextResponse } from "next/server";
 import { publicRequisitionRequestSchema } from "@/lib/airtable/schemas";
-import { loadActiveBranches, submitPublicRequisitionRequest } from "@/lib/forms/requisition-request-form";
+import { loadActiveBranches, loadRoleTitleSuggestions, submitPublicRequisitionRequest } from "@/lib/forms/requisition-request-form";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const branches = await loadActiveBranches();
-    return NextResponse.json({ branches });
+    const segment = request.nextUrl.searchParams.get("segment") === "SO" ? "SO" : "IPS";
+    const [branches, roleTitles] = await Promise.all([loadActiveBranches(), loadRoleTitleSuggestions(segment)]);
+    return NextResponse.json({ branches, roleTitles });
   } catch (err) {
     console.error("[api/public/requisition-request] GET failed:", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
