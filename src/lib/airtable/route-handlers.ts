@@ -14,16 +14,20 @@ type ToAirtable<T> = (entity: Partial<T>) => Record<string, unknown>;
 // sessions). Computed from the current max value in the field on each
 // create — good enough for this app's write volume, not a distributed
 // sequence guarantee.
-export type GenIdConfig = {
+export type GenIdConfig<T = unknown> = {
   airtableField: string;
-  prefix: string;
+  // A static prefix (e.g. "REQ"), or a function deriving it from the
+  // request body — used when the same table mints IDs under different
+  // prefixes depending on a field (e.g. OpenRoles: "IPS-001" vs "SO-001").
+  prefix: string | ((body: Partial<T>) => string);
   pad?: number;
   min?: number;
 };
 
-async function nextSequentialId(tableName: string, config: GenIdConfig): Promise<string> {
+async function nextSequentialId<T>(tableName: string, config: GenIdConfig<T>, body: Partial<T>): Promise<string> {
+  const prefix = typeof config.prefix === "function" ? config.prefix(body) : config.prefix;
   const records = await listRecords(tableName);
-  const pattern = new RegExp(`^${config.prefix}-(\\d+)$`, "i");
+  const pattern = new RegExp(`^${prefix}-(\\d+)$`, "i");
   let max = (config.min ?? 1) - 1;
   for (const record of records) {
     const value = record.fields[config.airtableField];
@@ -32,7 +36,7 @@ async function nextSequentialId(tableName: string, config: GenIdConfig): Promise
   }
   const next = max + 1;
   const numStr = config.pad ? String(next).padStart(config.pad, "0") : String(next);
-  return `${config.prefix}-${numStr}`;
+  return `${prefix}-${numStr}`;
 }
 
 function errorResponse(err: unknown, context: string) {
@@ -51,7 +55,7 @@ export function makeCollectionHandlers<T>(
   tableName: string,
   fromAirtable: FromAirtable<T>,
   toAirtable: ToAirtable<T>,
-  options?: { schema?: z.ZodObject; genId?: GenIdConfig }
+  options?: { schema?: z.ZodObject; genId?: GenIdConfig<T> }
 ) {
   async function GET() {
     try {
@@ -75,7 +79,7 @@ export function makeCollectionHandlers<T>(
       }
       const fields = toAirtable(body);
       if (options?.genId) {
-        fields[options.genId.airtableField] = await nextSequentialId(tableName, options.genId);
+        fields[options.genId.airtableField] = await nextSequentialId(tableName, options.genId, body);
       }
       const record = await createRecord(tableName, fields);
       return NextResponse.json(fromAirtable(record), { status: 201 });

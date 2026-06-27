@@ -24,7 +24,8 @@ export function buildOpenRoleFromRequisition(
   const submittedByName = req.submitterName || req.submittedBy;
 
   return {
-    roleId: `OR-${req.reqId.replace(/^REQ-?/i, "")}`,
+    // roleId is server-assigned on POST /api/open-roles (segment-prefixed,
+    // e.g. "IPS-001"/"SO-001" matching the existing Airtable convention).
     title: req.roleTitle,
     segment: req.segment,
     department: req.department,

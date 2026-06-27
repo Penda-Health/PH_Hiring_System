@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { AiAssistantLauncher } from "@/components/dashboard/ai-assistant-launcher";
 import { useAuth } from "@/lib/auth/auth-context";
 import { RecruitmentDataProvider, useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { Spinner } from "@/components/ui/spinner";
@@ -62,6 +63,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <DataLoadingGate>{children}</DataLoadingGate>
           </main>
         </div>
+        <AiAssistantLauncher />
       </div>
     </RecruitmentDataProvider>
   );

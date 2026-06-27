@@ -5,7 +5,7 @@ import { MetricsGrid, OVERVIEW_METRIC_NAMES, DETAIL_METRIC_NAMES, getMetricValue
 import { PipelineBreakdown } from "@/components/dashboard/pipeline-breakdown";
 import { SegmentSplit } from "@/components/dashboard/segment-split";
 import { RateGauge } from "@/components/dashboard/rate-gauge";
-import { AiSummaryCard } from "@/components/dashboard/ai-summary-card";
+import { DepartmentPipelineOverview } from "@/components/dashboard/department-pipeline-overview";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,7 +62,7 @@ export default function DashboardPage() {
         <TabsContent value="details" className="space-y-4">
           <MetricsGrid metrics={metrics} names={DETAIL_METRIC_NAMES} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <AiSummaryCard />
+            <DepartmentPipelineOverview />
             <ActivityFeed />
           </div>
         </TabsContent>

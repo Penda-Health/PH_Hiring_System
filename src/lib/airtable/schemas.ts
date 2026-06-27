@@ -82,7 +82,7 @@ export const publicRequisitionRequestSchema = requisitionSchema
   });
 
 export const openRoleSchema = z.object({
-  roleId: z.string().min(1),
+  roleId: z.string().optional(),
   title: z.string().min(1),
   segment,
   department: z.string().min(1),
