@@ -43,7 +43,9 @@ export function DepartmentPipelineOverview() {
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <CardTitle>Pipeline by Department</CardTitle>
-          <span className="text-sm font-medium text-muted-foreground">{totalOpen} open</span>
+          <span className="rounded-full border border-penda-teal/30 bg-penda-teal/10 px-2.5 py-1 text-xs font-semibold text-penda-teal">
+            {totalOpen} open
+          </span>
         </div>
         <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
           {SEGMENTS.map((s) => (
@@ -70,21 +72,75 @@ export function DepartmentPipelineOverview() {
           const widthPct = Math.max((d.total / maxTotal) * 100, 14);
           const opacity = 1 - i * (0.5 / departments.length);
           return (
-            <div key={d.department} className="space-y-1 text-center">
-              <div
-                className="mx-auto flex items-center justify-between gap-3 rounded-md px-3 py-2 text-white"
-                style={{ width: `${widthPct}%`, minWidth: "9rem", backgroundColor: `rgba(0, 91, 94, ${opacity})` }}
-              >
-                <span className="truncate text-sm font-medium">{d.department}</span>
-                <span className="text-sm font-semibold shrink-0">{d.total}</span>
-              </div>
-              <p className="truncate text-xs text-muted-foreground">
-                {d.roles.map((r) => `${r.title} (${r.count})`).join(" · ")}
-              </p>
-            </div>
+            <DepartmentBar
+              key={d.department}
+              department={d.department}
+              total={d.total}
+              roles={d.roles}
+              widthPct={widthPct}
+              opacity={opacity}
+            />
           );
         })}
       </CardContent>
     </Card>
+  );
+}
+
+function DepartmentBar({
+  department,
+  total,
+  roles,
+  widthPct,
+  opacity,
+}: {
+  department: string;
+  total: number;
+  roles: { title: string; count: number }[];
+  widthPct: number;
+  opacity: number;
+}) {
+  const [hovered, setHovered] = React.useState(false);
+  const [roleIndex, setRoleIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!hovered || roles.length <= 1) return;
+    const id = setInterval(() => setRoleIndex((idx) => (idx + 1) % roles.length), 1600);
+    return () => clearInterval(id);
+  }, [hovered, roles.length]);
+
+  React.useEffect(() => {
+    if (!hovered) setRoleIndex(0);
+  }, [hovered]);
+
+  const activeRole = roles[roleIndex];
+
+  return (
+    <div
+      className="relative mx-auto text-center"
+      style={{ width: `${widthPct}%`, minWidth: "9rem" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div
+        className="flex items-center justify-between gap-3 rounded-md px-3 py-2 text-white transition-transform"
+        style={{ backgroundColor: `rgba(0, 91, 94, ${opacity})` }}
+      >
+        <span className="truncate text-sm font-medium">{department}</span>
+        <span className="text-sm font-semibold shrink-0">{total}</span>
+      </div>
+      <div
+        className={cn(
+          "overflow-hidden transition-all duration-300 ease-out",
+          hovered ? "mt-1 max-h-6 opacity-100" : "max-h-0 opacity-0"
+        )}
+      >
+        {activeRole && (
+          <p key={`${department}-${roleIndex}`} className="truncate text-xs text-muted-foreground animate-in fade-in slide-in-from-bottom-1">
+            {activeRole.title} ({activeRole.count})
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
