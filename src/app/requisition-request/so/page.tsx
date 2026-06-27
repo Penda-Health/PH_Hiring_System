@@ -125,7 +125,7 @@ export default function PublicSoRequisitionRequestPage() {
   return (
     <FormShell
       title="Support Office Requisition Request"
-      subtitle="Use this link once the role's budget evaluation and approval are complete over email."
+      subtitle="Use this link once the role's budget evaluation and approval are complete."
     >
       <div className="space-y-6">
         <div className="space-y-4 rounded-lg border border-border p-4">

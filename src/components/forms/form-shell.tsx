@@ -17,9 +17,9 @@ export function FormShell({
           <Image
             src="/assets/logo.webp"
             alt="Penda Health"
-            width={150}
-            height={60}
-            className="h-12 w-auto self-start shrink-0 mb-1"
+            width={180}
+            height={72}
+            className="h-[72px] w-auto self-center shrink-0 mb-1"
             priority
           />
           <CardTitle className="text-2xl text-foreground">{title}</CardTitle>

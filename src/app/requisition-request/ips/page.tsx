@@ -124,7 +124,7 @@ export default function PublicIpsRequisitionRequestPage() {
   return (
     <FormShell
       title="IPS Gap Requisition Request"
-      subtitle="Use this link once the role's approval is complete over email."
+      subtitle="Use this link once the role's approval is complete."
     >
       <div className="space-y-6">
         <div className="space-y-4 rounded-lg border border-border p-4">
