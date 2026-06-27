@@ -22,11 +22,13 @@ export function MeetingNotesPanel({
   canEdit,
   onAddNote,
   onResolveNote,
+  onDeleteNote,
 }: {
   notes: IpsMeetingNote[];
   canEdit: boolean;
   onAddNote: (noteType: IpsNoteType, body: string) => void;
   onResolveNote: (noteId: string) => void;
+  onDeleteNote: (noteId: string) => void;
 }) {
   const [noteType, setNoteType] = React.useState<IpsNoteType>("General");
   const [body, setBody] = React.useState("");
@@ -63,10 +65,24 @@ export function MeetingNotesPanel({
                       </p>
                     )}
                   </div>
-                  {canEdit && !note.resolved && (note.noteType === "Action" || note.noteType === "Risk") && (
-                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => onResolveNote(note.id)}>
-                      Resolve
-                    </Button>
+                  {canEdit && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {!note.resolved && (note.noteType === "Action" || note.noteType === "Risk") && (
+                        <Button size="sm" variant="outline" onClick={() => onResolveNote(note.id)}>
+                          Resolve
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => {
+                          if (window.confirm("Delete this note? This can't be undone.")) onDeleteNote(note.id);
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   )}
                 </li>
               );

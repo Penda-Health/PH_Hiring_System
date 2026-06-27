@@ -240,6 +240,12 @@ export async function resolveNote(supabase: SupabaseClient, noteId: string): Pro
   return { ok: true };
 }
 
+export async function deleteNote(supabase: SupabaseClient, noteId: string): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.from("ips_meeting_notes").delete().eq("id", noteId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export async function fetchBoardEditors(supabase: SupabaseClient): Promise<IpsBoardEditor[]> {
   const { data, error } = await supabase
     .from("ips_board_editors")

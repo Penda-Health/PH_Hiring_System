@@ -2,7 +2,7 @@ import { ClipboardList, CheckCircle2, AlertTriangle, ShieldAlert, Flame } from "
 import { KpiStrip, type KpiTileData } from "@/components/dashboard/kpi-strip";
 import { IpsAllocation } from "@/lib/supabase/ips-meetings";
 
-export function SummaryBar({ allocations, unmappedCount }: { allocations: IpsAllocation[]; unmappedCount: number }) {
+export function SummaryBar({ allocations }: { allocations: IpsAllocation[] }) {
   const total = allocations.length;
   const allocated = allocations.filter((a) => a.candidateId).length;
   const unallocated = total - allocated;
@@ -20,11 +20,6 @@ export function SummaryBar({ allocations, unmappedCount }: { allocations: IpsAll
   return (
     <div className="space-y-2">
       <KpiStrip tiles={tiles} columns={4} />
-      {unmappedCount > 0 && (
-        <p className="text-xs text-muted-foreground">
-          {unmappedCount} open IPS role{unmappedCount === 1 ? "" : "s"} excluded — no role-group mapping yet.
-        </p>
-      )}
     </div>
   );
 }

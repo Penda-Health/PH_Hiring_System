@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Penda✨ Hiring System",
+  title: "Penda✨ Hiring",
   description: "Penda Health Talent Acquisition platform",
   icons: {
     icon: [

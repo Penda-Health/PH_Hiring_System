@@ -1,12 +1,13 @@
 import { Candidate, CandidateStage, OpenRole } from "@/types";
 
-export type IpsRoleGroup = "CO" | "Nurses" | "PharmTech" | "Sonographer" | "COHO" | "Labtech";
+export type IpsRoleGroup = "CO" | "Nurses" | "PharmTech" | "Sonographer" | "COHO" | "Labtech" | "Other";
 
-export const IPS_ROLE_GROUPS: IpsRoleGroup[] = ["CO", "Nurses", "PharmTech", "Sonographer", "COHO", "Labtech"];
+export const IPS_ROLE_GROUPS: IpsRoleGroup[] = ["CO", "Nurses", "PharmTech", "Sonographer", "COHO", "Labtech", "Other"];
 
 // No real OpenRole.title in Airtable maps to "Sonographer" yet — that group
 // stays empty in the "By role" view until Airtable has a matching role.
-// Add the title here once it exists.
+// Add the title here once it exists. Any title not listed here falls into
+// "Other" rather than being dropped from the board (see deriveIpsSlots).
 const TITLE_TO_GROUP: Record<string, IpsRoleGroup> = {
   "Clinical Officer": "CO",
   Nurse: "Nurses",
@@ -15,8 +16,8 @@ const TITLE_TO_GROUP: Record<string, IpsRoleGroup> = {
   COHO: "COHO",
 };
 
-export function getRoleGroup(title: string): IpsRoleGroup | null {
-  return TITLE_TO_GROUP[title] ?? null;
+export function getRoleGroup(title: string): IpsRoleGroup {
+  return TITLE_TO_GROUP[title] ?? "Other";
 }
 
 export interface IpsAllocationSlot {
@@ -28,22 +29,17 @@ export interface IpsAllocationSlot {
 }
 
 /** Derives the role-slots that need IPS meeting coverage from current Airtable OpenRoles. */
-export function deriveIpsSlots(openRoles: OpenRole[]): { slots: IpsAllocationSlot[]; unmappedCount: number } {
+export function deriveIpsSlots(openRoles: OpenRole[]): { slots: IpsAllocationSlot[] } {
   const slots: IpsAllocationSlot[] = [];
-  let unmappedCount = 0;
 
   for (const role of openRoles) {
     if (role.segment !== "IPS" || !role.branchId) continue;
     if (role.status === "Filled" || role.status === "Cancelled") continue;
     const roleGroup = getRoleGroup(role.title);
-    if (!roleGroup) {
-      unmappedCount += 1;
-      continue;
-    }
     slots.push({ openRoleId: role.id, branchId: role.branchId, roleGroup, priority: role.priority, title: role.title });
   }
 
-  return { slots, unmappedCount };
+  return { slots };
 }
 
 // Excludes Hired/Rejected/Withdrawn — Backup Pool candidates stay selectable

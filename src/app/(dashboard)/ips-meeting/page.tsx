@@ -6,6 +6,7 @@ import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   createNote,
+  deleteNote,
   fetchAllocations,
   fetchBoardEditors,
   fetchLatestMeeting,
@@ -70,7 +71,7 @@ export default function IpsMeetingPage() {
   }, [loadAll]);
 
   // Seed any open IPS role from Airtable that doesn't yet have a slot in the current meeting.
-  const { slots, unmappedCount } = React.useMemo(() => deriveIpsSlots(openRoles), [openRoles]);
+  const { slots } = React.useMemo(() => deriveIpsSlots(openRoles), [openRoles]);
   React.useEffect(() => {
     if (!meeting || !canEdit) return;
     const existingRoleIds = new Set(allocations.map((a) => a.openRoleId));
@@ -143,6 +144,13 @@ export default function IpsMeetingPage() {
     await resolveNote(supabase, noteId);
   }
 
+  async function handleDeleteNote(noteId: string) {
+    const supabase = createSupabaseBrowserClient();
+    if (!supabase) return;
+    setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    await deleteNote(supabase, noteId);
+  }
+
   if (loading) {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
@@ -182,7 +190,7 @@ export default function IpsMeetingPage() {
         </div>
       </div>
 
-      <SummaryBar allocations={allocations} unmappedCount={unmappedCount} />
+      <SummaryBar allocations={allocations} />
 
       <Tabs value={view} onValueChange={(v) => setView(v as IpsViewMode)}>
         <TabsList>
@@ -240,7 +248,13 @@ export default function IpsMeetingPage() {
         </TabsContent>
       </Tabs>
 
-      <MeetingNotesPanel notes={notes} canEdit={canEdit} onAddNote={handleAddNote} onResolveNote={handleResolveNote} />
+      <MeetingNotesPanel
+        notes={notes}
+        canEdit={canEdit}
+        onAddNote={handleAddNote}
+        onResolveNote={handleResolveNote}
+        onDeleteNote={handleDeleteNote}
+      />
     </div>
   );
 }
