@@ -14,8 +14,12 @@ function groupByDepartment(openRoles: OpenRole[], segment: Segment) {
   );
   const byDept = new Map<string, Map<string, number>>();
   for (const role of active) {
+    // A role record can have multiple unfilled slots (e.g. hcApproved: 2,
+    // hcFilled: 0) — count the remaining headcount gap, not 1 per record.
+    const gap = Math.max(role.hcApproved - role.hcFilled, 0);
+    if (gap === 0) continue;
     const titles = byDept.get(role.department) ?? new Map<string, number>();
-    titles.set(role.title, (titles.get(role.title) ?? 0) + 1);
+    titles.set(role.title, (titles.get(role.title) ?? 0) + gap);
     byDept.set(role.department, titles);
   }
   return Array.from(byDept.entries())
@@ -53,29 +57,29 @@ export function DepartmentPipelineOverview() {
           ))}
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {departments.length === 0 && (
           <p className="text-sm text-muted-foreground">No active {segment} roles right now.</p>
         )}
-        {departments.map((d) => (
-          <div key={d.department} className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">{d.department}</p>
-              <span className="text-xs text-muted-foreground">{d.total} open</span>
+        {departments.map((d, i) => {
+          const maxTotal = departments[0].total;
+          const widthPct = Math.max((d.total / maxTotal) * 100, 14);
+          const opacity = 1 - i * (0.5 / departments.length);
+          return (
+            <div key={d.department} className="space-y-1 text-center">
+              <div
+                className="mx-auto flex items-center justify-between gap-3 rounded-md px-3 py-2 text-white"
+                style={{ width: `${widthPct}%`, minWidth: "9rem", backgroundColor: `rgba(0, 91, 94, ${opacity})` }}
+              >
+                <span className="truncate text-sm font-medium">{d.department}</span>
+                <span className="text-sm font-semibold shrink-0">{d.total}</span>
+              </div>
+              <p className="truncate text-xs text-muted-foreground">
+                {d.roles.map((r) => `${r.title} (${r.count})`).join(" · ")}
+              </p>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {d.roles.map((r) => (
-                <span
-                  key={r.title}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-xs"
-                >
-                  {r.title}
-                  <span className="font-semibold text-foreground">{r.count}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );
