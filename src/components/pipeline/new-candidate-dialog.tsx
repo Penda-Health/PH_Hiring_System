@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Candidate, EmploymentType, OpenRole } from "@/types";
+import { Candidate, CandidateStage, EmploymentType, OpenRole, Segment } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,32 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const EMPLOYMENT_TYPES: EmploymentType[] = ["Full-time", "Part-time", "Contract", "Reliever", "Locum"];
+const SEGMENTS: Segment[] = ["IPS", "SO"];
+const STAGES: CandidateStage[] = [
+  "First Interview",
+  "Second Interview",
+  "Panel Interview",
+  "Work Trial",
+  "Reference Check",
+  "Offer",
+  "Hired",
+  "Backup Pool",
+  "Rejected",
+  "Withdrawn",
+];
+
+// Narrows the (often long) flat role list down to what's relevant for the
+// currently selected segment/department, mirroring the dashboard's
+// segment -> department -> role cascade so this dropdown stays manageable.
+function rolesScopedTo(roles: OpenRole[], segment: Segment, department?: string): OpenRole[] {
+  return roles.filter((r) => r.segment === segment && (!department || r.department === department));
+}
+
+function defaultSelection(roles: OpenRole[], segment: Segment) {
+  const department = rolesScopedTo(roles, segment)[0]?.department ?? "";
+  const roleId = rolesScopedTo(roles, segment, department)[0]?.id ?? "";
+  return { department, roleId };
+}
 
 export function NewCandidateDialog({
   roles,
@@ -26,19 +52,35 @@ export function NewCandidateDialog({
 }) {
   const [open, setOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
-  const [form, setForm] = React.useState({
-    name: "",
-    phone: "",
-    email: "",
-    gender: "Female" as "Male" | "Female",
-    roleId: roles[0]?.id ?? "",
-    source: "",
-    employmentType: "Full-time" as EmploymentType,
+  const [form, setForm] = React.useState(() => {
+    const segment: Segment = roles[0]?.segment ?? "IPS";
+    return {
+      name: "",
+      phone: "",
+      email: "",
+      gender: "Female" as "Male" | "Female",
+      segment,
+      ...defaultSelection(roles, segment),
+      stage: "First Interview" as CandidateStage,
+      source: "",
+      employmentType: "Full-time" as EmploymentType,
+    };
   });
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  function updateSegment(segment: Segment) {
+    setForm((prev) => ({ ...prev, segment, ...defaultSelection(roles, segment) }));
+  }
+
+  function updateDepartment(department: string) {
+    setForm((prev) => ({ ...prev, department, roleId: rolesScopedTo(roles, prev.segment, department)[0]?.id ?? "" }));
+  }
+
+  const departments = Array.from(new Set(rolesScopedTo(roles, form.segment).map((r) => r.department))).sort();
+  const rolesInScope = rolesScopedTo(roles, form.segment, form.department);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,7 +92,7 @@ export function NewCandidateDialog({
       phone: form.phone,
       email: form.email,
       roleId: form.roleId,
-      stage: "First Interview",
+      stage: form.stage,
       source: form.source,
       gender: form.gender,
       employmentType: form.employmentType,
@@ -61,7 +103,7 @@ export function NewCandidateDialog({
     try {
       await onCreate(candidate);
       setOpen(false);
-      setForm((prev) => ({ ...prev, name: "", phone: "", email: "", source: "" }));
+      setForm((prev) => ({ ...prev, name: "", phone: "", email: "", source: "", stage: "First Interview" }));
     } finally {
       setSubmitting(false);
     }
@@ -90,13 +132,44 @@ export function NewCandidateDialog({
             </Field>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Segment">
+              <Select value={form.segment} onValueChange={(v) => updateSegment(v as Segment)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SEGMENTS.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Department / Function">
+              <Select value={form.department || undefined} onValueChange={updateDepartment}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+
           <Field label="Role">
             <Select value={form.roleId} onValueChange={(v) => update("roleId", v)}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
-                {roles.map((role) => (
+                {rolesInScope.map((role) => (
                   <SelectItem key={role.id} value={role.id}>
                     {role.title} · {role.location}
                   </SelectItem>
@@ -133,14 +206,30 @@ export function NewCandidateDialog({
             </Field>
           </div>
 
-          <Field label="Source">
-            <Input
-              value={form.source}
-              onChange={(e) => update("source", e.target.value)}
-              placeholder="SeamlessHR, Referral, LinkedIn..."
-              required
-            />
-          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Starting Stage">
+              <Select value={form.stage} onValueChange={(v) => update("stage", v as CandidateStage)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAGES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Source">
+              <Input
+                value={form.source}
+                onChange={(e) => update("source", e.target.value)}
+                placeholder="SeamlessHR, Referral, LinkedIn..."
+                required
+              />
+            </Field>
+          </div>
 
           <DialogFooter>
             <Button type="submit" disabled={submitting} className="bg-penda-teal hover:bg-penda-teal-dark">
