@@ -43,7 +43,17 @@ export function SegmentSplit({ filters }: { filters: DashboardFilterState }) {
                   <Cell key={s.segment} fill={SEGMENT_COLORS[s.segment]} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 8,
+                  fontSize: 12,
+                  background: "hsl(var(--popover))",
+                  color: "hsl(var(--popover-foreground))",
+                  border: "1px solid hsl(var(--border))",
+                }}
+                itemStyle={{ color: "hsl(var(--popover-foreground))" }}
+                formatter={(value) => [`${value} open roles`, undefined]}
+              />
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -52,13 +62,15 @@ export function SegmentSplit({ filters }: { filters: DashboardFilterState }) {
           </div>
         </div>
         <div className="flex-1 space-y-3">
-          {splits.map(({ segment }) => (
+          {splits.map(({ segment, openRoleCount }) => (
             <div key={segment} className="flex items-center gap-3">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: SEGMENT_COLORS[segment] }}
               />
               <Badge variant={segment === "IPS" ? "ips" : "so"}>{segment}</Badge>
+              <span className="text-sm font-medium">{openRoleCount}</span>
+              <span className="text-xs text-muted-foreground">open roles</span>
             </div>
           ))}
         </div>
