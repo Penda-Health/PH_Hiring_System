@@ -70,13 +70,17 @@ function LoginForm() {
   return (
     <Card className="w-full max-w-sm shadow-lg">
       <CardHeader className="items-center text-center">
-        <Image
-          src="/assets/logo.webp"
-          alt="Penda Health"
-          width={72}
-          height={72}
-          className="mb-2 h-16 w-16 object-contain"
-        />
+        {/* White backing keeps the logo's dark wordmark legible against the
+            dark-mode gradient background, not just the light-mode one. */}
+        <span className="mb-2 flex items-center justify-center rounded-xl bg-white p-2.5 shadow-sm ring-1 ring-black/5">
+          <Image
+            src="/assets/logo.webp"
+            alt="Penda Health"
+            width={80}
+            height={80}
+            className="h-20 w-20 object-contain"
+          />
+        </span>
         <CardTitle className="text-2xl text-penda-teal">Penda Hiring</CardTitle>
         <CardDescription>Sign in with your @penda.co.ke or @pendahealth.com account</CardDescription>
       </CardHeader>
