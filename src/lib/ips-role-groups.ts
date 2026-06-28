@@ -1,32 +1,41 @@
 import { Candidate, CandidateStage, OpenRole } from "@/types";
 
-export type IpsRoleGroup = "CO" | "Nurses" | "PharmTech" | "Sonographer" | "COHO" | "Labtech" | "Other";
+// Grouped by Airtable's "Department" field (a controlled-vocabulary column
+// on Open Roles — category/function, not the free-text Title) rather than
+// matching on Title strings, which proved fragile: Title has many ad-hoc
+// variants ("Pharmtech" vs "Pharmtech In-Charge", "Labtech Incharge", etc.)
+// that don't reliably bucket into a stable set of groups, while Department
+// already is that stable set.
+export type IpsRoleGroup =
+  | "Clinical Services"
+  | "Nursing"
+  | "Pharmacy"
+  | "Laboratory"
+  | "Sonography"
+  | "Dental"
+  | "Front Office"
+  | "Growth & Brand"
+  | "Pigia Penda / Call Centre"
+  | "Other";
 
-export const IPS_ROLE_GROUPS: IpsRoleGroup[] = ["CO", "Nurses", "PharmTech", "Sonographer", "COHO", "Labtech", "Other"];
+export const IPS_ROLE_GROUPS: IpsRoleGroup[] = [
+  "Clinical Services",
+  "Nursing",
+  "Pharmacy",
+  "Laboratory",
+  "Sonography",
+  "Dental",
+  "Front Office",
+  "Growth & Brand",
+  "Pigia Penda / Call Centre",
+  "Other",
+];
 
-// Maps real Airtable "Open Roles" titles (IPS segment) to a board group.
-// Any title not listed here falls into "Other" rather than being dropped
-// from the board (see deriveIpsSlots) — that's intentional for roles that
-// don't fit the clinical-staffing groups below (e.g. Brand Ambassador).
-const TITLE_TO_GROUP: Record<string, IpsRoleGroup> = {
-  "Clinical Officer": "CO",
-  "Clinical Officer In-charge": "CO",
-  "Clinical Officer - Paediatrics": "CO",
-  "Clinical Coordinator": "CO",
-  "CC Incharge": "CO",
-  Nurse: "Nurses",
-  "Nurse In-Charge": "Nurses",
-  Pharmtech: "PharmTech",
-  "Pharmtech In-Charge": "PharmTech",
-  Labtech: "Labtech",
-  "Labtech Incharge": "Labtech",
-  "Sonographer - Resident": "Sonographer",
-  "Regional Sonographer": "Sonographer",
-  COHO: "COHO",
-};
+const KNOWN_GROUPS = new Set<string>(IPS_ROLE_GROUPS);
 
-export function getRoleGroup(title: string): IpsRoleGroup {
-  return TITLE_TO_GROUP[title] ?? "Other";
+/** Any Department value Airtable doesn't yet have a named group for falls into "Other" rather than being dropped. */
+export function getRoleGroup(department: string): IpsRoleGroup {
+  return KNOWN_GROUPS.has(department) ? (department as IpsRoleGroup) : "Other";
 }
 
 export interface IpsAllocationSlot {
@@ -49,7 +58,7 @@ export function deriveIpsSlots(openRoles: OpenRole[]): { slots: IpsAllocationSlo
   for (const role of openRoles) {
     if (role.segment !== "IPS") continue;
     if (role.status === "Filled" || role.status === "Cancelled") continue;
-    const roleGroup = getRoleGroup(role.title);
+    const roleGroup = getRoleGroup(role.department);
     slots.push({
       openRoleId: role.id,
       branchId: role.branchId || UNASSIGNED_BRANCH_ID,
