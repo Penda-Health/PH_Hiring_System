@@ -117,5 +117,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // `assets/*` (logo, favicons — see public/assets and layout.tsx's icon
+  // links) must stay excluded too: without it, an unauthenticated request
+  // for /assets/logo.webp gets redirected to /login and the browser ends up
+  // loading the login page's HTML as the image, breaking the logo.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|assets/).*)"],
 };
