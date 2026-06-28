@@ -49,7 +49,9 @@ export function AllocationCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-sm font-medium leading-tight truncate">{role?.title ?? allocation.openRoleId}</p>
-            <p className="text-xs text-muted-foreground truncate">{branch?.name ?? allocation.branchId}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {branch?.name ?? (allocation.branchId === "unassigned" ? "No branch assigned" : allocation.branchId)}
+            </p>
           </div>
           <Badge variant={PRIORITY_BADGE_VARIANT[allocation.priority as Priority] ?? "secondary"} className="shrink-0">
             {allocation.priority}

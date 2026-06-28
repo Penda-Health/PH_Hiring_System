@@ -4,15 +4,24 @@ export type IpsRoleGroup = "CO" | "Nurses" | "PharmTech" | "Sonographer" | "COHO
 
 export const IPS_ROLE_GROUPS: IpsRoleGroup[] = ["CO", "Nurses", "PharmTech", "Sonographer", "COHO", "Labtech", "Other"];
 
-// No real OpenRole.title in Airtable maps to "Sonographer" yet — that group
-// stays empty in the "By role" view until Airtable has a matching role.
-// Add the title here once it exists. Any title not listed here falls into
-// "Other" rather than being dropped from the board (see deriveIpsSlots).
+// Maps real Airtable "Open Roles" titles (IPS segment) to a board group.
+// Any title not listed here falls into "Other" rather than being dropped
+// from the board (see deriveIpsSlots) — that's intentional for roles that
+// don't fit the clinical-staffing groups below (e.g. Brand Ambassador).
 const TITLE_TO_GROUP: Record<string, IpsRoleGroup> = {
   "Clinical Officer": "CO",
+  "Clinical Officer In-charge": "CO",
+  "Clinical Officer - Paediatrics": "CO",
+  "Clinical Coordinator": "CO",
+  "CC Incharge": "CO",
   Nurse: "Nurses",
-  "Pharm Tech": "PharmTech",
-  "Lab Technician": "Labtech",
+  "Nurse In-Charge": "Nurses",
+  Pharmtech: "PharmTech",
+  "Pharmtech In-Charge": "PharmTech",
+  Labtech: "Labtech",
+  "Labtech Incharge": "Labtech",
+  "Sonographer - Resident": "Sonographer",
+  "Regional Sonographer": "Sonographer",
   COHO: "COHO",
 };
 
@@ -28,15 +37,26 @@ export interface IpsAllocationSlot {
   title: string;
 }
 
+// branch_id on ips_allocations is NOT NULL text with no FK (Airtable record
+// id, not a Postgres join) — so roles missing a Branch link in Airtable get
+// this placeholder instead of being dropped from the board entirely.
+const UNASSIGNED_BRANCH_ID = "unassigned";
+
 /** Derives the role-slots that need IPS meeting coverage from current Airtable OpenRoles. */
 export function deriveIpsSlots(openRoles: OpenRole[]): { slots: IpsAllocationSlot[] } {
   const slots: IpsAllocationSlot[] = [];
 
   for (const role of openRoles) {
-    if (role.segment !== "IPS" || !role.branchId) continue;
+    if (role.segment !== "IPS") continue;
     if (role.status === "Filled" || role.status === "Cancelled") continue;
     const roleGroup = getRoleGroup(role.title);
-    slots.push({ openRoleId: role.id, branchId: role.branchId, roleGroup, priority: role.priority, title: role.title });
+    slots.push({
+      openRoleId: role.id,
+      branchId: role.branchId || UNASSIGNED_BRANCH_ID,
+      roleGroup,
+      priority: role.priority,
+      title: role.title,
+    });
   }
 
   return { slots };
