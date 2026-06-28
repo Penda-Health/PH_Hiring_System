@@ -135,6 +135,19 @@ export async function fetchLatestMeeting(supabase: SupabaseClient): Promise<IpsM
   return data ? rowToMeeting(data as MeetingRow) : null;
 }
 
+export async function fetchAllMeetings(supabase: SupabaseClient): Promise<IpsMeeting[]> {
+  const { data, error } = await supabase
+    .from("ips_meetings")
+    .select("*")
+    .order("meeting_date", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("[ips-meetings] fetchAllMeetings failed:", error);
+    return [];
+  }
+  return (data as MeetingRow[]).map(rowToMeeting);
+}
+
 export async function fetchMeetingById(supabase: SupabaseClient, id: string): Promise<IpsMeeting | null> {
   const { data, error } = await supabase.from("ips_meetings").select("*").eq("id", id).maybeSingle();
   if (error || !data) {

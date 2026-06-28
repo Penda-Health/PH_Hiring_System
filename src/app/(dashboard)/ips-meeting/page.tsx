@@ -7,9 +7,9 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   createNote,
   deleteNote,
+  fetchAllMeetings,
   fetchAllocations,
   fetchBoardEditors,
-  fetchLatestMeeting,
   fetchNotes,
   IpsAllocation,
   IpsMeeting,
@@ -22,6 +22,7 @@ import { useIpsRealtime } from "@/lib/supabase/use-ips-realtime";
 import { deriveIpsSlots, IPS_ROLE_GROUPS } from "@/lib/ips-role-groups";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SummaryBar } from "@/components/ips-meeting/summary-bar";
 import { AllocationSection } from "@/components/ips-meeting/role-group-section";
 import { MeetingNotesPanel } from "@/components/ips-meeting/meeting-notes-panel";
@@ -33,6 +34,8 @@ export default function IpsMeetingPage() {
   const { user } = useAuth();
   const { branches, openRoles, candidates } = useRecruitmentData();
 
+  const [meetings, setMeetings] = React.useState<IpsMeeting[]>([]);
+  const [selectedMeetingId, setSelectedMeetingId] = React.useState<string | null>(null);
   const [meeting, setMeeting] = React.useState<IpsMeeting | null>(null);
   const [allocations, setAllocations] = React.useState<IpsAllocation[]>([]);
   const [notes, setNotes] = React.useState<IpsMeetingNote[]>([]);
@@ -44,36 +47,54 @@ export default function IpsMeetingPage() {
   const branchById = React.useMemo(() => new Map(branches.map((b) => [b.id, b])), [branches]);
 
   const canEdit = !!user && (user.role === "recruitment_manager" || editorIds.has(user.id));
+  // The board is only editable on the most recent meeting — older meetings are
+  // a read-only historical record, same idea as the carryforward chain itself.
+  const isLatestMeeting = meetings.length > 0 && meeting?.id === meetings[0].id;
+  const canEditBoard = canEdit && isLatestMeeting;
 
-  const loadAll = React.useCallback(async () => {
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase) {
+  const loadAll = React.useCallback(
+    async (targetMeetingId?: string) => {
+      const supabase = createSupabaseBrowserClient();
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+      const allMeetings = await fetchAllMeetings(supabase);
+      setMeetings(allMeetings);
+      const resolvedId = targetMeetingId ?? selectedMeetingId ?? allMeetings[0]?.id ?? null;
+      setSelectedMeetingId(resolvedId);
+      const target = allMeetings.find((m) => m.id === resolvedId) ?? null;
+      setMeeting(target);
+      if (target) {
+        const [allocationRows, noteRows] = await Promise.all([fetchAllocations(supabase, target.id), fetchNotes(supabase, target.id)]);
+        setAllocations(allocationRows);
+        setNotes(noteRows);
+      } else {
+        setAllocations([]);
+        setNotes([]);
+      }
+      const editors = await fetchBoardEditors(supabase);
+      setEditorIds(new Set(editors.map((e) => e.profileId)));
       setLoading(false);
-      return;
-    }
-    const latest = await fetchLatestMeeting(supabase);
-    setMeeting(latest);
-    if (latest) {
-      const [allocationRows, noteRows] = await Promise.all([fetchAllocations(supabase, latest.id), fetchNotes(supabase, latest.id)]);
-      setAllocations(allocationRows);
-      setNotes(noteRows);
-    } else {
-      setAllocations([]);
-      setNotes([]);
-    }
-    const editors = await fetchBoardEditors(supabase);
-    setEditorIds(new Set(editors.map((e) => e.profileId)));
-    setLoading(false);
-  }, []);
+    },
+    [selectedMeetingId]
+  );
 
   React.useEffect(() => {
     loadAll();
-  }, [loadAll]);
+    // Only run once on mount — loadAll itself drives subsequent reloads via its targetMeetingId arg.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Seed any open IPS role from Airtable that doesn't yet have a slot in the current meeting.
+  async function handleSelectMeeting(id: string) {
+    setLoading(true);
+    await loadAll(id);
+  }
+
+  // Seed any open IPS role from Airtable that doesn't yet have a slot in the latest meeting.
   const { slots } = React.useMemo(() => deriveIpsSlots(openRoles), [openRoles]);
   React.useEffect(() => {
-    if (!meeting || !canEdit) return;
+    if (!meeting || !canEditBoard) return;
     const existingRoleIds = new Set(allocations.map((a) => a.openRoleId));
     const missing = slots.filter((s) => !existingRoleIds.has(s.openRoleId));
     if (missing.length === 0) return;
@@ -82,7 +103,7 @@ export default function IpsMeetingPage() {
     seedAllocationsForMeeting(supabase, meeting.id, missing).then((result) => {
       if (result.ok) loadAll();
     });
-  }, [meeting, slots, allocations, canEdit, loadAll]);
+  }, [meeting, slots, allocations, canEditBoard, loadAll]);
 
   const handleAllocationChange = React.useCallback((_payload: unknown, allocation: IpsAllocation | null) => {
     setAllocations((prev) => {
@@ -114,7 +135,7 @@ export default function IpsMeetingPage() {
   });
 
   async function handleCandidateChange(allocationId: string, candidateId: string | null) {
-    if (!user) return;
+    if (!user || !canEditBoard) return;
     const supabase = createSupabaseBrowserClient();
     if (!supabase) return;
     setAllocations((prev) => prev.map((a) => (a.id === allocationId ? { ...a, candidateId } : a)));
@@ -122,7 +143,7 @@ export default function IpsMeetingPage() {
   }
 
   async function handleNoteFieldChange(allocationId: string, note: string) {
-    if (!user) return;
+    if (!user || !canEditBoard) return;
     const supabase = createSupabaseBrowserClient();
     if (!supabase) return;
     setAllocations((prev) => prev.map((a) => (a.id === allocationId ? { ...a, note } : a)));
@@ -130,7 +151,7 @@ export default function IpsMeetingPage() {
   }
 
   async function handleAddNote(noteType: IpsMeetingNote["noteType"], body: string) {
-    if (!user || !meeting) return;
+    if (!user || !meeting || !canEditBoard) return;
     const supabase = createSupabaseBrowserClient();
     if (!supabase) return;
     const result = await createNote(supabase, meeting.id, noteType, body, user.id);
@@ -138,6 +159,7 @@ export default function IpsMeetingPage() {
   }
 
   async function handleResolveNote(noteId: string) {
+    if (!canEditBoard) return;
     const supabase = createSupabaseBrowserClient();
     if (!supabase) return;
     setNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, resolved: true } : n)));
@@ -145,6 +167,7 @@ export default function IpsMeetingPage() {
   }
 
   async function handleDeleteNote(noteId: string) {
+    if (!canEditBoard) return;
     const supabase = createSupabaseBrowserClient();
     if (!supabase) return;
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
@@ -163,7 +186,7 @@ export default function IpsMeetingPage() {
           <CardContent className="pt-6 space-y-3">
             <p className="text-sm text-muted-foreground">No IPS meeting has been created yet.</p>
             {canEdit ? (
-              <NewMeetingButton onCreated={loadAll} />
+              <NewMeetingButton onCreated={(id) => loadAll(id)} />
             ) : (
               <p className="text-xs text-muted-foreground">Ask a Recruitment Manager to start the first meeting.</p>
             )}
@@ -180,13 +203,29 @@ export default function IpsMeetingPage() {
           <h1 className="text-2xl font-semibold">IPS Meeting Board</h1>
           <p className="text-xs text-muted-foreground">
             {new Date(`${meeting.meetingDate}T00:00:00`).toLocaleDateString()}
-            {realtimeStatus === "error" && " · reconnecting…"}
+            {!isLatestMeeting && " · past meeting, read-only"}
+            {realtimeStatus === "error" && isLatestMeeting && " · reconnecting…"}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {meetings.length > 1 && (
+            <Select value={meeting.id} onValueChange={handleSelectMeeting}>
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {meetings.map((m, i) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {new Date(`${m.meetingDate}T00:00:00`).toLocaleDateString()}
+                    {i === 0 ? " (latest)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <ShareSummaryButton meeting={meeting} allocations={allocations} notes={notes} view={view} roleById={roleById} branchById={branchById} />
           {user?.role === "recruitment_manager" && <BoardEditorsDialog currentUserId={user.id} />}
-          {canEdit && <NewMeetingButton onCreated={loadAll} />}
+          {canEdit && <NewMeetingButton onCreated={(id) => loadAll(id)} />}
         </div>
       </div>
 
@@ -209,7 +248,7 @@ export default function IpsMeetingPage() {
               branchById={branchById}
               candidates={candidates}
               openRoles={openRoles}
-              canEdit={canEdit}
+              canEdit={canEditBoard}
               onCandidateChange={handleCandidateChange}
               onNoteChange={handleNoteFieldChange}
             />
@@ -226,7 +265,7 @@ export default function IpsMeetingPage() {
               branchById={branchById}
               candidates={candidates}
               openRoles={openRoles}
-              canEdit={canEdit}
+              canEdit={canEditBoard}
               onCandidateChange={handleCandidateChange}
               onNoteChange={handleNoteFieldChange}
             />
@@ -241,7 +280,7 @@ export default function IpsMeetingPage() {
             branchById={branchById}
             candidates={candidates}
             openRoles={openRoles}
-            canEdit={canEdit}
+            canEdit={canEditBoard}
             onCandidateChange={handleCandidateChange}
             onNoteChange={handleNoteFieldChange}
           />
@@ -250,7 +289,7 @@ export default function IpsMeetingPage() {
 
       <MeetingNotesPanel
         notes={notes}
-        canEdit={canEdit}
+        canEdit={canEditBoard}
         onAddNote={handleAddNote}
         onResolveNote={handleResolveNote}
         onDeleteNote={handleDeleteNote}

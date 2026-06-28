@@ -11,6 +11,7 @@ export function NewMeetingButton({ onCreated }: { onCreated: (meetingId: string)
   const [error, setError] = React.useState<string | null>(null);
 
   async function handleClick() {
+    if (!window.confirm("Start a new meeting? Unfilled slots and open action/risk notes carry forward; today's meeting becomes a read-only historical record.")) return;
     setCreating(true);
     setError(null);
     const supabase = createSupabaseBrowserClient();
