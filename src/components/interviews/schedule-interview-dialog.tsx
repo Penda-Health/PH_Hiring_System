@@ -21,14 +21,24 @@ const INTERVIEW_TYPES: InterviewType[] = ["In-person", "Google Meet", "Phone", "
 export function ScheduleInterviewDialog({
   candidates,
   onCreate,
+  defaultCandidateId,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
 }: {
   candidates: Candidate[];
   onCreate: (interview: Interview) => Promise<void>;
+  defaultCandidateId?: string;
+  /** Omit both to get the default self-contained trigger button (used on /interviews). Pass both to drive the dialog from elsewhere, e.g. a row action menu, with no visible trigger rendered. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const isControlled = controlledOpen !== undefined && setControlledOpen !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = isControlled ? setControlledOpen : setUncontrolledOpen;
   const [submitting, setSubmitting] = React.useState(false);
   const [form, setForm] = React.useState({
-    candidateId: candidates[0]?.id ?? "",
+    candidateId: defaultCandidateId ?? candidates[0]?.id ?? "",
     stage: "First Interview" as InterviewStage,
     type: "In-person" as InterviewType,
     date: "",
@@ -40,6 +50,16 @@ export function ScheduleInterviewDialog({
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  // Re-syncs the preselected candidate each time this dialog is reopened for a
+  // different one (controlled usage reuses a single dialog instance, so a plain
+  // useState initializer alone wouldn't pick up the new defaultCandidateId).
+  React.useEffect(() => {
+    if (open && defaultCandidateId) {
+      setForm((prev) => ({ ...prev, candidateId: defaultCandidateId }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultCandidateId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,9 +96,11 @@ export function ScheduleInterviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-penda-teal hover:bg-penda-teal-dark">Schedule Interview</Button>
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button className="bg-penda-teal hover:bg-penda-teal-dark">Schedule Interview</Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Schedule Interview</DialogTitle>

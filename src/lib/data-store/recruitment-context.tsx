@@ -58,6 +58,7 @@ type RecruitmentDataContextValue = {
 
   candidates: Candidate[];
   createCandidate: (candidate: Candidate) => Promise<void>;
+  updateCandidateStage: (id: string, stage: Candidate["stage"]) => void;
 
   relievers: Reliever[];
   createReliever: (reliever: Reliever) => Promise<void>;
@@ -335,6 +336,16 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit]
   );
 
+  const updateCandidateStage = React.useCallback(
+    (id: string, stage: Candidate["stage"]) => {
+      if (!guardEdit(canEdit, "updateCandidateStage")) return;
+      const patch: Partial<Candidate> = { stage, stageEnteredAt: new Date().toISOString() };
+      setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+      persist<Candidate>("candidates", id, patch);
+    },
+    [canEdit]
+  );
+
   const createReliever = React.useCallback(
     async (reliever: Reliever) => {
       if (!guardEdit(canEdit, "createReliever")) return;
@@ -381,6 +392,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       reopenOffer,
       candidates,
       createCandidate,
+      updateCandidateStage,
       relievers,
       createReliever,
       locums,
@@ -413,6 +425,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       reopenOffer,
       candidates,
       createCandidate,
+      updateCandidateStage,
       relievers,
       createReliever,
       locums,

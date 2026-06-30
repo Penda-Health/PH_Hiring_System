@@ -22,6 +22,7 @@ export const sidebarNavItems: {
 }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
+  { href: "/candidates", label: "Candidates", icon: Users },
   { href: "/interviews", label: "Interview Schedule", icon: CalendarClock },
   { href: "/roles", label: "Open Roles Register", icon: Briefcase },
   { href: "/requisitions", label: "Requisition Intake", icon: FileText },
