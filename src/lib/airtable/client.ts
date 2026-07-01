@@ -103,6 +103,13 @@ export async function updateRecord(
   return json;
 }
 
+export async function deleteRecord(tableName: string, recordId: string): Promise<void> {
+  await airtableRequest(`${encodeURIComponent(tableName)}/${recordId}`, tableName, {
+    method: "DELETE",
+  });
+  revalidateTag(`airtable:${tableName}`);
+}
+
 // Drops undefined values and unwraps `undefined` link arrays so Airtable
 // doesn't choke on empty fields. Keeps `false`/`0`/`""` (those are real values).
 export function cleanFields(fields: Record<string, unknown>): Record<string, unknown> {

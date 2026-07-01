@@ -9,6 +9,7 @@ import { CandidatesViewToggle, CandidatesViewMode } from "@/components/candidate
 import { CandidatesTable } from "@/components/candidates/candidates-table";
 import { CandidateGroupColumn } from "@/components/candidates/candidate-group-column";
 import { MoveStageDialog } from "@/components/candidates/move-stage-dialog";
+import { EditCandidateDialog } from "@/components/candidates/edit-candidate-dialog";
 import { CandidateDetailDialog } from "@/components/pipeline/candidate-detail-dialog";
 import { NewCandidateDialog } from "@/components/pipeline/new-candidate-dialog";
 import { ScheduleInterviewDialog } from "@/components/interviews/schedule-interview-dialog";
@@ -19,7 +20,16 @@ import { Button } from "@/components/ui/button";
 const PAGE_SIZE = 20;
 
 export default function CandidatesPage() {
-  const { candidates, openRoles, createCandidate, updateCandidateStage, createInterview } = useRecruitmentData();
+  const {
+    candidates,
+    openRoles,
+    canEdit,
+    createCandidate,
+    updateCandidate,
+    updateCandidateStage,
+    deleteCandidate,
+    createInterview,
+  } = useRecruitmentData();
 
   const [filters, setFilters] = React.useState<CandidatesFilterState>({
     search: "",
@@ -31,6 +41,7 @@ export default function CandidatesPage() {
   const [page, setPage] = React.useState(0);
 
   const [viewingCandidate, setViewingCandidate] = React.useState<Candidate | null>(null);
+  const [editingCandidate, setEditingCandidate] = React.useState<Candidate | null>(null);
   const [movingCandidate, setMovingCandidate] = React.useState<Candidate | null>(null);
   const [schedulingCandidate, setSchedulingCandidate] = React.useState<Candidate | null>(null);
 
@@ -54,8 +65,13 @@ export default function CandidatesPage() {
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   function handleReject(candidate: Candidate) {
-    if (!window.confirm(`Reject ${candidate.name}?`)) return;
+    if (!window.confirm(`Reject ${candidate.name || "this candidate"}?`)) return;
     updateCandidateStage(candidate.id, "Rejected");
+  }
+
+  function handleDelete(candidate: Candidate) {
+    if (!window.confirm(`Permanently delete ${candidate.name || "this candidate"}? This cannot be undone.`)) return;
+    deleteCandidate(candidate.id);
   }
 
   return (
@@ -93,10 +109,13 @@ export default function CandidatesPage() {
           <CandidatesTable
             candidates={paged}
             openRoles={openRoles}
+            canEdit={canEdit}
             onViewProfile={setViewingCandidate}
+            onEdit={setEditingCandidate}
             onMoveStage={setMovingCandidate}
             onScheduleInterview={setSchedulingCandidate}
             onReject={handleReject}
+            onDelete={handleDelete}
           />
           {totalPages > 1 && (
             <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -138,6 +157,12 @@ export default function CandidatesPage() {
       <CandidateDetailDialog
         candidate={viewingCandidate}
         onOpenChange={(open) => !open && setViewingCandidate(null)}
+      />
+      <EditCandidateDialog
+        candidate={editingCandidate}
+        openRoles={openRoles}
+        onOpenChange={(open) => !open && setEditingCandidate(null)}
+        onSave={updateCandidate}
       />
       <MoveStageDialog
         candidate={movingCandidate}

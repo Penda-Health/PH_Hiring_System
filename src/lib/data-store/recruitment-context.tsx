@@ -16,7 +16,7 @@ import {
 } from "@/types";
 import { computeWeightedTotal, PASS_THRESHOLD } from "@/lib/work-trial-helpers";
 import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
-import { listResource, createResource, updateResource } from "@/lib/airtable/browser-api";
+import { listResource, createResource, updateResource, deleteResource } from "@/lib/airtable/browser-api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canEditRecruitmentData } from "@/lib/permissions";
 
@@ -58,7 +58,9 @@ type RecruitmentDataContextValue = {
 
   candidates: Candidate[];
   createCandidate: (candidate: Candidate) => Promise<void>;
+  updateCandidate: (id: string, patch: Partial<Candidate>) => void;
   updateCandidateStage: (id: string, stage: Candidate["stage"]) => void;
+  deleteCandidate: (id: string) => void;
 
   relievers: Reliever[];
   createReliever: (reliever: Reliever) => Promise<void>;
@@ -336,12 +338,32 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit]
   );
 
+  const updateCandidate = React.useCallback(
+    (id: string, patch: Partial<Candidate>) => {
+      if (!guardEdit(canEdit, "updateCandidate")) return;
+      setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+      persist<Candidate>("candidates", id, patch);
+    },
+    [canEdit]
+  );
+
   const updateCandidateStage = React.useCallback(
     (id: string, stage: Candidate["stage"]) => {
       if (!guardEdit(canEdit, "updateCandidateStage")) return;
       const patch: Partial<Candidate> = { stage, stageEnteredAt: new Date().toISOString() };
       setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
       persist<Candidate>("candidates", id, patch);
+    },
+    [canEdit]
+  );
+
+  const deleteCandidate = React.useCallback(
+    (id: string) => {
+      if (!guardEdit(canEdit, "deleteCandidate")) return;
+      setCandidates((prev) => prev.filter((c) => c.id !== id));
+      deleteResource("candidates", id).catch((err) => {
+        console.error(`Failed to delete candidate ${id} from Airtable:`, err);
+      });
     },
     [canEdit]
   );
@@ -392,7 +414,9 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       reopenOffer,
       candidates,
       createCandidate,
+      updateCandidate,
       updateCandidateStage,
+      deleteCandidate,
       relievers,
       createReliever,
       locums,
@@ -425,7 +449,9 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       reopenOffer,
       candidates,
       createCandidate,
+      updateCandidate,
       updateCandidateStage,
+      deleteCandidate,
       relievers,
       createReliever,
       locums,

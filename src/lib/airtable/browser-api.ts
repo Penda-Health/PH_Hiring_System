@@ -25,3 +25,11 @@ export function createResource<T>(resource: string, body: Partial<T>): Promise<T
 export function updateResource<T>(resource: string, id: string, body: Partial<T>): Promise<T> {
   return request<T>(`/api/${resource}/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 }
+
+export async function deleteResource(resource: string, id: string): Promise<void> {
+  const res = await fetch(`/api/${resource}/${id}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 204) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `DELETE /api/${resource}/${id} failed with ${res.status}`);
+  }
+}

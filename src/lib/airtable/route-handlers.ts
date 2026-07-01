@@ -3,7 +3,7 @@
 // handling 11 times.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { listRecords, createRecord, updateRecord, AirtableRecord } from "./client";
+import { listRecords, createRecord, updateRecord, deleteRecord, AirtableRecord } from "./client";
 
 type FromAirtable<T> = (record: AirtableRecord) => T;
 type ToAirtable<T> = (entity: Partial<T>) => Record<string, unknown>;
@@ -117,5 +117,14 @@ export function makeItemHandlers<T>(
     }
   }
 
-  return { PATCH };
+  async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+    try {
+      await deleteRecord(tableName, params.id);
+      return new NextResponse(null, { status: 204 });
+    } catch (err) {
+      return errorResponse(err, `DELETE ${tableName}/${params.id}`);
+    }
+  }
+
+  return { PATCH, DELETE };
 }

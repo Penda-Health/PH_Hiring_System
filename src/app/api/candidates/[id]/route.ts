@@ -3,7 +3,7 @@ import { candidateFromAirtable, candidateToAirtable } from "@/lib/airtable/mappe
 import { TABLE_NAMES } from "@/lib/airtable/field-names";
 import { candidateSchema } from "@/lib/airtable/schemas";
 
-export const { PATCH } = makeItemHandlers(
+export const { PATCH, DELETE } = makeItemHandlers(
   TABLE_NAMES.Candidates,
   candidateFromAirtable,
   candidateToAirtable,
