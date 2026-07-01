@@ -22,6 +22,8 @@ import { canEditRecruitmentData } from "@/lib/permissions";
 
 type RecruitmentDataContextValue = {
   loading: boolean;
+  /** True while the second phase of data (interviews, work trials, offers, etc.) is still arriving. Core data (roles, candidates, branches) is already available. */
+  extendedLoading: boolean;
   error: string | null;
   /** Recruitment User/Manager only — Branch Manager and Contributor are view-only. UI affordance; the real check is server-side in middleware. */
   canEdit: boolean;
@@ -95,6 +97,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   const { user } = useAuth();
   const canEdit = canEditRecruitmentData(user?.role);
   const [loading, setLoading] = React.useState(true);
+  const [extendedLoading, setExtendedLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   const [branches, setBranches] = React.useState<Branch[]>([]);
@@ -111,51 +114,59 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
 
   React.useEffect(() => {
     let cancelled = false;
+
     async function loadAll() {
+      // Phase 1 — core data: the minimum needed to render Pipeline, Candidates,
+      // Roles Register, and the IPS Meeting Board. Completes first so the app
+      // becomes interactive while phase 2 is still in flight.
       try {
-        const [
-          branchesRes,
-          openRolesRes,
-          newEmployeesRes,
-          requisitionsRes,
-          interviewsRes,
-          workTrialsRes,
-          referenceChecksRes,
-          offersRes,
-          candidatesRes,
-          relieversRes,
-          locumsRes,
-        ] = await Promise.all([
+        const [branchesRes, openRolesRes, candidatesRes, newEmployeesRes] = await Promise.all([
           listResource<Branch>("branches"),
           listResource<OpenRole>("open-roles"),
-          listResource<NewEmployee>("new-employees"),
-          listResource<Requisition>("requisitions"),
-          listResource<Interview>("interviews"),
-          listResource<WorkTrial>("work-trials"),
-          listResource<ReferenceCheck>("reference-checks"),
-          listResource<Offer>("offers"),
           listResource<Candidate>("candidates"),
-          listResource<Reliever>("relievers"),
-          listResource<Locum>("locums"),
+          listResource<NewEmployee>("new-employees"),
         ]);
         if (cancelled) return;
         setBranches(branchesRes);
         setOpenRoles(openRolesRes);
+        setCandidates(candidatesRes);
         setNewEmployees(newEmployeesRes);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load data from Airtable.");
+        return;
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+
+      // Phase 2 — extended data: page-specific resources loaded in the
+      // background after the app is already interactive. Dashboard metrics
+      // and dedicated pages update once these arrive.
+      try {
+        const [requisitionsRes, interviewsRes, workTrialsRes, referenceChecksRes, offersRes, relieversRes, locumsRes] =
+          await Promise.all([
+            listResource<Requisition>("requisitions"),
+            listResource<Interview>("interviews"),
+            listResource<WorkTrial>("work-trials"),
+            listResource<ReferenceCheck>("reference-checks"),
+            listResource<Offer>("offers"),
+            listResource<Reliever>("relievers"),
+            listResource<Locum>("locums"),
+          ]);
+        if (cancelled) return;
         setRequisitions(requisitionsRes);
         setInterviews(interviewsRes);
         setWorkTrials(workTrialsRes);
         setReferenceChecks(referenceChecksRes);
         setOffers(offersRes);
-        setCandidates(candidatesRes);
         setRelievers(relieversRes);
         setLocums(locumsRes);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load data from Airtable.");
+        if (!cancelled) console.error("Failed to load extended recruitment data:", err);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setExtendedLoading(false);
       }
     }
+
     loadAll();
     return () => {
       cancelled = true;
@@ -389,6 +400,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   const value = React.useMemo<RecruitmentDataContextValue>(
     () => ({
       loading,
+      extendedLoading,
       error,
       canEdit,
       branches,
@@ -424,6 +436,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     }),
     [
       loading,
+      extendedLoading,
       error,
       canEdit,
       branches,

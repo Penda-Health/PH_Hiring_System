@@ -8,6 +8,7 @@ import { AiAssistantLauncher } from "@/components/dashboard/ai-assistant-launche
 import { useAuth } from "@/lib/auth/auth-context";
 import { RecruitmentDataProvider, useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { Spinner } from "@/components/ui/spinner";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 function DataLoadingGate({ children }: { children: React.ReactNode }) {
   const { loading, error, canEdit } = useRecruitmentData();
@@ -60,7 +61,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex-1 flex flex-col">
           <Topbar />
           <main className="flex-1 p-4 md:p-6">
-            <DataLoadingGate>{children}</DataLoadingGate>
+            <ErrorBoundary>
+              <DataLoadingGate>{children}</DataLoadingGate>
+            </ErrorBoundary>
           </main>
         </div>
         <AiAssistantLauncher />
