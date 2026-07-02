@@ -37,6 +37,31 @@ function departmentsFor(roles: OpenRole[], segment: Segment): string[] {
   return Array.from(new Set(rolesScopedTo(roles, segment).map((r) => r.department))).sort();
 }
 
+function makeForm(candidate: Candidate | null, openRoles: OpenRole[]) {
+  if (!candidate) {
+    return {
+      name: "", phone: "", email: "",
+      gender: "Female" as "Male" | "Female",
+      employmentType: "Full-time" as EmploymentType,
+      source: "", stage: "First Interview" as CandidateStage,
+      segment: "IPS" as Segment, department: "", roleId: "",
+    };
+  }
+  const role = openRoles.find((r) => r.id === candidate.roleId);
+  return {
+    name: candidate.name,
+    phone: candidate.phone,
+    email: candidate.email,
+    gender: (candidate.gender ?? "Female") as "Male" | "Female",
+    employmentType: candidate.employmentType,
+    source: candidate.source,
+    stage: candidate.stage,
+    segment: (role?.segment ?? "IPS") as Segment,
+    department: role?.department ?? "",
+    roleId: candidate.roleId,
+  };
+}
+
 export function EditCandidateDialog({
   candidate,
   openRoles,
@@ -50,36 +75,27 @@ export function EditCandidateDialog({
 }) {
   const linkedRole = candidate ? openRoles.find((r) => r.id === candidate.roleId) : undefined;
 
-  const [form, setForm] = React.useState({
-    name: "",
-    phone: "",
-    email: "",
-    gender: "Female" as "Male" | "Female",
-    employmentType: "Full-time" as EmploymentType,
-    source: "",
-    stage: "First Interview" as CandidateStage,
-    segment: "IPS" as Segment,
-    department: "",
-    roleId: "",
-  });
+  const [form, setForm] = React.useState(() => makeForm(candidate, openRoles));
   const [saving, setSaving] = React.useState(false);
+  // Snapshot of what the form looked like when it was first opened — used to
+  // detect unsaved changes before a potentially-accidental close.
+  const [snapshot, setSnapshot] = React.useState(() => makeForm(candidate, openRoles));
 
   React.useEffect(() => {
-    if (!candidate) return;
-    const role = openRoles.find((r) => r.id === candidate.roleId);
-    setForm({
-      name: candidate.name,
-      phone: candidate.phone,
-      email: candidate.email,
-      gender: candidate.gender ?? "Male",
-      employmentType: candidate.employmentType,
-      source: candidate.source,
-      stage: candidate.stage,
-      segment: (role?.segment ?? "IPS") as Segment,
-      department: role?.department ?? "",
-      roleId: candidate.roleId,
-    });
-  }, [candidate, openRoles]);
+    const initial = makeForm(candidate, openRoles);
+    setForm(initial);
+    setSnapshot(initial);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidate?.id]);
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(snapshot);
+
+  function tryClose() {
+    if (isDirty) {
+      if (!window.confirm("You have unsaved changes. Discard them and close?")) return;
+    }
+    onOpenChange(false);
+  }
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -124,24 +140,42 @@ export function EditCandidateDialog({
   }
 
   return (
-    <Dialog open={!!candidate} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+    <Dialog
+      open={!!candidate}
+      onOpenChange={(open) => { if (!open) tryClose(); }}
+    >
+      <DialogContent
+        className="max-w-lg"
+        onInteractOutside={(e) => {
+          e.preventDefault();
+          tryClose();
+        }}
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          tryClose();
+        }}
+      >
         {candidate && (
           <>
             <DialogHeader>
-              <DialogTitle>Edit {candidate.name || "Candidate"}</DialogTitle>
+              <DialogTitle>
+                Edit {candidate.name || "Candidate"}
+                {isDirty && (
+                  <span className="ml-2 text-xs font-normal text-amber-500">· unsaved changes</span>
+                )}
+              </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSave} className="space-y-4">
               <Field label="Name">
-                <Input value={form.name} onChange={(e) => update("name", e.target.value)} required />
+                <Input value={form.name} onChange={(e) => update("name", e.target.value)} />
               </Field>
 
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Phone">
-                  <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} required />
+                  <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} />
                 </Field>
                 <Field label="Email">
-                  <Input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} required />
+                  <Input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} />
                 </Field>
               </div>
 
@@ -232,10 +266,14 @@ export function EditCandidateDialog({
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                <Button type="button" variant="outline" onClick={tryClose}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={saving} className="bg-penda-teal hover:bg-penda-teal-dark">
+                <Button
+                  type="submit"
+                  disabled={saving || !isDirty}
+                  className="bg-penda-teal hover:bg-penda-teal-dark"
+                >
                   {saving ? "Saving…" : "Save changes"}
                 </Button>
               </DialogFooter>
