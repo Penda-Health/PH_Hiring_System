@@ -9,7 +9,7 @@ import {
   type UIDataTypes,
   type UIMessage,
 } from "ai";
-import { Send, Sparkles } from "lucide-react";
+import { AlertTriangle, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -23,39 +23,47 @@ import { cn } from "@/lib/utils";
 type ChatMessage = UIMessage<unknown, UIDataTypes, InferUITools<typeof aiTools>>;
 
 const PRESETS = [
-  { label: "Generate Summary", prompt: "Give me a quick summary of today's recruiting status." },
-  { label: "What's stalled?", prompt: "Which open roles have no candidates in pipeline and are high priority?" },
+  { label: "Summary", prompt: "Give me a quick summary of today's recruiting status." },
+  { label: "Stalled roles", prompt: "Which open roles have no candidates in pipeline and are high priority?" },
   { label: "By department", prompt: "Break down open roles by department for both IPS and SO." },
-  { label: "By branch", prompt: "Which branches have the most open headcount gaps?" },
+  { label: "By branch", prompt: "Which branches have the most open headcount gaps? List each branch and its gap." },
 ];
 
 export function AiAssistantLauncher() {
-  const { openRoles, candidates, offers, branches, interviews, workTrials, canEdit, updateOpenRoleStatus } =
-    useRecruitmentData();
+  const {
+    openRoles, candidates, offers, branches, interviews,
+    workTrials, referenceChecks, canEdit, updateOpenRoleStatus,
+  } = useRecruitmentData();
   const [providerId, setProviderId] = React.useState<ProviderId>("llama");
   const [input, setInput] = React.useState("");
   const bottomRef = React.useRef<HTMLDivElement>(null);
 
   const transport = React.useMemo(() => new DefaultChatTransport<ChatMessage>({ api: "/api/ai/chat" }), []);
 
-  const { messages, sendMessage, status, addToolResult } = useChat<ChatMessage>({
+  const { messages, sendMessage, status, addToolResult, error } = useChat<ChatMessage>({
     transport,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
   });
 
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, error]);
 
   function send(prompt: string) {
     const text = prompt.trim();
     if (!text || status === "streaming" || status === "submitted") return;
-    const context = buildAiContext({ openRoles, candidates, offers, branches, interviews, workTrials });
+    const context = buildAiContext({
+      openRoles, candidates, offers, branches, interviews, workTrials, referenceChecks,
+    });
     sendMessage({ text }, { body: { providerId, context, canEdit } });
     setInput("");
   }
 
-  async function resolveToolCall(toolCallId: string, input: { roleId: string; roleTitle: string; status: string }, approve: boolean) {
+  async function resolveToolCall(
+    toolCallId: string,
+    input: { roleId: string; roleTitle: string; status: string },
+    approve: boolean
+  ) {
     if (!approve) {
       addToolResult({ tool: "setRoleStatus", toolCallId, state: "output-available", output: { ok: false, message: "Cancelled by user." } });
       return;
@@ -96,6 +104,7 @@ export function AiAssistantLauncher() {
           </SheetTitle>
         </SheetHeader>
 
+        {/* Provider selector */}
         <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
           {AI_PROVIDERS.map((p) => (
             <button
@@ -113,6 +122,7 @@ export function AiAssistantLauncher() {
           ))}
         </div>
 
+        {/* Preset buttons */}
         <div className="flex flex-wrap gap-1.5">
           {PRESETS.map((preset) => (
             <Button key={preset.label} size="sm" variant="outline" onClick={() => send(preset.prompt)}>
@@ -121,14 +131,15 @@ export function AiAssistantLauncher() {
           ))}
         </div>
 
+        {/* Message area */}
         <ScrollArea className="flex-1 -mx-1 px-1">
           <div className="space-y-3 pb-2">
-            {messages.length === 0 && (
+            {messages.length === 0 && !error && (
               <p className="text-sm text-muted-foreground">
-                Ask about open roles, pipeline status, or request a status change — I&apos;ll always confirm before
-                changing anything.
+                Ask about candidates, open roles, interviews, work trials, or offers. I have full visibility of the pipeline.
               </p>
             )}
+
             {messages.map((message) => (
               <div key={message.id} className={cn("text-sm", message.role === "user" ? "text-right" : "text-left")}>
                 <div
@@ -147,7 +158,7 @@ export function AiAssistantLauncher() {
                         return (
                           <div key={i} className="space-y-2 rounded-md border border-border bg-background p-2.5 text-foreground">
                             <p className="text-xs">
-                              Mark <span className="font-semibold">{roleTitle}</span> ({roleId}) as{" "}
+                              Mark <span className="font-semibold">{roleTitle}</span> as{" "}
                               <span className="font-semibold">{newStatus}</span>?
                             </p>
                             <div className="flex gap-2">
@@ -174,13 +185,27 @@ export function AiAssistantLauncher() {
                 </div>
               </div>
             ))}
+
             {(status === "submitted" || status === "streaming") && (
-              <p className="text-xs text-muted-foreground">Penny is thinking…</p>
+              <p className="text-xs text-muted-foreground animate-pulse">Penny is thinking…</p>
             )}
+
+            {error && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  {error.message.includes("503") || error.message.includes("not configured")
+                    ? `${AI_PROVIDERS.find((p) => p.id === providerId)?.label ?? "This model"} isn't configured on this deployment. Try switching to Llama 3.3 (Groq).`
+                    : error.message}
+                </span>
+              </div>
+            )}
+
             <div ref={bottomRef} />
           </div>
         </ScrollArea>
 
+        {/* Input */}
         <form
           onSubmit={(e) => {
             e.preventDefault();

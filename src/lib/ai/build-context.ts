@@ -1,14 +1,11 @@
-import { Branch, Candidate, Interview, Offer, OpenRole, WorkTrial } from "@/types";
+import { Branch, Candidate, Interview, Offer, OpenRole, ReferenceCheck, WorkTrial } from "@/types";
 import { getKpis, getSegmentSplit, getStageCounts } from "@/lib/dashboard-metrics";
 
 export type AiContext = ReturnType<typeof buildAiContext>;
 
-// Privacy rule enforced here: every aggregate below is derived from raw
-// arrays but never exposes a person's name, email, or phone. Only counts,
-// dates, role titles, branch names, and stage labels flow to external AI
-// providers. Internal Airtable IDs (`id`, `roleId`) are included in the
-// roster so tool calls can reference records — they are never shown in the
-// visible assistant text (enforced in the system prompt).
+// Full-access mode: all operational data including candidate names and stages
+// flows to the AI provider. PII such as phone numbers and emails is excluded
+// as Penny doesn't need them to answer recruitment status questions.
 export function buildAiContext(data: {
   openRoles: OpenRole[];
   candidates: Candidate[];
@@ -16,16 +13,28 @@ export function buildAiContext(data: {
   branches?: Branch[];
   interviews?: Interview[];
   workTrials?: WorkTrial[];
+  referenceChecks?: ReferenceCheck[];
 }) {
-  const { openRoles, candidates, offers, branches = [], interviews = [], workTrials = [] } = data;
+  const {
+    openRoles,
+    candidates,
+    offers,
+    branches = [],
+    interviews = [],
+    workTrials = [],
+    referenceChecks = [],
+  } = data;
 
+  // ── Aggregate KPIs ─────────────────────────────────────────────────────────
   const kpis = getKpis(openRoles, candidates, offers);
   const segmentSplit = getSegmentSplit(openRoles, candidates);
   const stageCounts = getStageCounts(candidates);
 
+  // ── Open role roster ───────────────────────────────────────────────────────
+  const branchMap = new Map(branches.map((b) => [b.id, b.name]));
+
   const roster = openRoles.map((r) => ({
     id: r.id,
-    roleId: r.roleId,
     title: r.title,
     segment: r.segment,
     department: r.department,
@@ -37,59 +46,103 @@ export function buildAiContext(data: {
     hcFilled: r.hcFilled,
     hcGap: Math.max(r.hcApproved - r.hcFilled, 0),
     candidatesInPipeline: candidates.filter(
-      (c) =>
-        c.roleId === r.id &&
-        !["Hired", "Rejected", "Withdrawn", "Backup Pool"].includes(c.stage)
+      (c) => c.roleId === r.id && !["Hired", "Rejected", "Withdrawn", "Backup Pool"].includes(c.stage)
     ).length,
   }));
 
-  // Pre-aggregated so breakdown questions don't enumerate every roster entry.
+  // ── Department breakdown (pre-aggregated) ──────────────────────────────────
   const departmentBreakdown = (() => {
-    const byKey = new Map<string, { segment: string; department: string; openRoleCount: number; hcGap: number; candidatesInPipeline: number }>();
+    const map = new Map<string, { segment: string; department: string; openRoleCount: number; hcGap: number; candidatesInPipeline: number }>();
     for (const r of openRoles) {
       if (r.status !== "Open") continue;
       const key = `${r.segment}::${r.department}`;
-      const entry = byKey.get(key) ?? { segment: r.segment, department: r.department, openRoleCount: 0, hcGap: 0, candidatesInPipeline: 0 };
-      entry.openRoleCount += 1;
-      entry.hcGap += Math.max(r.hcApproved - r.hcFilled, 0);
-      entry.candidatesInPipeline += candidates.filter(
+      const e = map.get(key) ?? { segment: r.segment, department: r.department, openRoleCount: 0, hcGap: 0, candidatesInPipeline: 0 };
+      e.openRoleCount += 1;
+      e.hcGap += Math.max(r.hcApproved - r.hcFilled, 0);
+      e.candidatesInPipeline += candidates.filter(
         (c) => c.roleId === r.id && !["Hired", "Rejected", "Withdrawn", "Backup Pool"].includes(c.stage)
       ).length;
-      byKey.set(key, entry);
+      map.set(key, e);
     }
-    return Array.from(byKey.values()).sort((a, b) => b.hcGap - a.hcGap);
+    return Array.from(map.values()).sort((a, b) => b.hcGap - a.hcGap);
   })();
 
-  // Branch-level breakdown — answers "which branches need the most hires?"
+  // ── Branch breakdown — uses location text as fallback when branchId absent ─
   const branchBreakdown = (() => {
-    const branchMap = new Map(branches.map((b) => [b.id, b.name]));
-    const byBranch = new Map<string, { branchName: string; openRoleCount: number; hcGap: number }>();
+    const map = new Map<string, { branchName: string; openRoleCount: number; hcGap: number }>();
     for (const r of openRoles) {
-      if (r.status !== "Open" || !r.branchId) continue;
-      const name = branchMap.get(r.branchId) ?? r.location;
-      const entry = byBranch.get(name) ?? { branchName: name, openRoleCount: 0, hcGap: 0 };
-      entry.openRoleCount += 1;
-      entry.hcGap += Math.max(r.hcApproved - r.hcFilled, 0);
-      byBranch.set(name, entry);
+      if (r.status !== "Open") continue;
+      const name = (r.branchId ? branchMap.get(r.branchId) : null) ?? r.location;
+      if (!name) continue;
+      const e = map.get(name) ?? { branchName: name, openRoleCount: 0, hcGap: 0 };
+      e.openRoleCount += 1;
+      e.hcGap += Math.max(r.hcApproved - r.hcFilled, 0);
+      map.set(name, e);
     }
-    return Array.from(byBranch.values()).sort((a, b) => b.hcGap - a.hcGap);
+    return Array.from(map.values()).sort((a, b) => b.hcGap - a.hcGap);
   })();
 
-  // Interview pipeline — counts only, no names.
+  // ── Full candidate profiles (names + stages) ───────────────────────────────
+  const roleById = new Map(openRoles.map((r) => [r.id, r]));
+  const candidateProfiles = candidates.map((c) => {
+    const role = roleById.get(c.roleId);
+    const entered = new Date(c.stageEnteredAt).getTime();
+    const daysInStage = isNaN(entered) ? null : Math.floor((Date.now() - entered) / 86400000);
+    return {
+      name: c.name || "(no name)",
+      stage: c.stage,
+      roleTitle: role?.title ?? "Unknown Role",
+      roleLocation: role?.location ?? "",
+      segment: role?.segment ?? "",
+      source: c.source,
+      gender: c.gender,
+      employmentType: c.employmentType,
+      daysInStage,
+    };
+  });
+
+  // ── Interview details ──────────────────────────────────────────────────────
+  const candidateMap = new Map(candidates.map((c) => [c.id, c]));
   const now = new Date();
-  const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const weekFromNow = new Date(now.getTime() + 7 * 86400000);
+
+  const interviewDetails = interviews.map((i) => {
+    const candidate = candidateMap.get(i.candidateId);
+    const role = roleById.get(i.roleId);
+    return {
+      candidateName: candidate?.name || "(no name)",
+      roleTitle: role?.title ?? "Unknown Role",
+      roleLocation: role?.location ?? "",
+      date: i.date,
+      stage: i.stage,
+      attendance: i.attendance,
+      outcome: i.outcome,
+    };
+  });
+
   const interviewSummary = {
     totalScheduled: interviews.length,
-    upcoming7Days: interviews.filter((i) => {
-      const d = new Date(i.date);
-      return d >= now && d <= weekFromNow;
-    }).length,
+    upcoming7Days: interviews.filter((i) => { const d = new Date(i.date); return d >= now && d <= weekFromNow; }).length,
     noShowCount: interviews.filter((i) => i.attendance === "No-show").length,
     attendedCount: interviews.filter((i) => i.attendance === "Attended").length,
     pendingCount: interviews.filter((i) => i.attendance === "Pending").length,
   };
 
-  // Work trial pipeline — aggregate status only, no names.
+  // ── Work trial details ─────────────────────────────────────────────────────
+  const workTrialDetails = workTrials.map((t) => {
+    const candidate = candidateMap.get(t.candidateId);
+    const branch = branchMap.get(t.branchId) ?? t.branchId;
+    return {
+      candidateName: candidate?.name || "(no name)",
+      branch,
+      date: t.date,
+      supervisor: t.supervisor,
+      status: t.arrivalMarked === null ? "Awaiting Arrival" : t.total === null ? "Awaiting Score" : "Complete",
+      total: t.total,
+      passFail: t.passFail,
+    };
+  });
+
   const workTrialSummary = {
     total: workTrials.length,
     awaitingArrival: workTrials.filter((t) => t.arrivalMarked === null).length,
@@ -98,7 +151,31 @@ export function buildAiContext(data: {
     failed: workTrials.filter((t) => t.passFail === "Fail").length,
   };
 
-  // Offer pipeline — aggregate outcomes only, no names.
+  // ── Reference check details ────────────────────────────────────────────────
+  const refCheckDetails = referenceChecks.map((rc) => {
+    const candidate = candidateMap.get(rc.candidateId);
+    return {
+      candidateName: candidate?.name || "(no name)",
+      outcome: rc.outcome,
+      referee1Responded: rc.referee1.responded,
+      referee2Responded: rc.referee2.responded,
+    };
+  });
+
+  // ── Offer details ──────────────────────────────────────────────────────────
+  const offerDetails = offers.map((o) => {
+    const candidate = candidateMap.get(o.candidateId);
+    const role = candidates.find((c) => c.id === o.candidateId) ? roleById.get(candidates.find((c) => c.id === o.candidateId)!.roleId) : undefined;
+    return {
+      candidateName: candidate?.name || "(no name)",
+      roleTitle: role?.title ?? "Unknown Role",
+      offeredSalary: o.offeredSalary,
+      outcome: o.outcome,
+      deadline: o.deadline,
+      joined: o.joined,
+    };
+  });
+
   const offerSummary = {
     total: offers.length,
     pending: offers.filter((o) => o.outcome === "Pending").length,
@@ -115,22 +192,27 @@ export function buildAiContext(data: {
     departmentBreakdown,
     branchBreakdown,
     roster,
+    candidateProfiles,
+    interviewDetails,
     interviewSummary,
+    workTrialDetails,
     workTrialSummary,
+    refCheckDetails,
+    offerDetails,
     offerSummary,
   };
 }
 
 export function buildSystemPrompt(context: AiContext, canEdit: boolean) {
   return [
-    "You are Penny, an AI assistant inside Penda Health's recruitment dashboard.",
-    "Answer questions about hiring pipeline status using only the JSON context below. It contains aggregate metrics (no personal data — no candidate names, emails, or phone numbers). Never claim to know candidate identities; you only have counts and role-level data.",
-    "Context includes: KPIs, segment split, stage counts (how many candidates per stage), department breakdown, branch breakdown (branch-level HC gaps), a roster of all open roles (including candidates in pipeline per role), interview pipeline summary, work trial summary, and offer summary.",
-    "Formatting rules: write for a human reading a chat window. Use plain role titles and branch names. NEVER print `id` or `roleId` field values (anything starting with \"rec\") in visible text — they are for tool calls only. For breakdown questions, prefer the pre-aggregated arrays (`departmentBreakdown`, `branchBreakdown`) over listing individual roster entries. Keep answers short: a few sentences or a tight bullet list.",
-    "If asked to change a role's status, call the setRoleStatus tool with the role's exact `id` and `title` from the roster — do not invent ids, and do not show the id to the user. Always confirm the role title and proposed status before calling the tool.",
+    "You are Penny, an AI recruitment assistant inside Penda Health's hiring dashboard.",
+    "You have full access to the current state of all open roles, candidates (including names and stages), interviews, work trials, reference checks, and offers. Use this data to answer questions precisely — no guessing or hallucinating records that aren't in the context.",
+    "Context structure: `roster` = all open roles with location, recruiter, HC gaps, and candidate counts. `candidateProfiles` = every candidate with name, current stage, role, and days in stage. `interviewDetails` = all scheduled interviews with candidate names, dates, stages, and attendance. `workTrialDetails` = all work trials with outcomes. `refCheckDetails` = reference check statuses. `offerDetails` = all offers with outcomes and salaries. `departmentBreakdown` and `branchBreakdown` are pre-aggregated for breakdown questions.",
+    "Formatting rules: write for a human reading a chat window. Use names and role titles from the data — never invent details not present. NEVER show internal `id` field values starting with \"rec\" in visible text. For breakdown/grouping questions prefer the pre-aggregated arrays. For candidate-specific questions, scan `candidateProfiles`. Keep answers concise — bullet lists or short paragraphs.",
+    "If asked to change a role's status, call the setRoleStatus tool with the role's `id` and `title` from the roster. Always confirm with the user first.",
     canEdit
-      ? "The current user has permission to edit recruitment data."
-      : "The current user is VIEW-ONLY and cannot edit recruitment data. If they ask you to change anything, explain that their role doesn't permit edits instead of proposing the tool call.",
+      ? "The current user has edit permission."
+      : "The current user is VIEW-ONLY. If they ask to change anything, explain they don't have permission.",
     "Context:",
     JSON.stringify(context),
   ].join("\n\n");

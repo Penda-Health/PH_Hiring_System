@@ -5,11 +5,6 @@ import { buildSystemPrompt, type AiContext } from "@/lib/ai/build-context";
 
 export const runtime = "nodejs";
 
-// Auth is already enforced for every /api/* route by src/middleware.ts (must
-// be a signed-in, domain-matched user). This route makes no recruitment-data
-// mutations itself — tool calls are proposals the client confirms and
-// applies via the existing guarded mutators — so it doesn't need to join
-// RECRUITMENT_DATA_API_PREFIXES.
 export async function POST(req: Request) {
   const body = await req.json();
   const { messages, providerId, context, canEdit } = body as {
@@ -26,12 +21,26 @@ export async function POST(req: Request) {
     return Response.json({ error: "Unknown AI provider." }, { status: 400 });
   }
 
-  const result = streamText({
-    model: provider.getModel(),
-    system: buildSystemPrompt(context, canEdit),
-    messages: await convertToModelMessages(messages, { tools: aiTools }),
-    tools: aiTools,
-  });
+  let model;
+  try {
+    model = provider.getModel();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to initialize AI model";
+    console.error(`[api/ai/chat] getModel (${providerId}) failed:`, err);
+    return Response.json({ error: `${provider.label} is not configured: ${msg}` }, { status: 503 });
+  }
 
-  return result.toUIMessageStreamResponse();
+  try {
+    const result = streamText({
+      model,
+      system: buildSystemPrompt(context, canEdit),
+      messages: await convertToModelMessages(messages, { tools: aiTools }),
+      tools: aiTools,
+    });
+    return result.toUIMessageStreamResponse();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "AI generation failed";
+    console.error(`[api/ai/chat] streamText (${providerId}) failed:`, err);
+    return Response.json({ error: msg }, { status: 502 });
+  }
 }
