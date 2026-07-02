@@ -49,7 +49,7 @@ export function RoleListItem({
           {headcountRemaining(role)}/{role.hcApproved} open
         </span>
         <span className="text-xs text-muted-foreground w-16 shrink-0 text-right hidden lg:inline">
-          {daysOpen(role.datePosted)}d
+          {daysOpen(role.datePosted) !== null ? `${daysOpen(role.datePosted)}d` : "—"}
         </span>
         <p className="text-xs text-muted-foreground w-40 shrink-0 truncate italic hidden xl:block">
           {role.notes ?? ""}

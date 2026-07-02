@@ -34,7 +34,8 @@ export function RoleCard({
         <p className="text-xs text-muted-foreground">{role.location}</p>
         <p className="text-xs text-muted-foreground">
           {role.employmentType && <>{role.employmentType} · </>}
-          {headcountRemaining(role)} of {role.hcApproved} open · {daysOpen(role.datePosted)}d open
+          {headcountRemaining(role)} of {role.hcApproved} open
+          {daysOpen(role.datePosted) !== null && <> · {daysOpen(role.datePosted)}d open</>}
         </p>
         {role.notes && <p className="text-xs text-muted-foreground truncate italic">{role.notes}</p>}
         <div className="flex items-center justify-between">

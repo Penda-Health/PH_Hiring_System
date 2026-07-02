@@ -27,10 +27,11 @@ export function getUniqueRecruiters(openRoles: OpenRole[]): string[] {
   return Array.from(new Set(openRoles.map((r) => r.recruiter))).sort();
 }
 
-export function daysOpen(datePosted: string): number {
+export function daysOpen(datePosted: string): number | null {
+  if (!datePosted) return null;
   const posted = new Date(datePosted).getTime();
-  const now = Date.now();
-  return Math.max(0, Math.floor((now - posted) / (1000 * 60 * 60 * 24)));
+  if (isNaN(posted)) return null;
+  return Math.max(0, Math.floor((Date.now() - posted) / (1000 * 60 * 60 * 24)));
 }
 
 export function headcountRemaining(role: OpenRole): number {

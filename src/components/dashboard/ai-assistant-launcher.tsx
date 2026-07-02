@@ -24,12 +24,14 @@ type ChatMessage = UIMessage<unknown, UIDataTypes, InferUITools<typeof aiTools>>
 
 const PRESETS = [
   { label: "Generate Summary", prompt: "Give me a quick summary of today's recruiting status." },
-  { label: "What's stalled?", prompt: "Which open roles look stalled or at risk, and why?" },
+  { label: "What's stalled?", prompt: "Which open roles have no candidates in pipeline and are high priority?" },
   { label: "By department", prompt: "Break down open roles by department for both IPS and SO." },
+  { label: "By branch", prompt: "Which branches have the most open headcount gaps?" },
 ];
 
 export function AiAssistantLauncher() {
-  const { openRoles, candidates, offers, canEdit, updateOpenRoleStatus } = useRecruitmentData();
+  const { openRoles, candidates, offers, branches, interviews, workTrials, canEdit, updateOpenRoleStatus } =
+    useRecruitmentData();
   const [providerId, setProviderId] = React.useState<ProviderId>("llama");
   const [input, setInput] = React.useState("");
   const bottomRef = React.useRef<HTMLDivElement>(null);
@@ -48,7 +50,7 @@ export function AiAssistantLauncher() {
   function send(prompt: string) {
     const text = prompt.trim();
     if (!text || status === "streaming" || status === "submitted") return;
-    const context = buildAiContext({ openRoles, candidates, offers });
+    const context = buildAiContext({ openRoles, candidates, offers, branches, interviews, workTrials });
     sendMessage({ text }, { body: { providerId, context, canEdit } });
     setInput("");
   }

@@ -30,6 +30,7 @@ type RecruitmentDataContextValue = {
 
   branches: Branch[];
   openRoles: OpenRole[];
+  createOpenRole: (role: OpenRole) => Promise<void>;
   updateOpenRoleStatus: (id: string, status: OpenRole["status"]) => void;
   newEmployees: NewEmployee[];
 
@@ -189,6 +190,15 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       setOpenRoles((prev) => [created, ...prev]);
     },
     [branches, canEdit]
+  );
+
+  const createOpenRole = React.useCallback(
+    async (role: OpenRole) => {
+      if (!guardEdit(canEdit, "createOpenRole")) return;
+      const created = await createResource<OpenRole>("open-roles", role);
+      setOpenRoles((prev) => [created, ...prev]);
+    },
+    [canEdit]
   );
 
   const updateOpenRoleStatus = React.useCallback(
@@ -435,6 +445,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       canEdit,
       branches,
       openRoles,
+      createOpenRole,
       updateOpenRoleStatus,
       newEmployees,
       requisitions,
@@ -474,6 +485,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       canEdit,
       branches,
       openRoles,
+      createOpenRole,
       updateOpenRoleStatus,
       newEmployees,
       requisitions,

@@ -7,11 +7,12 @@ import { PipelineFilters, PipelineFilterState } from "@/components/pipeline/pipe
 import { CandidateDetailDialog } from "@/components/pipeline/candidate-detail-dialog";
 import { PipelineRoleExplorer } from "@/components/pipeline/pipeline-role-explorer";
 import { NewCandidateDialog } from "@/components/pipeline/new-candidate-dialog";
+import { NewOpenRoleDialog } from "@/components/pipeline/new-open-role-dialog";
 import { ViewMode, ViewToggle } from "@/components/ui/view-toggle";
 import { isRoleInMonthRange } from "@/lib/pipeline-helpers";
 
 export default function PipelinePage() {
-  const { candidates, openRoles, createCandidate } = useRecruitmentData();
+  const { candidates, openRoles, createCandidate, createOpenRole, canEdit } = useRecruitmentData();
   const [filters, setFilters] = React.useState<PipelineFilterState>({
     segment: "All",
     department: "All",
@@ -34,7 +35,10 @@ export default function PipelinePage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Pipeline</h1>
-        <NewCandidateDialog roles={openRoles} onCreate={createCandidate} />
+        <div className="flex items-center gap-2">
+          {canEdit && <NewOpenRoleDialog onCreate={createOpenRole} />}
+          <NewCandidateDialog roles={openRoles} onCreate={createCandidate} />
+        </div>
       </div>
       <div className="flex items-center justify-between gap-3">
         <PipelineFilters filters={filters} onChange={setFilters} />
