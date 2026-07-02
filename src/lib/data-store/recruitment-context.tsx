@@ -43,15 +43,18 @@ type RecruitmentDataContextValue = {
   createInterview: (interview: Interview) => Promise<void>;
 
   workTrials: WorkTrial[];
+  createWorkTrial: (trial: WorkTrial) => Promise<void>;
   submitWorkTrialScores: (
     id: string,
     scores: { technical: number; patient: number; safety: number; culture: number }
   ) => void;
 
   referenceChecks: ReferenceCheck[];
+  createReferenceCheck: (refCheck: ReferenceCheck) => Promise<void>;
   updateReferenceCheckOutcome: (id: string, outcome: ReferenceCheck["outcome"]) => void;
 
   offers: Offer[];
+  createOffer: (offer: Offer) => Promise<void>;
   acceptOffer: (id: string) => void;
   declineOffer: (id: string, reason?: string) => void;
   counterOffer: (id: string, amount: number) => void;
@@ -251,6 +254,15 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit]
   );
 
+  const createWorkTrial = React.useCallback(
+    async (trial: WorkTrial) => {
+      if (!guardEdit(canEdit, "createWorkTrial")) return;
+      const created = await createResource<WorkTrial>("work-trials", trial);
+      setWorkTrials((prev) => [created, ...prev]);
+    },
+    [canEdit]
+  );
+
   const submitWorkTrialScores = React.useCallback(
     (id: string, scores: { technical: number; patient: number; safety: number; culture: number }) => {
       if (!guardEdit(canEdit, "submitWorkTrialScores")) return;
@@ -270,11 +282,29 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit]
   );
 
+  const createReferenceCheck = React.useCallback(
+    async (refCheck: ReferenceCheck) => {
+      if (!guardEdit(canEdit, "createReferenceCheck")) return;
+      const created = await createResource<ReferenceCheck>("reference-checks", refCheck);
+      setReferenceChecks((prev) => [created, ...prev]);
+    },
+    [canEdit]
+  );
+
   const updateReferenceCheckOutcome = React.useCallback(
     (id: string, outcome: ReferenceCheck["outcome"]) => {
       if (!guardEdit(canEdit, "updateReferenceCheckOutcome")) return;
       persist<ReferenceCheck>("reference-checks", id, { outcome });
       setReferenceChecks((prev) => prev.map((c) => (c.id === id ? { ...c, outcome } : c)));
+    },
+    [canEdit]
+  );
+
+  const createOffer = React.useCallback(
+    async (offer: Offer) => {
+      if (!guardEdit(canEdit, "createOffer")) return;
+      const created = await createResource<Offer>("offers", offer);
+      setOffers((prev) => [created, ...prev]);
     },
     [canEdit]
   );
@@ -415,10 +445,13 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       updateInterview,
       createInterview,
       workTrials,
+      createWorkTrial,
       submitWorkTrialScores,
       referenceChecks,
+      createReferenceCheck,
       updateReferenceCheckOutcome,
       offers,
+      createOffer,
       acceptOffer,
       declineOffer,
       counterOffer,
@@ -451,10 +484,13 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       updateInterview,
       createInterview,
       workTrials,
+      createWorkTrial,
       submitWorkTrialScores,
       referenceChecks,
+      createReferenceCheck,
       updateReferenceCheckOutcome,
       offers,
+      createOffer,
       acceptOffer,
       declineOffer,
       counterOffer,

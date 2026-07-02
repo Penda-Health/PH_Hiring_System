@@ -1,15 +1,28 @@
 "use client";
 
-import { FolderOpen } from "lucide-react";
+import * as React from "react";
+import { Check, Copy, FolderOpen } from "lucide-react";
 import { ReferenceCheck } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RefereeStatusRow } from "./referee-status-row";
 import { getCandidateForRefCheck, OUTCOME_STYLES } from "@/lib/reference-check-helpers";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 
 const OUTCOMES: ReferenceCheck["outcome"][] = ["Pending", "Positive", "Negative", "Mixed"];
+
+async function copyRefereeLink(refCheckId: string, candidateId: string, refereeNum: 1 | 2) {
+  const res = await fetch("/api/forms/get-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "referee", refCheckId, candidateId, refereeNum }),
+  });
+  if (!res.ok) throw new Error("Failed to get link");
+  const { url } = await res.json();
+  await navigator.clipboard.writeText(url as string);
+}
 
 export function ReferenceCheckCard({
   refCheck,
@@ -20,6 +33,17 @@ export function ReferenceCheckCard({
 }) {
   const { candidates } = useRecruitmentData();
   const candidate = getCandidateForRefCheck(refCheck, candidates);
+  const [copied, setCopied] = React.useState<1 | 2 | null>(null);
+
+  async function handleCopy(num: 1 | 2) {
+    try {
+      await copyRefereeLink(refCheck.id, refCheck.candidateId, num);
+      setCopied(num);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      // silently fail — clipboard access may be blocked
+    }
+  }
 
   return (
     <Card>
@@ -31,8 +55,36 @@ export function ReferenceCheckCard({
         <Badge className={OUTCOME_STYLES[refCheck.outcome]}>{refCheck.outcome}</Badge>
       </CardHeader>
       <CardContent className="space-y-3">
-        <RefereeStatusRow referee={refCheck.referee1} />
-        <RefereeStatusRow referee={refCheck.referee2} />
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <RefereeStatusRow referee={refCheck.referee1} />
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 shrink-0"
+              title="Copy referee 1 link"
+              onClick={() => handleCopy(1)}
+            >
+              {copied === 1 ? <Check className="h-3.5 w-3.5 text-penda-teal" /> : <Copy className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <RefereeStatusRow referee={refCheck.referee2} />
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 shrink-0"
+              title="Copy referee 2 link"
+              onClick={() => handleCopy(2)}
+            >
+              {copied === 2 ? <Check className="h-3.5 w-3.5 text-penda-teal" /> : <Copy className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
+        </div>
 
         {refCheck.driveFolderUrl && (
           <a

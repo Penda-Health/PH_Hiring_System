@@ -6,18 +6,36 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   getDisplayStatus,
   getCandidateForTrial,
   getBranchForTrial,
 } from "@/lib/work-trial-helpers";
 import { ScoreEntryDialog } from "./score-entry-dialog";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
+import { Check, ChevronDown, Copy } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
   "Awaiting Arrival": "bg-muted text-muted-foreground border-transparent",
   "Awaiting Score": "bg-high-bg text-high-fg border-transparent",
   Complete: "bg-penda-teal-light text-penda-teal-dark border-transparent",
 };
+
+async function getFormLink(body: Record<string, unknown>): Promise<string> {
+  const res = await fetch("/api/forms/get-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error("Failed to get link");
+  const { url } = await res.json();
+  return url as string;
+}
 
 export function WorkTrialCard({
   trial,
@@ -28,9 +46,21 @@ export function WorkTrialCard({
 }) {
   const { candidates, branches } = useRecruitmentData();
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [copied, setCopied] = React.useState<string | null>(null);
   const candidate = getCandidateForTrial(trial, candidates);
   const branch = getBranchForTrial(trial, branches);
   const status = getDisplayStatus(trial);
+
+  async function copyLink(type: "work-trial" | "bm-feedback") {
+    try {
+      const url = await getFormLink({ type, workTrialId: trial.id, candidateId: trial.candidateId });
+      await navigator.clipboard.writeText(url);
+      setCopied(type);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      // fallback: show the url in prompt
+    }
+  }
 
   return (
     <Card>
@@ -66,11 +96,32 @@ export function WorkTrialCard({
           </div>
         )}
 
-        {status !== "Complete" && (
-          <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
-            Submit Scores
-          </Button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {status !== "Complete" && (
+            <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
+              Submit Scores
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-1">
+                <Copy className="h-3.5 w-3.5" />
+                Copy link
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => copyLink("work-trial")}>
+                {copied === "work-trial" ? <Check className="h-3.5 w-3.5 mr-2 text-penda-teal" /> : <Copy className="h-3.5 w-3.5 mr-2" />}
+                Candidate form link
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => copyLink("bm-feedback")}>
+                {copied === "bm-feedback" ? <Check className="h-3.5 w-3.5 mr-2 text-penda-teal" /> : <Copy className="h-3.5 w-3.5 mr-2" />}
+                BM feedback link
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </CardContent>
 
       <ScoreEntryDialog
