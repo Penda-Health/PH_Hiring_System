@@ -12,7 +12,7 @@ import { ViewMode, ViewToggle } from "@/components/ui/view-toggle";
 import { isRoleInMonthRange } from "@/lib/pipeline-helpers";
 
 export default function PipelinePage() {
-  const { candidates, openRoles, createCandidate, createOpenRole, canEdit } = useRecruitmentData();
+  const { candidates, openRoles, branches, createCandidate, createOpenRole, canEdit } = useRecruitmentData();
   const [filters, setFilters] = React.useState<PipelineFilterState>({
     segment: "All",
     department: "All",
@@ -36,7 +36,7 @@ export default function PipelinePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Pipeline</h1>
         <div className="flex items-center gap-2">
-          {canEdit && <NewOpenRoleDialog onCreate={createOpenRole} />}
+          {canEdit && <NewOpenRoleDialog branches={branches} openRoles={openRoles} onCreate={createOpenRole} />}
           <NewCandidateDialog roles={openRoles} onCreate={createCandidate} />
         </div>
       </div>
