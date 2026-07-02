@@ -94,6 +94,7 @@ export const openRoleSchema = z.object({
   hcFilled: z.number(),
   recruiter: z.string().min(1),
   hiringManager: z.string().min(1),
+  hiringManagerEmail: z.string().email().optional(),
   datePosted: z.string(),
   dateClosed: z.string().optional(),
   employmentType: z.enum(["Full-time", "Part-time", "Contract", "Reliever", "Locum"]).optional(),
@@ -179,6 +180,17 @@ const refereeStatusSchema = z.object({
   smsSent: z.boolean(),
   responded: z.boolean(),
   respondedAt: z.string().optional(),
+  relationship: z.string().optional(),
+  durationKnown: z.string().optional(),
+  techScore: z.number().optional(),
+  reliabilityScore: z.number().optional(),
+  teamworkScore: z.number().optional(),
+  wouldRehire: z
+    .enum(["Yes, without hesitation", "Yes, with some reservations", "No, I would not recommend them"])
+    .optional(),
+  strengthExample: z.string().optional(),
+  developmentAreas: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 export const referenceCheckSchema = z.object({
@@ -223,6 +235,7 @@ export const newEmployeeSchema = z.object({
 });
 
 export const relieverSchema = z.object({
+  relieverId: z.string().optional(),
   name: z.string().min(1),
   role: z.string().min(1),
   branchesCovered: z.array(z.string()),
@@ -233,6 +246,7 @@ export const relieverSchema = z.object({
 });
 
 export const locumSchema = z.object({
+  locumId: z.string().optional(),
   name: z.string().min(1),
   speciality: z.string().min(1),
   branchesCovered: z.array(z.string()),

@@ -143,6 +143,7 @@ export interface OpenRole {
   hcFilled: number;
   recruiter: string;
   hiringManager: string;
+  hiringManagerEmail?: string;
   datePosted: string;
   dateClosed?: string;
   employmentType?: EmploymentType;
@@ -161,7 +162,7 @@ export interface Candidate {
   roleId: string;
   stage: CandidateStage;
   source: string;
-  gender: "Male" | "Female";
+  gender: "Male" | "Female" | undefined;
   employmentType: EmploymentType;
   referee1?: { name: string; email: string; phone: string };
   referee2?: { name: string; email: string; phone: string };
@@ -279,6 +280,7 @@ export interface NewEmployee {
 
 export interface Reliever {
   id: string;
+  relieverId?: string;
   name: string;
   role: string;
   branchesCovered: string[];
@@ -290,6 +292,7 @@ export interface Reliever {
 
 export interface Locum {
   id: string;
+  locumId?: string;
   name: string;
   speciality: string;
   branchesCovered: string[];

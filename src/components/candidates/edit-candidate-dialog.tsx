@@ -71,7 +71,7 @@ export function EditCandidateDialog({
       name: candidate.name,
       phone: candidate.phone,
       email: candidate.email,
-      gender: candidate.gender,
+      gender: candidate.gender ?? "Male",
       employmentType: candidate.employmentType,
       source: candidate.source,
       stage: candidate.stage,

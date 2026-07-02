@@ -89,6 +89,7 @@ const F = {
     HC_FILLED: "HC Filled",
     RECRUITER: "Recruiter",
     HIRING_MANAGER: "Hiring Manager",
+    HIRING_MANAGER_EMAIL: "Hiring Manager Email",
     DATE_POSTED: "Date Posted",
     DATE_CLOSED: "Date Closed",
     EMPLOYMENT_TYPE: "Employment Type",
@@ -330,6 +331,7 @@ const TABLES = [
       { name: F.OpenRoles.HC_FILLED, type: "number", options: intOpts },
       { name: F.OpenRoles.RECRUITER, type: "singleLineText" },
       { name: F.OpenRoles.HIRING_MANAGER, type: "singleLineText" },
+      { name: F.OpenRoles.HIRING_MANAGER_EMAIL, type: "email" },
       { name: F.OpenRoles.DATE_POSTED, type: "date", options: dateOpts },
       { name: F.OpenRoles.DATE_CLOSED, type: "date", options: dateOpts },
       {

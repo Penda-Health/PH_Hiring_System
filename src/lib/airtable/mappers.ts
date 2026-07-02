@@ -147,6 +147,7 @@ export function openRoleFromAirtable(r: AirtableRecord): OpenRole {
     hcFilled: num(f[F.OpenRoles.HC_FILLED]),
     recruiter: str(f[F.OpenRoles.RECRUITER]),
     hiringManager: str(f[F.OpenRoles.HIRING_MANAGER]),
+    hiringManagerEmail: opt(f[F.OpenRoles.HIRING_MANAGER_EMAIL]),
     datePosted: str(f[F.OpenRoles.DATE_POSTED]),
     dateClosed: opt(f[F.OpenRoles.DATE_CLOSED]),
     employmentType: opt(f[F.OpenRoles.EMPLOYMENT_TYPE]) as OpenRole["employmentType"],
@@ -170,6 +171,7 @@ export function openRoleToAirtable(r: Partial<OpenRole>) {
     [F.OpenRoles.HC_FILLED]: r.hcFilled,
     [F.OpenRoles.RECRUITER]: r.recruiter,
     [F.OpenRoles.HIRING_MANAGER]: r.hiringManager,
+    [F.OpenRoles.HIRING_MANAGER_EMAIL]: r.hiringManagerEmail,
     [F.OpenRoles.DATE_POSTED]: r.datePosted,
     [F.OpenRoles.DATE_CLOSED]: r.dateClosed,
     [F.OpenRoles.EMPLOYMENT_TYPE]: r.employmentType,
@@ -194,7 +196,7 @@ export function candidateFromAirtable(r: AirtableRecord): Candidate {
     roleId: firstLink(f[F.Candidates.ROLE]) ?? "",
     stage: f[F.Candidates.STAGE] as Candidate["stage"],
     source: str(f[F.Candidates.SOURCE]),
-    gender: f[F.Candidates.GENDER] as Candidate["gender"],
+    gender: (f[F.Candidates.GENDER] as Candidate["gender"]) ?? undefined,
     employmentType: f[F.Candidates.EMPLOYMENT_TYPE] as Candidate["employmentType"],
     referee1: referee1Name
       ? {
@@ -500,6 +502,7 @@ export function relieverFromAirtable(r: AirtableRecord): Reliever {
   const f = r.fields;
   return {
     id: r.id,
+    relieverId: str(f[F.Relievers.RELIEVER_ID]),
     name: str(f[F.Relievers.NAME]),
     role: str(f[F.Relievers.ROLE]),
     branchesCovered: Array.isArray(f[F.Relievers.BRANCHES_COVERED])
@@ -513,7 +516,7 @@ export function relieverFromAirtable(r: AirtableRecord): Reliever {
 }
 export function relieverToAirtable(r: Partial<Reliever>) {
   return cleanFields({
-    [F.Relievers.RELIEVER_ID]: r.id,
+    [F.Relievers.RELIEVER_ID]: r.relieverId,
     [F.Relievers.NAME]: r.name,
     [F.Relievers.ROLE]: r.role,
     [F.Relievers.BRANCHES_COVERED]: r.branchesCovered,
@@ -529,6 +532,7 @@ export function locumFromAirtable(r: AirtableRecord): Locum {
   const f = r.fields;
   return {
     id: r.id,
+    locumId: str(f[F.Locums.LOCUM_ID]),
     name: str(f[F.Locums.NAME]),
     speciality: str(f[F.Locums.SPECIALITY]),
     branchesCovered: Array.isArray(f[F.Locums.BRANCHES_COVERED])
@@ -542,7 +546,7 @@ export function locumFromAirtable(r: AirtableRecord): Locum {
 }
 export function locumToAirtable(l: Partial<Locum>) {
   return cleanFields({
-    [F.Locums.LOCUM_ID]: l.id,
+    [F.Locums.LOCUM_ID]: l.locumId,
     [F.Locums.NAME]: l.name,
     [F.Locums.SPECIALITY]: l.speciality,
     [F.Locums.BRANCHES_COVERED]: l.branchesCovered,

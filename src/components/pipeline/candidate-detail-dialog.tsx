@@ -51,7 +51,7 @@ export function CandidateDetailDialog({
               <Field label="Phone" value={candidate.phone} />
               <Field label="Email" value={candidate.email} />
               <Field label="Source" value={candidate.source} />
-              <Field label="Gender" value={candidate.gender} />
+              <Field label="Gender" value={candidate.gender ?? "—"} />
               <Field label="Employment Type" value={candidate.employmentType} />
               <Field label="Applied" value={new Date(candidate.createdAt).toLocaleDateString()} />
             </div>
