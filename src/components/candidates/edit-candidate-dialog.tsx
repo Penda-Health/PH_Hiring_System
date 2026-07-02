@@ -146,14 +146,8 @@ export function EditCandidateDialog({
     >
       <DialogContent
         className="max-w-lg"
-        onInteractOutside={(e) => {
-          e.preventDefault();
-          tryClose();
-        }}
-        onEscapeKeyDown={(e) => {
-          e.preventDefault();
-          tryClose();
-        }}
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => { e.preventDefault(); tryClose(); }}
       >
         {candidate && (
           <>
