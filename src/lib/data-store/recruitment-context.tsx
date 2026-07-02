@@ -398,27 +398,6 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit]
   );
 
-  const updateCandidateStage = React.useCallback(
-    (id: string, stage: Candidate["stage"]) => {
-      if (!guardEdit(canEdit, "updateCandidateStage")) return;
-      const patch: Partial<Candidate> = { stage, stageEnteredAt: new Date().toISOString() };
-      setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-      persist<Candidate>("candidates", id, patch);
-    },
-    [canEdit]
-  );
-
-  const deleteCandidate = React.useCallback(
-    (id: string) => {
-      if (!guardEdit(canEdit, "deleteCandidate")) return;
-      setCandidates((prev) => prev.filter((c) => c.id !== id));
-      deleteResource("candidates", id).catch((err) => {
-        console.error(`Failed to delete candidate ${id} from Airtable:`, err);
-      });
-    },
-    [canEdit]
-  );
-
   const createReliever = React.useCallback(
     async (reliever: Reliever) => {
       if (!guardEdit(canEdit, "createReliever")) return;
@@ -433,6 +412,73 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       if (!guardEdit(canEdit, "createLocum")) return;
       const created = await createResource<Locum>("locums", locum);
       setLocums((prev) => [created, ...prev]);
+    },
+    [canEdit]
+  );
+
+  const updateCandidateStage = React.useCallback(
+    (id: string, stage: Candidate["stage"]) => {
+      if (!guardEdit(canEdit, "updateCandidateStage")) return;
+      const now = new Date().toISOString();
+      const patch: Partial<Candidate> = { stage, stageEnteredAt: now };
+      setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+      persist<Candidate>("candidates", id, patch);
+
+      if (stage !== "Hired") return;
+
+      const candidate = candidates.find((c) => c.id === id);
+      if (!candidate) return;
+
+      // Auto-add to Locum or Reliever pool
+      if (candidate.employmentType === "Locum") {
+        const linkedRole = openRoles.find((r) => r.id === candidate.roleId);
+        createLocum({
+          id: `loc-${Date.now()}`,
+          name: candidate.name,
+          speciality: linkedRole?.title ?? "General",
+          branchesCovered: linkedRole?.location ? [linkedRole.location] : [],
+          dailyRate: 0,
+          licenseNumber: "Pending",
+          availability: "TBD",
+        } as Locum).catch((err) => console.error("Failed to auto-create locum:", err));
+      } else if (candidate.employmentType === "Reliever") {
+        const linkedRole = openRoles.find((r) => r.id === candidate.roleId);
+        createReliever({
+          id: `rel-${Date.now()}`,
+          name: candidate.name,
+          role: linkedRole?.title ?? "General",
+          branchesCovered: linkedRole?.location ? [linkedRole.location] : [],
+          availabilityDates: "TBD",
+          status: "Active",
+          phone: candidate.phone || "Pending",
+        } as Reliever).catch((err) => console.error("Failed to auto-create reliever:", err));
+      }
+
+      // Update linked role headcount
+      if (candidate.roleId) {
+        const role = openRoles.find((r) => r.id === candidate.roleId);
+        if (role) {
+          const newHcFilled = (role.hcFilled ?? 0) + 1;
+          const newStatus: OpenRole["status"] =
+            newHcFilled >= (role.hcApproved ?? 1) ? "Filled" : role.status;
+          const rolePatch: Partial<OpenRole> = { hcFilled: newHcFilled, status: newStatus };
+          setOpenRoles((prev) =>
+            prev.map((r) => (r.id === candidate.roleId ? { ...r, ...rolePatch } : r))
+          );
+          persist<OpenRole>("open-roles", role.id, rolePatch);
+        }
+      }
+    },
+    [canEdit, candidates, openRoles, createLocum, createReliever]
+  );
+
+  const deleteCandidate = React.useCallback(
+    (id: string) => {
+      if (!guardEdit(canEdit, "deleteCandidate")) return;
+      setCandidates((prev) => prev.filter((c) => c.id !== id));
+      deleteResource("candidates", id).catch((err) => {
+        console.error(`Failed to delete candidate ${id} from Airtable:`, err);
+      });
     },
     [canEdit]
   );

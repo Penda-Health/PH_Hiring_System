@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
-import { coverageZones, getZoneBranches } from "@/lib/mock-data/clusters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RelieverCard } from "@/components/pools/reliever-card";
 import { RelieverListItem } from "@/components/pools/reliever-list-item";
@@ -16,13 +15,16 @@ import { NewLocumDialog } from "@/components/pools/new-locum-dialog";
 import { ViewMode, ViewToggle } from "@/components/ui/view-toggle";
 
 export default function PoolsPage() {
-  const { relievers, createReliever, locums, createLocum } = useRecruitmentData();
+  const { branches, relievers, createReliever, locums, createLocum } = useRecruitmentData();
   const [branchFilter, setBranchFilter] = React.useState("All");
   const [view, setView] = React.useState<ViewMode>("cards");
 
-  const filterBranches = getZoneBranches(branchFilter);
+  const branchNames = React.useMemo(
+    () => branches.filter((b) => b.active).map((b) => b.name).sort(),
+    [branches]
+  );
   const filteredRelievers = relievers.filter(
-    (r) => branchFilter === "All" || r.branchesCovered.some((b) => filterBranches.includes(b))
+    (r) => branchFilter === "All" || r.branchesCovered.includes(branchFilter)
   );
   const filteredLocums = locums.filter(
     (l) => branchFilter === "All" || l.branchesCovered.includes(branchFilter)
@@ -44,10 +46,10 @@ export default function PoolsPage() {
             <TabsTrigger value="locums">Locums ({filteredLocums.length})</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
-            <BranchFilter branches={coverageZones} value={branchFilter} onChange={setBranchFilter} />
+            <BranchFilter branches={branchNames} value={branchFilter} onChange={setBranchFilter} />
             <ViewToggle view={view} onChange={setView} />
-            <NewRelieverDialog onCreate={createReliever} />
-            <NewLocumDialog onCreate={createLocum} />
+            <NewRelieverDialog branches={branches} onCreate={createReliever} />
+            <NewLocumDialog branches={branches} onCreate={createLocum} />
           </div>
         </div>
 
