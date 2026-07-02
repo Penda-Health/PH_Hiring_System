@@ -118,7 +118,7 @@ export default function CandidatesPage() {
             onDelete={handleDelete}
           />
           {totalPages > 1 && (
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
               <Button
                 variant="outline"
                 size="sm"
@@ -127,7 +127,7 @@ export default function CandidatesPage() {
               >
                 Previous
               </Button>
-              <span>
+              <span className="min-w-[90px] text-center">
                 Page {page + 1} of {totalPages}
               </span>
               <Button
