@@ -40,7 +40,7 @@ export function RoleCandidatesDialog({
 
   return (
     <Dialog open={!!role} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto" allowOutsideClose>
         {role && (
           <>
             <DialogHeader>

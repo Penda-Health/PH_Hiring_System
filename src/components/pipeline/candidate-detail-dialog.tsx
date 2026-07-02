@@ -25,7 +25,7 @@ export function CandidateDetailDialog({
 
   return (
     <Dialog open={!!candidate} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent allowOutsideClose>
         {candidate && (
           <>
             <DialogHeader>
