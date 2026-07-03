@@ -15,7 +15,7 @@ export default function RolesPage() {
     segment: "All",
     status: "All",
     priority: "All",
-    branch: "All",
+    branches: [],
   });
   const [selectedRole, setSelectedRole] = React.useState<OpenRole | null>(null);
   const [selectedCandidate, setSelectedCandidate] = React.useState<Candidate | null>(null);
@@ -24,7 +24,7 @@ export default function RolesPage() {
     if (filters.segment !== "All" && role.segment !== filters.segment) return false;
     if (filters.status !== "All" && role.status !== filters.status) return false;
     if (filters.priority !== "All" && role.priority !== filters.priority) return false;
-    if (filters.segment === "IPS" && filters.branch !== "All" && role.location !== filters.branch) return false;
+    if (filters.segment === "IPS" && filters.branches.length > 0 && !filters.branches.includes(role.location)) return false;
     return true;
   });
 

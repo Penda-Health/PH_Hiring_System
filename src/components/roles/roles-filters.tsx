@@ -1,17 +1,40 @@
 "use client";
 
+import * as React from "react";
+import { ChevronDown } from "lucide-react";
 import { Branch, RoleStatus, Priority } from "@/types";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export interface RolesFilterState {
   segment: "All" | "IPS" | "SO";
   status: "All" | RoleStatus;
   priority: "All" | Priority;
-  branch: string; // "All" or a branch name — only active when segment === "IPS"
+  branches: string[]; // selected branch names — only active when segment === "IPS"
 }
 
 const STATUSES: RoleStatus[] = ["Open", "Filled", "On Hold", "Cancelled"];
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
+
+function groupByRegion(branches: Branch[]): { region: string; branches: Branch[] }[] {
+  const map = new Map<string, Branch[]>();
+  for (const b of branches) {
+    const r = b.region || "Other";
+    if (!map.has(r)) map.set(r, []);
+    map.get(r)!.push(b);
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([region, branches]) => ({ region, branches }));
+}
 
 export function RolesFilters({
   filters,
@@ -23,11 +46,25 @@ export function RolesFilters({
   onChange: (filters: RolesFilterState) => void;
 }) {
   const ipsBranches = branches.filter((b) => b.active).sort((a, b) => a.name.localeCompare(b.name));
+  const grouped = React.useMemo(() => groupByRegion(ipsBranches), [ipsBranches]);
 
   function handleSegmentChange(segment: RolesFilterState["segment"]) {
-    // Reset branch filter when leaving IPS
-    onChange({ ...filters, segment, branch: "All" });
+    onChange({ ...filters, segment, branches: [] });
   }
+
+  function toggleBranch(name: string) {
+    const next = filters.branches.includes(name)
+      ? filters.branches.filter((b) => b !== name)
+      : [...filters.branches, name];
+    onChange({ ...filters, branches: next });
+  }
+
+  const branchLabel =
+    filters.branches.length === 0
+      ? "All Branches"
+      : filters.branches.length === 1
+        ? filters.branches[0]
+        : `${filters.branches.length} branches`;
 
   return (
     <div className="flex flex-wrap gap-3">
@@ -43,19 +80,50 @@ export function RolesFilters({
       </Select>
 
       {filters.segment === "IPS" && (
-        <Select value={filters.branch} onValueChange={(v) => onChange({ ...filters, branch: v })}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="All Branches" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All Branches</SelectItem>
-            {ipsBranches.map((branch) => (
-              <SelectItem key={branch.id} value={branch.name}>
-                {branch.name}
-              </SelectItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`h-9 gap-1.5 text-sm font-normal ${filters.branches.length > 0 ? "border-penda-teal text-penda-teal" : ""}`}
+            >
+              {branchLabel}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56 max-h-80 overflow-y-auto" align="start">
+            {filters.branches.length > 0 && (
+              <>
+                <button
+                  className="w-full px-2 py-1.5 text-left text-xs text-penda-teal hover:underline"
+                  onClick={() => onChange({ ...filters, branches: [] })}
+                >
+                  Clear selection
+                </button>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            {grouped.map(({ region, branches: regionBranches }, i) => (
+              <React.Fragment key={region}>
+                {i > 0 && <DropdownMenuSeparator />}
+                <DropdownMenuLabel className="text-xs text-muted-foreground">{region}</DropdownMenuLabel>
+                {regionBranches.map((branch) => (
+                  <DropdownMenuCheckboxItem
+                    key={branch.id}
+                    checked={filters.branches.includes(branch.name)}
+                    onCheckedChange={() => toggleBranch(branch.name)}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    {branch.name}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </React.Fragment>
             ))}
-          </SelectContent>
-        </Select>
+            {grouped.length === 0 && (
+              <p className="px-2 py-3 text-xs text-muted-foreground text-center">No branches</p>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
 
       <Select value={filters.status} onValueChange={(v) => onChange({ ...filters, status: v as RolesFilterState["status"] })}>
