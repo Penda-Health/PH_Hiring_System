@@ -111,45 +111,32 @@ function DepartmentBar({
   opacity: number;
   rgb: string;
 }) {
-  const [hovered, setHovered] = React.useState(false);
-  const [roleIndex, setRoleIndex] = React.useState(0);
-
-  React.useEffect(() => {
-    if (!hovered || roles.length <= 1) return;
-    const id = setInterval(() => setRoleIndex((idx) => (idx + 1) % roles.length), 1600);
-    return () => clearInterval(id);
-  }, [hovered, roles.length]);
-
-  React.useEffect(() => {
-    if (!hovered) setRoleIndex(0);
-  }, [hovered]);
-
-  const activeRole = roles[roleIndex];
-
   return (
     <div
-      className="relative mx-auto text-center"
+      className="mx-auto"
       style={{ width: `${widthPct}%`, minWidth: "9rem" }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       <div
-        className="flex items-center justify-between gap-3 rounded-md px-3 py-2 text-white transition-transform"
+        className="rounded-md px-3 py-2 text-white space-y-1"
         style={{ backgroundColor: `rgba(${rgb}, ${opacity})` }}
       >
-        <span className="truncate text-sm font-medium">{department}</span>
-        <span className="text-sm font-semibold shrink-0">{total}</span>
-      </div>
-      <div
-        className={cn(
-          "overflow-hidden transition-all duration-300 ease-out",
-          hovered ? "mt-1 max-h-6 opacity-100" : "max-h-0 opacity-0"
-        )}
-      >
-        {activeRole && (
-          <p key={`${department}-${roleIndex}`} className="truncate text-xs text-muted-foreground animate-in fade-in slide-in-from-bottom-1">
-            {activeRole.title} ({activeRole.count})
-          </p>
+        <div className="flex items-center justify-between gap-3">
+          <span className="truncate text-sm font-semibold">{department}</span>
+          <span className="text-sm font-semibold shrink-0">{total}</span>
+        </div>
+        {roles.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-0 gap-y-0.5">
+            {roles.map((r, i) => (
+              <React.Fragment key={r.title}>
+                {i > 0 && (
+                  <span className="mx-1.5 select-none text-[10px] text-white/40">|</span>
+                )}
+                <span className="text-[11px] text-white/80 leading-tight">
+                  {r.title}&nbsp;<span className="font-semibold text-white/95">{r.count}</span>
+                </span>
+              </React.Fragment>
+            ))}
+          </div>
         )}
       </div>
     </div>
