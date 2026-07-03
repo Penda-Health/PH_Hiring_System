@@ -274,11 +274,13 @@ export function getStageCounts(candidates: Candidate[]) {
 export function getSegmentSplit(openRoles: OpenRole[], candidates: Candidate[]) {
   const segments: Segment[] = ["IPS", "SO"];
   return segments.map((segment) => {
+    const openInSegment = openRoles.filter((r) => r.segment === segment && r.status === "Open");
     const roleIds = new Set(openRoles.filter((r) => r.segment === segment).map((r) => r.id));
     return {
       segment,
       candidateCount: candidates.filter((c) => roleIds.has(c.roleId)).length,
-      openRoleCount: openRoles.filter((r) => r.segment === segment && r.status === "Open").length,
+      headcount: openInSegment.reduce((sum, r) => sum + (r.hcApproved ?? 0), 0),
+      roleCount: openInSegment.length,
     };
   });
 }

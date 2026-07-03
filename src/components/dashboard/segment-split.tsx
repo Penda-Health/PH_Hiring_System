@@ -18,7 +18,7 @@ export function SegmentSplit({ filters }: { filters: DashboardFilterState }) {
     filters
   );
   const splits = getSegmentSplit(filtered.openRoles, filtered.candidates);
-  const totalOpen = splits.reduce((sum, s) => sum + s.openRoleCount, 0);
+  const totalHeadcount = splits.reduce((sum, s) => sum + s.headcount, 0);
 
   return (
     <Card>
@@ -31,7 +31,7 @@ export function SegmentSplit({ filters }: { filters: DashboardFilterState }) {
             <PieChart>
               <Pie
                 data={splits}
-                dataKey="openRoleCount"
+                dataKey="headcount"
                 nameKey="segment"
                 innerRadius={44}
                 outerRadius={64}
@@ -52,25 +52,27 @@ export function SegmentSplit({ filters }: { filters: DashboardFilterState }) {
                   border: "1px solid hsl(var(--border))",
                 }}
                 itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-                formatter={(value) => [`${value} open roles`, undefined]}
+                formatter={(value) => [`${value} HC`, undefined]}
               />
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-2xl font-bold leading-none">{totalOpen}</span>
-            <span className="text-[11px] text-muted-foreground">open roles</span>
+            <span className="text-2xl font-bold leading-none">{totalHeadcount}</span>
+            <span className="text-[11px] text-muted-foreground">headcount</span>
           </div>
         </div>
         <div className="flex-1 space-y-3">
-          {splits.map(({ segment, openRoleCount }) => (
+          {splits.map(({ segment, headcount, roleCount }) => (
             <div key={segment} className="flex items-center gap-3">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: SEGMENT_COLORS[segment] }}
               />
               <Badge variant={segment === "IPS" ? "ips" : "so"}>{segment}</Badge>
-              <span className="text-sm font-medium">{openRoleCount}</span>
-              <span className="text-xs text-muted-foreground">open roles</span>
+              <span className="text-sm font-medium">{headcount}</span>
+              <span className="text-xs text-muted-foreground">
+                HC · {roleCount} role{roleCount === 1 ? "" : "s"}
+              </span>
             </div>
           ))}
         </div>
