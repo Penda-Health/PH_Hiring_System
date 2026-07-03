@@ -10,11 +10,12 @@ import { CandidateDetailDialog } from "@/components/pipeline/candidate-detail-di
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function RolesPage() {
-  const { candidates, openRoles } = useRecruitmentData();
+  const { candidates, openRoles, branches } = useRecruitmentData();
   const [filters, setFilters] = React.useState<RolesFilterState>({
     segment: "All",
     status: "All",
     priority: "All",
+    branch: "All",
   });
   const [selectedRole, setSelectedRole] = React.useState<OpenRole | null>(null);
   const [selectedCandidate, setSelectedCandidate] = React.useState<Candidate | null>(null);
@@ -23,13 +24,14 @@ export default function RolesPage() {
     if (filters.segment !== "All" && role.segment !== filters.segment) return false;
     if (filters.status !== "All" && role.status !== filters.status) return false;
     if (filters.priority !== "All" && role.priority !== filters.priority) return false;
+    if (filters.segment === "IPS" && filters.branch !== "All" && role.location !== filters.branch) return false;
     return true;
   });
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Open Roles Register</h1>
-      <RolesFilters filters={filters} onChange={setFilters} />
+      <RolesFilters filters={filters} branches={branches} onChange={setFilters} />
       <Card>
         <CardContent className="p-0">
           <RolesTable roles={filtered} candidates={candidates} onSelectRole={setSelectedRole} />
