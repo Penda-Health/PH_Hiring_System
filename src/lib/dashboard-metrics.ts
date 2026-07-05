@@ -80,13 +80,10 @@ export function getAllMetrics(data: {
   const noShows = interviews.filter((i) => i.attendance === "No-show").length;
   const noShowRate = interviews.length ? (noShows / interviews.length) * 100 : 0;
 
-  // Hired candidates = accepted an offer; offerStatus Declined/Withdrawn = rejected one.
-  // Use candidate data since formal Offer Tracker records are not always created.
+  // Hired = accepted offer; Withdrawn = declined/pulled out. Both are terminal pipeline stages.
   const hiredCandidates = candidates.filter((c) => c.stage === "Hired");
-  const declinedCandidates = candidates.filter(
-    (c) => c.offerStatus === "Declined" || c.offerStatus === "Withdrawn"
-  );
-  const totalResolvedOffers = hiredCandidates.length + declinedCandidates.length;
+  const withdrawnCandidates = candidates.filter((c) => c.stage === "Withdrawn");
+  const totalResolvedOffers = hiredCandidates.length + withdrawnCandidates.length;
   const offerAcceptanceRate = totalResolvedOffers > 0
     ? (hiredCandidates.length / totalResolvedOffers) * 100
     : 0;
