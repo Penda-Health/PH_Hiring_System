@@ -75,19 +75,21 @@ export function compareRoleGroups(a: OpenRole, b: OpenRole): number {
 export type MonthRangeOption = "1" | "3" | "6" | "9" | "all";
 
 export const MONTH_RANGE_OPTIONS: { value: MonthRangeOption; label: string }[] = [
-  { value: "1", label: "This month" },
+  { value: "1", label: "Last 30 days" },
   { value: "3", label: "Last 3 months" },
   { value: "6", label: "Last 6 months" },
   { value: "9", label: "Last 9 months" },
   { value: "all", label: "All time" },
 ];
 
-// Open and On Hold roles always pass through (they're still live);
-// Filled/Allocated/Cancelled roles only show in the month window they
-// closed in, so a role filled in April drops out of a "Last month" view.
+// Open and On Hold roles always pass through (they're still live).
+// Closed/Allocated/Filled roles use a rolling window: "1" = last 30 days,
+// "3"/"6"/"9" = rolling N×30 days back — so a role closed yesterday is
+// never dropped just because the calendar month rolled over.
 export function isRoleInMonthRange(role: OpenRole, months: MonthRangeOption, now: Date = new Date()): boolean {
   if (months === "all" || role.status === "Open" || role.status === "On Hold") return true;
-  const windowStart = new Date(now.getFullYear(), now.getMonth() - (Number(months) - 1), 1);
+  const days = Number(months) * 30;
+  const windowStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
   const closedAt = new Date(role.dateClosed ?? role.datePosted);
   return closedAt >= windowStart;
 }
