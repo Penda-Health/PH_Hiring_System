@@ -49,27 +49,35 @@ export function RoleCandidatesDialog({
   const [internalFill, setInternalFill] = React.useState(role?.internalFill ?? false);
   const [internalFillName, setInternalFillName] = React.useState(role?.internalFillName ?? "");
   const [localHcFilled, setLocalHcFilled] = React.useState(role?.hcFilled ?? 0);
+  const [localHcApproved, setLocalHcApproved] = React.useState(role?.hcApproved ?? 1);
 
   React.useEffect(() => {
     setNotes(role?.notes ?? "");
     setInternalFill(role?.internalFill ?? false);
     setInternalFillName(role?.internalFillName ?? "");
     setLocalHcFilled(role?.hcFilled ?? 0);
+    setLocalHcApproved(role?.hcApproved ?? 1);
   }, [role?.id]);
 
-  function setHcFilled(newFilled: number) {
+  function applyHcChange(newFilled: number, newApproved: number) {
     if (!role || !canEdit) return;
-    const clamped = Math.max(0, Math.min(newFilled, role.hcApproved));
-    setLocalHcFilled(clamped);
+    const approved = Math.max(1, newApproved);
+    const filled = Math.max(0, Math.min(newFilled, approved));
+    setLocalHcFilled(filled);
+    setLocalHcApproved(approved);
     const newStatus: OpenRole["status"] =
-      clamped >= role.hcApproved ? "Filled" : role.status === "Filled" ? "Open" : role.status;
+      filled >= approved ? "Filled" : role.status === "Filled" ? "Open" : role.status;
     updateOpenRole(role.id, {
-      hcFilled: clamped,
+      hcFilled: filled,
+      hcApproved: approved,
       status: newStatus,
       ...(newStatus === "Filled" ? { dateClosed: new Date().toISOString() } : {}),
       ...(newStatus !== "Filled" && role.status === "Filled" ? { dateClosed: undefined } : {}),
     });
   }
+
+  function setHcFilled(n: number) { applyHcChange(n, localHcApproved); }
+  function setHcApproved(n: number) { applyHcChange(localHcFilled, n); }
 
   function saveNotes() {
     if (!role || !canEdit) return;
@@ -100,27 +108,33 @@ export function RoleCandidatesDialog({
               <DialogTitle>{role.title}</DialogTitle>
               <DialogDescription className="flex items-center gap-3 flex-wrap">
                 <span>{role.location} · {roleCandidates.length} candidate{roleCandidates.length === 1 ? "" : "s"}</span>
-                {/* HC filled stepper */}
-                <div className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 ml-auto">
-                  <span className="text-xs text-muted-foreground mr-0.5">HC filled</span>
-                  <button
-                    type="button"
-                    onClick={() => setHcFilled(localHcFilled - 1)}
+                {/* HC filled / approved steppers */}
+                <div className="flex items-center gap-0 rounded-md border border-border px-2 py-0.5 ml-auto text-sm">
+                  <span className="text-xs text-muted-foreground mr-1.5">HC</span>
+                  <button type="button" onClick={() => setHcFilled(localHcFilled - 1)}
                     disabled={!canEdit || localHcFilled <= 0}
-                    className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
+                    className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
                     <Minus className="h-3 w-3" />
                   </button>
-                  <span className="min-w-[2ch] text-center text-sm font-semibold tabular-nums text-foreground">{localHcFilled}</span>
-                  <span className="text-xs text-muted-foreground">/ {role.hcApproved}</span>
-                  <button
-                    type="button"
-                    onClick={() => setHcFilled(localHcFilled + 1)}
-                    disabled={!canEdit || localHcFilled >= role.hcApproved}
-                    className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
+                  <span className="min-w-[2ch] text-center font-semibold tabular-nums text-foreground">{localHcFilled}</span>
+                  <button type="button" onClick={() => setHcFilled(localHcFilled + 1)}
+                    disabled={!canEdit || localHcFilled >= localHcApproved}
+                    className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
                     <Plus className="h-3 w-3" />
                   </button>
+                  <span className="mx-1.5 text-muted-foreground">/</span>
+                  <button type="button" onClick={() => setHcApproved(localHcApproved - 1)}
+                    disabled={!canEdit || localHcApproved <= 1}
+                    className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="min-w-[2ch] text-center font-semibold tabular-nums text-foreground">{localHcApproved}</span>
+                  <button type="button" onClick={() => setHcApproved(localHcApproved + 1)}
+                    disabled={!canEdit}
+                    className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
+                    <Plus className="h-3 w-3" />
+                  </button>
+                  <span className="text-xs text-muted-foreground ml-1">approved</span>
                 </div>
               </DialogDescription>
             </DialogHeader>
