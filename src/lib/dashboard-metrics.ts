@@ -279,7 +279,8 @@ export function getSegmentSplit(openRoles: OpenRole[], candidates: Candidate[]) 
     return {
       segment,
       candidateCount: candidates.filter((c) => roleIds.has(c.roleId)).length,
-      headcount: openInSegment.reduce((sum, r) => sum + (r.hcApproved ?? 0), 0),
+      // HC remaining = unfilled slots only, matching the KPI tile and dept bars
+      headcount: openInSegment.reduce((sum, r) => sum + Math.max((r.hcApproved ?? 0) - (r.hcFilled ?? 0), 0), 0),
       roleCount: openInSegment.length,
     };
   });
@@ -287,10 +288,9 @@ export function getSegmentSplit(openRoles: OpenRole[], candidates: Candidate[]) 
 
 export function getKpis(openRoles: OpenRole[], candidates: Candidate[], offers: Offer[]) {
   const openRolesCount = openRoles.filter((r) => r.status === "Open").length;
-  const totalHcGap = openRoles.reduce(
-    (sum, r) => sum + Math.max(r.hcApproved - r.hcFilled, 0),
-    0
-  );
+  const totalHcGap = openRoles
+    .filter((r) => r.status === "Open")
+    .reduce((sum, r) => sum + Math.max(r.hcApproved - r.hcFilled, 0), 0);
   const activePipeline = candidates.filter(
     (c) => !["Hired", "Rejected", "Withdrawn", "Backup Pool"].includes(c.stage)
   ).length;

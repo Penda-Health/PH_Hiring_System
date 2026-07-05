@@ -58,7 +58,7 @@ export function SegmentSplit({ filters }: { filters: DashboardFilterState }) {
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <span className="text-2xl font-bold leading-none">{totalHeadcount}</span>
-            <span className="text-[11px] text-muted-foreground">headcount</span>
+            <span className="text-[11px] text-muted-foreground">HC remaining</span>
           </div>
         </div>
         <div className="flex-1 space-y-3">
