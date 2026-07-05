@@ -47,7 +47,7 @@ export function getAllMetrics(data: {
   const openRolesList = openRoles.filter((r) => r.status === "Open");
   const hcRemaining = openRolesList.reduce((sum, r) => sum + Math.max(r.hcApproved - r.hcFilled, 0), 0);
   const activeCandidates = candidates.filter((c) => isActiveStage(c.stage));
-  const offersOut = offers.filter((o) => o.outcome === "Pending" || o.outcome === "Negotiating");
+  const offersOut = candidates.filter((c) => c.stage === "Offer");
   const hiredMtd = candidates.filter((c) => c.stage === "Hired" && isCurrentMonth(c.stageEnteredAt));
 
   const ipsTimes: number[] = [];
