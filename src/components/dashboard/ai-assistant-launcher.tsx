@@ -45,6 +45,7 @@ Format rules — follow exactly:
 - Pull actual numbers from your context (roster, departmentBreakdown, stageCounts, offerSummary, workTrialSummary).
 - If a role has a notes field in the roster, include it as an indented note on the next line after the role bullet (prefix with "  📌 ").
 - If a role has internalFill: true, add "(Internal)" after the role title and include internalFillName if present.
+- For the pipeline count on each role: if candidatesInPipeline > 0, list the stage breakdown from pipelineByStage inline, e.g. "2 in pipeline (1 at First Interview, 1 at Offer)". If candidatesInPipeline is 0, omit the pipeline part entirely — do NOT write "0 in pipeline".
 
 Produce exactly this structure:
 
@@ -58,7 +59,7 @@ HC Gap: [total IPS hcGap] | Active Pipeline: [total IPS candidatesInPipeline]
 
 [One line per open IPS role, grouped under department header:]
 *[Department]*
-• [Role Title] – [Location]: [hcGap] HC gap | [candidatesInPipeline] in pipeline [status icon]
+• [Role Title] – [Location]: [hcGap] HC gap[if pipeline > 0: | [N] in pipeline ([stage breakdown])] [status icon]
   📌 [role notes if present]
 
 ━━━━━━━━━━━━━━━━

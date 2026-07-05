@@ -51,6 +51,14 @@ export function buildAiContext(data: {
     candidatesInPipeline: candidates.filter(
       (c) => c.roleId === r.id && !["Hired", "Rejected", "Withdrawn", "Backup Pool"].includes(c.stage)
     ).length,
+    pipelineByStage: (() => {
+      const active = candidates.filter(
+        (c) => c.roleId === r.id && !["Hired", "Rejected", "Withdrawn", "Backup Pool"].includes(c.stage)
+      );
+      const counts: Record<string, number> = {};
+      for (const c of active) counts[c.stage] = (counts[c.stage] ?? 0) + 1;
+      return counts; // e.g. { "First Interview": 2, "Offer": 1 }
+    })(),
   }));
 
   // ── Department breakdown (pre-aggregated) ──────────────────────────────────
