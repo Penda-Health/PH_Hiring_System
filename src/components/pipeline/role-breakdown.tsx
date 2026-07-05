@@ -53,13 +53,16 @@ export function RoleBreakdown({
   const [localHcFilled, setLocalHcFilled] = React.useState(role.hcFilled ?? 0);
   const [localHcApproved, setLocalHcApproved] = React.useState(role.hcApproved ?? 1);
 
+  // Reset text/checkbox fields when a different role is selected
   React.useEffect(() => {
     setNotes(role.notes ?? "");
     setInternalFill(role.internalFill ?? false);
     setInternalFillName(role.internalFillName ?? "");
-    setLocalHcFilled(role.hcFilled ?? 0);
-    setLocalHcApproved(role.hcApproved ?? 1);
   }, [role.id]);
+
+  // Sync HC counts whenever Airtable pushes back an update (via polling/focus refresh)
+  React.useEffect(() => { setLocalHcFilled(role.hcFilled ?? 0); }, [role.hcFilled]);
+  React.useEffect(() => { setLocalHcApproved(role.hcApproved ?? 1); }, [role.hcApproved]);
 
   function applyHcChange(newFilled: number, newApproved: number) {
     if (!canEdit) return;
@@ -74,7 +77,7 @@ export function RoleBreakdown({
       hcApproved: approved,
       status: newStatus,
       ...(newStatus === "Filled" ? { dateClosed: new Date().toISOString() } : {}),
-      ...(newStatus !== "Filled" && role.status === "Filled" ? { dateClosed: undefined } : {}),
+      ...(newStatus !== "Filled" && role.status === "Filled" ? { dateClosed: null } : {}),
     });
   }
 

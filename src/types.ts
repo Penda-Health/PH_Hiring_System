@@ -145,7 +145,7 @@ export interface OpenRole {
   hiringManager: string;
   hiringManagerEmail?: string;
   datePosted: string;
-  dateClosed?: string;
+  dateClosed?: string | null;
   employmentType?: EmploymentType;
   notes?: string;
   internalFill?: boolean;

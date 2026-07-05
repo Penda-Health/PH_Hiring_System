@@ -27,6 +27,8 @@ type RecruitmentDataContextValue = {
   error: string | null;
   /** Recruitment User/Manager only — Branch Manager and Contributor are view-only. UI affordance; the real check is server-side in middleware. */
   canEdit: boolean;
+  /** Manually trigger a core data refresh (open-roles + candidates). Also called automatically every 60 s and on tab focus. */
+  refresh: () => Promise<void>;
 
   branches: Branch[];
   openRoles: OpenRole[];
@@ -177,6 +179,31 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       cancelled = true;
     };
   }, []);
+
+  // Keep core data in sync with Airtable changes made outside the UI.
+  // Re-fetches open-roles and candidates every 60 s and whenever the browser
+  // tab regains focus (the most common case: user edits Airtable, switches back).
+  const refreshCoreData = React.useCallback(async () => {
+    try {
+      const [rolesRes, candidatesRes] = await Promise.all([
+        listResource<OpenRole>("open-roles"),
+        listResource<Candidate>("candidates"),
+      ]);
+      setOpenRoles(rolesRes);
+      setCandidates(candidatesRes);
+    } catch {
+      // Silent — a background refresh failing shouldn't interrupt the user
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const interval = setInterval(refreshCoreData, 60_000);
+    window.addEventListener("focus", refreshCoreData);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", refreshCoreData);
+    };
+  }, [refreshCoreData]);
 
   const createRequisition = React.useCallback(async (req: Requisition) => {
     const created = await createResource<Requisition>("requisitions", req);
@@ -509,6 +536,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       extendedLoading,
       error,
       canEdit,
+      refresh: refreshCoreData,
       branches,
       openRoles,
       createOpenRole,
@@ -550,6 +578,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       extendedLoading,
       error,
       canEdit,
+      refreshCoreData,
       branches,
       openRoles,
       createOpenRole,

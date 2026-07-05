@@ -96,7 +96,7 @@ export const openRoleSchema = z.object({
   hiringManager: z.string().min(1),
   hiringManagerEmail: z.string().email().optional(),
   datePosted: z.string(),
-  dateClosed: z.string().optional(),
+  dateClosed: z.string().nullable().optional(),
   employmentType: z.enum(["Full-time", "Part-time", "Contract", "Reliever", "Locum"]).optional(),
   notes: z.string().optional(),
   internalFill: z.boolean().optional(),
