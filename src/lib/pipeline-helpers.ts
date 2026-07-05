@@ -57,14 +57,15 @@ export function summarizeHeadcount(roles: OpenRole[]): HeadcountSummary {
   );
 }
 
-export type RoleGroup = "Open" | "Allocated" | "Closed";
+export type RoleGroup = "Open" | "Allocated" | "On Hold" | "Closed";
 
-const GROUP_ORDER: RoleGroup[] = ["Open", "Allocated", "Closed"];
+const GROUP_ORDER: RoleGroup[] = ["Open", "Allocated", "On Hold", "Closed"];
 
 export function roleGroup(role: OpenRole): RoleGroup {
   if (role.status === "Open") return "Open";
   if (role.status === "Allocated" || role.status === "Filled") return "Allocated";
-  return "Closed";
+  if (role.status === "On Hold") return "On Hold";
+  return "Closed"; // Cancelled
 }
 
 export function compareRoleGroups(a: OpenRole, b: OpenRole): number {
@@ -81,11 +82,11 @@ export const MONTH_RANGE_OPTIONS: { value: MonthRangeOption; label: string }[] =
   { value: "all", label: "All time" },
 ];
 
-// Open roles always pass through (they're still live, regardless of when
-// they were posted); closed/allocated roles only show in the month window
-// they closed in, so a role closed in June drops out of July's view.
+// Open and On Hold roles always pass through (they're still live);
+// Filled/Allocated/Cancelled roles only show in the month window they
+// closed in, so a role filled in April drops out of a "Last month" view.
 export function isRoleInMonthRange(role: OpenRole, months: MonthRangeOption, now: Date = new Date()): boolean {
-  if (months === "all" || role.status === "Open") return true;
+  if (months === "all" || role.status === "Open" || role.status === "On Hold") return true;
   const windowStart = new Date(now.getFullYear(), now.getMonth() - (Number(months) - 1), 1);
   const closedAt = new Date(role.dateClosed ?? role.datePosted);
   return closedAt >= windowStart;

@@ -14,7 +14,7 @@ import { RoleCard } from "./role-card";
 import { RoleListItem } from "./role-list-item";
 import { RoleBreakdown } from "./role-breakdown";
 
-const GROUP_ORDER: RoleGroup[] = ["Open", "Allocated", "Closed"];
+const GROUP_ORDER: RoleGroup[] = ["Open", "Allocated", "On Hold", "Closed"];
 
 function groupRoles(roles: OpenRole[]): { group: RoleGroup; roles: OpenRole[] }[] {
   return GROUP_ORDER.map((group) => ({

@@ -477,7 +477,11 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
           const newHcFilled = (role.hcFilled ?? 0) + 1;
           const newStatus: OpenRole["status"] =
             newHcFilled >= (role.hcApproved ?? 1) ? "Filled" : role.status;
-          const rolePatch: Partial<OpenRole> = { hcFilled: newHcFilled, status: newStatus };
+          const rolePatch: Partial<OpenRole> = {
+            hcFilled: newHcFilled,
+            status: newStatus,
+            ...(newStatus === "Filled" ? { dateClosed: new Date().toISOString() } : {}),
+          };
           setOpenRoles((prev) =>
             prev.map((r) => (r.id === candidate.roleId ? { ...r, ...rolePatch } : r))
           );
