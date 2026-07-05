@@ -39,7 +39,14 @@ export async function POST(req: Request) {
     });
     return result.toUIMessageStreamResponse();
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "AI generation failed";
+    const raw = err instanceof Error ? err.message : String(err);
+    const msg = raw.includes("rate limit") || raw.includes("429")
+      ? "Rate limit hit — wait a moment and try again."
+      : raw.includes("401") || raw.includes("Unauthorized") || raw.includes("API key")
+        ? `${provider.label} API key is missing or invalid.`
+        : raw.includes("context length") || raw.includes("too long")
+          ? "The request was too large for the model. Try a shorter conversation."
+          : raw || "Something went wrong generating the response.";
     console.error(`[api/ai/chat] streamText (${providerId}) failed:`, err);
     return Response.json({ error: msg }, { status: 502 });
   }

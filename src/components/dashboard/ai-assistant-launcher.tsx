@@ -263,11 +263,14 @@ export function AiAssistantLauncher() {
             {error && (
               <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <span>
-                  {error.message.includes("503") || error.message.includes("not configured")
-                    ? `${AI_PROVIDERS.find((p) => p.id === providerId)?.label ?? "This model"} isn't configured on this deployment. Try switching to Llama 3.3 (Groq).`
-                    : error.message}
-                </span>
+                <span>{(() => {
+                  // Transport sends response.text() as the message — parse JSON body if present
+                  let msg = error.message;
+                  try { const parsed = JSON.parse(msg); msg = parsed.error ?? parsed.message ?? msg; } catch { /* plain text */ }
+                  if (msg.includes("503") || msg.includes("not configured"))
+                    return `${AI_PROVIDERS.find((p) => p.id === providerId)?.label ?? "This model"} isn't configured on this deployment. Try switching to Llama 3.3 (Groq).`;
+                  return msg;
+                })()}</span>
               </div>
             )}
 
