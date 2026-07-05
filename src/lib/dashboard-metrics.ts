@@ -80,8 +80,18 @@ export function getAllMetrics(data: {
   const noShows = interviews.filter((i) => i.attendance === "No-show").length;
   const noShowRate = interviews.length ? (noShows / interviews.length) * 100 : 0;
 
+  // Hired candidates = accepted an offer; offerStatus Declined/Withdrawn = rejected one.
+  // Use candidate data since formal Offer Tracker records are not always created.
+  const hiredCandidates = candidates.filter((c) => c.stage === "Hired");
+  const declinedCandidates = candidates.filter(
+    (c) => c.offerStatus === "Declined" || c.offerStatus === "Withdrawn"
+  );
+  const totalResolvedOffers = hiredCandidates.length + declinedCandidates.length;
+  const offerAcceptanceRate = totalResolvedOffers > 0
+    ? (hiredCandidates.length / totalResolvedOffers) * 100
+    : 0;
+  // Keep offer-table path for post-offer drop rate (needs joined status)
   const acceptedOffers = offers.filter((o) => o.outcome === "Accepted");
-  const offerAcceptanceRate = offers.length ? (acceptedOffers.length / offers.length) * 100 : 0;
 
   const postOfferDrops = acceptedOffers.filter((o) => o.joined === "Did Not Join").length;
   const postOfferDropRate = acceptedOffers.length ? (postOfferDrops / acceptedOffers.length) * 100 : 0;
