@@ -392,8 +392,14 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   const updateCandidate = React.useCallback(
     (id: string, patch: Partial<Candidate>) => {
       if (!guardEdit(canEdit, "updateCandidate")) return;
+      // Drop empty strings — they fail schema validators (min/email) on the
+      // server even in partial mode, silently killing the write for records
+      // that have incomplete data (e.g. no email or unknown role).
+      const persistPatch = Object.fromEntries(
+        Object.entries(patch).filter(([, v]) => v !== "")
+      ) as Partial<Candidate>;
       setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-      persist<Candidate>("candidates", id, patch);
+      persist<Candidate>("candidates", id, persistPatch);
     },
     [canEdit]
   );

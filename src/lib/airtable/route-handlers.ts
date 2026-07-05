@@ -101,7 +101,13 @@ export function makeItemHandlers<T>(
 
   async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
     try {
-      const json = await request.json();
+      const raw = await request.json();
+      // Strip empty strings before validation — a PATCH may legitimately omit
+      // fields (e.g. a candidate with no email yet), and an empty string would
+      // fail min(1)/email validators even in partial mode.
+      const json = Object.fromEntries(
+        Object.entries(raw).filter(([, v]) => v !== "")
+      );
       let body: Partial<T>;
       if (patchSchema) {
         const result = patchSchema.safeParse(json);
