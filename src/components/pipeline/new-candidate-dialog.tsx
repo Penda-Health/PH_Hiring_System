@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CANDIDATE_SOURCES } from "@/lib/candidate-sources";
 
 const EMPLOYMENT_TYPES: EmploymentType[] = ["Full-time", "Part-time", "Contract", "Reliever", "Locum"];
 const SEGMENTS: Segment[] = ["IPS", "SO"];
@@ -222,12 +223,14 @@ export function NewCandidateDialog({
               </Select>
             </Field>
             <Field label="Source">
-              <Input
-                value={form.source}
-                onChange={(e) => update("source", e.target.value)}
-                placeholder="SeamlessHR, Referral, LinkedIn..."
-                required
-              />
+              <Select value={form.source} onValueChange={(v) => update("source", v)} required>
+                <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+                <SelectContent>
+                  {CANDIDATE_SOURCES.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
           </div>
 

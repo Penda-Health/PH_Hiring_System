@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CANDIDATE_SOURCES } from "@/lib/candidate-sources";
 
 const STAGES: CandidateStage[] = [
   "First Interview",
@@ -196,7 +197,14 @@ export function EditCandidateDialog({
 
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Source">
-                  <Input value={form.source} onChange={(e) => update("source", e.target.value)} />
+                  <Select value={form.source || undefined} onValueChange={(v) => update("source", v)}>
+                    <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+                    <SelectContent>
+                      {CANDIDATE_SOURCES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <Field label="Stage">
                   <Select value={form.stage} onValueChange={(v) => update("stage", v as CandidateStage)}>
