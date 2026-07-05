@@ -45,19 +45,16 @@ export function buildAiContext(data: {
     hcApproved: r.hcApproved,
     hcFilled: r.hcFilled,
     hcGap: Math.max(r.hcApproved - r.hcFilled, 0),
-    notes: r.notes ?? null,
-    internalFill: r.internalFill ?? false,
-    internalFillName: r.internalFillName ?? null,
-    candidatesInPipeline: candidates.filter(
-      (c) => c.roleId === r.id && !["Hired", "Rejected", "Withdrawn", "Backup Pool"].includes(c.stage)
-    ).length,
-    pipelineByStage: (() => {
+    ...(r.notes ? { notes: r.notes } : {}),
+    ...(r.internalFill ? { internalFill: true, ...(r.internalFillName ? { internalFillName: r.internalFillName } : {}) } : {}),
+    ...(() => {
       const active = candidates.filter(
         (c) => c.roleId === r.id && !["Hired", "Rejected", "Withdrawn", "Backup Pool"].includes(c.stage)
       );
-      const counts: Record<string, number> = {};
-      for (const c of active) counts[c.stage] = (counts[c.stage] ?? 0) + 1;
-      return counts; // e.g. { "First Interview": 2, "Offer": 1 }
+      if (active.length === 0) return { candidatesInPipeline: 0 };
+      const pipelineByStage: Record<string, number> = {};
+      for (const c of active) pipelineByStage[c.stage] = (pipelineByStage[c.stage] ?? 0) + 1;
+      return { candidatesInPipeline: active.length, pipelineByStage };
     })(),
   }));
 
