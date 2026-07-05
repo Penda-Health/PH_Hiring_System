@@ -13,10 +13,13 @@ function isCurrentMonth(dateStr: string) {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
-function daysBetween(startStr: string, endStr: string) {
-  const start = new Date(`${startStr}T00:00:00`);
-  const end = new Date(`${endStr}T00:00:00`);
-  return (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+function daysBetween(startStr: string | null | undefined, endStr: string | null | undefined): number | null {
+  if (!startStr || !endStr) return null;
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+  const diff = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+  return diff >= 0 ? diff : null;
 }
 
 export type MetricRow = {
@@ -50,13 +53,16 @@ export function getAllMetrics(data: {
   const offersOut = candidates.filter((c) => c.stage === "Offer");
   const hiredMtd = candidates.filter((c) => c.stage === "Hired" && isCurrentMonth(c.stageEnteredAt));
 
+  // Time to hire: datePosted → dateClosed on all Filled roles that have both dates.
+  // Skip any role missing either data point rather than produce NaN.
   const ipsTimes: number[] = [];
   const soTimes: number[] = [];
-  for (const c of hiredMtd) {
-    const days = daysBetween(c.createdAt, c.stageEnteredAt);
-    const segment = roleById.get(c.roleId)?.segment;
-    if (segment === "IPS") ipsTimes.push(days);
-    else if (segment === "SO") soTimes.push(days);
+  for (const r of openRoles) {
+    if (r.status !== "Filled") continue;
+    const days = daysBetween(r.datePosted, r.dateClosed);
+    if (days === null) continue;
+    if (r.segment === "IPS") ipsTimes.push(days);
+    else if (r.segment === "SO") soTimes.push(days);
   }
   const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
   const avgIps = avg(ipsTimes);
@@ -64,7 +70,10 @@ export function getAllMetrics(data: {
   const timeToHireValue =
     avgIps === null && avgSo === null
       ? "—"
-      : [avgIps !== null ? `IPS ${avgIps.toFixed(0)}d` : null, avgSo !== null ? `SO ${avgSo.toFixed(0)}d` : null]
+      : [
+          avgIps !== null ? `IPS ${avgIps.toFixed(0)}d (${ipsTimes.length})` : null,
+          avgSo !== null ? `SO ${avgSo.toFixed(0)}d (${soTimes.length})` : null,
+        ]
           .filter(Boolean)
           .join(" · ");
 
