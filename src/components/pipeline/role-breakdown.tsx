@@ -5,6 +5,9 @@ import { Candidate, CandidateStage, OpenRole, RoleStatus } from "@/types";
 import { PIPELINE_STAGES } from "@/lib/dashboard-metrics";
 import { PipelineColumn } from "./pipeline-column";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { daysOpen } from "@/lib/pipeline-helpers";
 import { CalendarDays, User, Briefcase, StickyNote, Users } from "lucide-react";
@@ -41,8 +44,38 @@ export function RoleBreakdown({
   candidates: Candidate[];
   onSelectCandidate: (candidate: Candidate) => void;
 }) {
-  const { updateOpenRoleStatus, canEdit } = useRecruitmentData();
+  const { updateOpenRoleStatus, updateOpenRole, canEdit } = useRecruitmentData();
   const roleCandidates = candidates.filter((c) => c.roleId === role.id);
+
+  const [notes, setNotes] = React.useState(role.notes ?? "");
+  const [internalFill, setInternalFill] = React.useState(role.internalFill ?? false);
+  const [internalFillName, setInternalFillName] = React.useState(role.internalFillName ?? "");
+
+  React.useEffect(() => {
+    setNotes(role.notes ?? "");
+    setInternalFill(role.internalFill ?? false);
+    setInternalFillName(role.internalFillName ?? "");
+  }, [role.id]);
+
+  function saveNotes() {
+    if (!canEdit) return;
+    const trimmed = notes.trim();
+    if (trimmed === (role.notes ?? "")) return;
+    updateOpenRole(role.id, { notes: trimmed || undefined });
+  }
+
+  function handleInternalFillToggle(checked: boolean) {
+    if (!canEdit) return;
+    setInternalFill(checked);
+    updateOpenRole(role.id, { internalFill: checked, internalFillName: checked ? internalFillName : undefined });
+  }
+
+  function saveInternalFillName() {
+    if (!canEdit || !internalFill) return;
+    const trimmed = internalFillName.trim();
+    if (trimmed === (role.internalFillName ?? "")) return;
+    updateOpenRole(role.id, { internalFillName: trimmed || undefined });
+  }
   const hasCandidates = roleCandidates.length > 0;
   const byStage = (stage: CandidateStage) => roleCandidates.filter((c) => c.stage === stage);
   const days = daysOpen(role.datePosted);
@@ -80,6 +113,49 @@ export function RoleBreakdown({
         </Select>
       </div>
 
+      {/* Notes & internal fill — always visible */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <StickyNote className="h-3.5 w-3.5" /> Notes / Comments
+          </Label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            onBlur={saveNotes}
+            placeholder="Add notes about this role…"
+            className="min-h-[60px] resize-none text-sm"
+            disabled={!canEdit}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 pt-5">
+            <input
+              id={`internal-fill-breakdown-${role.id}`}
+              type="checkbox"
+              checked={internalFill}
+              onChange={(e) => handleInternalFillToggle(e.target.checked)}
+              disabled={!canEdit}
+              className="h-4 w-4 cursor-pointer accent-penda-teal"
+            />
+            <Label htmlFor={`internal-fill-breakdown-${role.id}`} className="text-sm cursor-pointer select-none">
+              Internally filled
+            </Label>
+          </div>
+          {internalFill && (
+            <Input
+              value={internalFillName}
+              onChange={(e) => setInternalFillName(e.target.value)}
+              onBlur={saveInternalFillName}
+              placeholder="Name of person…"
+              className="text-sm h-8"
+              disabled={!canEdit}
+            />
+          )}
+        </div>
+      </div>
+
       {hasCandidates ? (
         <div className="flex gap-4 overflow-x-auto pb-2">
           {PIPELINE_STAGES.map((stage) => (
@@ -103,15 +179,6 @@ export function RoleBreakdown({
           <DetailItem icon={CalendarDays} label="Date Posted" value={datePostedLabel} />
           <DetailItem icon={Briefcase} label="Employment Type" value={role.employmentType ?? null} />
           <DetailItem icon={Briefcase} label="Department" value={role.department || null} />
-          {role.notes && (
-            <div className="col-span-full flex items-start gap-2">
-              <StickyNote className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Notes</p>
-                <p className="text-sm whitespace-pre-wrap">{role.notes}</p>
-              </div>
-            </div>
-          )}
           <p className="col-span-full text-xs text-muted-foreground italic">
             No candidates in pipeline yet — add one via &quot;Add Candidate&quot; above.
           </p>

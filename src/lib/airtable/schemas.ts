@@ -99,6 +99,8 @@ export const openRoleSchema = z.object({
   dateClosed: z.string().optional(),
   employmentType: z.enum(["Full-time", "Part-time", "Contract", "Reliever", "Locum"]).optional(),
   notes: z.string().optional(),
+  internalFill: z.boolean().optional(),
+  internalFillName: z.string().optional(),
   requisitionId: z.string().optional(),
   requisitionSubmitterName: z.string().optional(),
   requisitionSubmitterEmail: z.string().optional(),

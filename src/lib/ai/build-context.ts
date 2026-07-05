@@ -45,6 +45,9 @@ export function buildAiContext(data: {
     hcApproved: r.hcApproved,
     hcFilled: r.hcFilled,
     hcGap: Math.max(r.hcApproved - r.hcFilled, 0),
+    notes: r.notes ?? null,
+    internalFill: r.internalFill ?? false,
+    internalFillName: r.internalFillName ?? null,
     candidatesInPipeline: candidates.filter(
       (c) => c.roleId === r.id && !["Hired", "Rejected", "Withdrawn", "Backup Pool"].includes(c.stage)
     ).length,

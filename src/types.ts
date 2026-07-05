@@ -148,6 +148,8 @@ export interface OpenRole {
   dateClosed?: string;
   employmentType?: EmploymentType;
   notes?: string;
+  internalFill?: boolean;
+  internalFillName?: string;
   requisitionId?: string;
   requisitionSubmitterName?: string;
   requisitionSubmitterEmail?: string;

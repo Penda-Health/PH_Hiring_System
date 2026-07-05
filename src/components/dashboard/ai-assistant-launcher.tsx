@@ -9,7 +9,7 @@ import {
   type UIDataTypes,
   type UIMessage,
 } from "ai";
-import { AlertTriangle, Send, Sparkles } from "lucide-react";
+import { AlertTriangle, Copy, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,11 +22,65 @@ import { cn } from "@/lib/utils";
 
 type ChatMessage = UIMessage<unknown, UIDataTypes, InferUITools<typeof aiTools>>;
 
-const PRESETS = [
+type Preset = { label: string; prompt?: string; getPrompt?: () => string };
+
+const PRESETS: Preset[] = [
   { label: "Summary", prompt: "Give me a quick summary of today's recruiting status." },
   { label: "Stalled roles", prompt: "Which open roles have no candidates in pipeline and are high priority?" },
   { label: "By department", prompt: "Break down open roles by department for both IPS and SO." },
   { label: "By branch", prompt: "Which branches have the most open headcount gaps? List each branch and its gap." },
+  {
+    label: "Weekly Summary",
+    getPrompt: () => {
+      const date = new Date().toLocaleDateString("en-GB", {
+        weekday: "long", year: "numeric", month: "long", day: "numeric",
+      });
+      return `Generate a weekly recruitment status update ready to copy and paste into WhatsApp.
+
+Format rules — follow exactly:
+- WhatsApp bold = *text* (single asterisk). Do NOT use **double** asterisks or markdown headers.
+- Use emoji section headers and ━ dividers for visual separation.
+- Plain text only — no code blocks, no bullet dashes replaced with other symbols.
+- Status icon per role: 🔴 High priority, 0 pipeline  🟡 Pipeline active  🟢 hcGap ≤ 1 (nearly filled)  ⚪ Not urgent, no pipeline.
+- Pull actual numbers from your context (roster, departmentBreakdown, stageCounts, offerSummary, workTrialSummary).
+- If a role has a notes field in the roster, include it as an indented note on the next line after the role bullet (prefix with "  📌 ").
+- If a role has internalFill: true, add "(Internal)" after the role title and include internalFillName if present.
+
+Produce exactly this structure:
+
+📊 *PENDA HEALTH | WEEKLY RECRUITMENT UPDATE*
+📅 ${date}
+
+━━━━━━━━━━━━━━━━
+🏥 *IPS SEGMENT*
+━━━━━━━━━━━━━━━━
+HC Gap: [total IPS hcGap] | Active Pipeline: [total IPS candidatesInPipeline]
+
+[One line per open IPS role, grouped under department header:]
+*[Department]*
+• [Role Title] – [Location]: [hcGap] HC gap | [candidatesInPipeline] in pipeline [status icon]
+  📌 [role notes if present]
+
+━━━━━━━━━━━━━━━━
+🏢 *SO SEGMENT*
+━━━━━━━━━━━━━━━━
+HC Gap: [total SO hcGap] | Active Pipeline: [total SO candidatesInPipeline]
+
+[Same per-role format as IPS]
+
+━━━━━━━━━━━━━━━━
+📋 *PIPELINE STAGES*
+━━━━━━━━━━━━━━━━
+[Each active stage and its count on one line, e.g.: First Interview: 12 · Work Trial: 5 · Offer: 3]
+
+━━━━━━━━━━━━━━━━
+📝 *OFFERS & HIRING*
+━━━━━━━━━━━━━━━━
+Offers out: [pending + negotiating] | Accepted: [X] | Work Trials pending: [awaitingArrival + awaitingScore]
+
+Generate the full report now using live data from your context.`;
+    },
+  },
 ];
 
 export function AiAssistantLauncher() {
@@ -125,7 +179,12 @@ export function AiAssistantLauncher() {
         {/* Preset buttons */}
         <div className="flex flex-wrap gap-1.5">
           {PRESETS.map((preset) => (
-            <Button key={preset.label} size="sm" variant="outline" onClick={() => send(preset.prompt)}>
+            <Button
+              key={preset.label}
+              size="sm"
+              variant="outline"
+              onClick={() => send(preset.getPrompt?.() ?? preset.prompt ?? "")}
+            >
               {preset.label}
             </Button>
           ))}
@@ -183,6 +242,16 @@ export function AiAssistantLauncher() {
                     return null;
                   })}
                 </div>
+                {message.role === "assistant" && (
+                  <CopyButton
+                    getText={() =>
+                      message.parts
+                        .filter((p): p is { type: "text"; text: string } => p.type === "text")
+                        .map((p) => p.text)
+                        .join("\n")
+                    }
+                  />
+                )}
               </div>
             ))}
 
@@ -231,5 +300,27 @@ export function AiAssistantLauncher() {
         </form>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function CopyButton({ getText }: { getText: () => string }) {
+  const [copied, setCopied] = React.useState(false);
+  function handleCopy() {
+    const text = getText();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+    >
+      <Copy className="h-3 w-3" />
+      {copied ? "Copied!" : "Copy"}
+    </button>
   );
 }

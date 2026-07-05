@@ -32,6 +32,7 @@ type RecruitmentDataContextValue = {
   openRoles: OpenRole[];
   createOpenRole: (role: OpenRole) => Promise<void>;
   updateOpenRoleStatus: (id: string, status: OpenRole["status"]) => void;
+  updateOpenRole: (id: string, patch: Partial<OpenRole>) => void;
   newEmployees: NewEmployee[];
 
   requisitions: Requisition[];
@@ -210,6 +211,15 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       }
       persist<OpenRole>("open-roles", id, patch);
       setOpenRoles((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    },
+    [canEdit]
+  );
+
+  const updateOpenRole = React.useCallback(
+    (id: string, patch: Partial<OpenRole>) => {
+      if (!guardEdit(canEdit, "updateOpenRole")) return;
+      setOpenRoles((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+      persist<OpenRole>("open-roles", id, patch);
     },
     [canEdit]
   );
@@ -499,6 +509,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       openRoles,
       createOpenRole,
       updateOpenRoleStatus,
+      updateOpenRole,
       newEmployees,
       requisitions,
       createRequisition,
@@ -539,6 +550,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       openRoles,
       createOpenRole,
       updateOpenRoleStatus,
+      updateOpenRole,
       newEmployees,
       requisitions,
       createRequisition,

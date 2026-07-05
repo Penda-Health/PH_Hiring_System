@@ -77,6 +77,8 @@ export const F = {
     DATE_CLOSED: "Date Closed",
     EMPLOYMENT_TYPE: "Employment Type",
     NOTES: "Notes",
+    INTERNAL_FILL: "Internal Fill",
+    INTERNAL_FILL_NAME: "Internal Fill Name",
     REQUISITION: "Requisition",
     REQ_SUBMITTER_NAME: "Requisition Submitter Name",
     REQ_SUBMITTER_EMAIL: "Requisition Submitter Email",
