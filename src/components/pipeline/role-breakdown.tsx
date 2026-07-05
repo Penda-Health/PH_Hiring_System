@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { daysOpen } from "@/lib/pipeline-helpers";
-import { CalendarDays, User, Briefcase, StickyNote, Users } from "lucide-react";
+import { CalendarDays, User, Briefcase, StickyNote, Minus, Plus } from "lucide-react";
 
 const STATUS_OPTIONS: RoleStatus[] = ["Open", "Allocated", "Filled", "On Hold", "Cancelled"];
 
@@ -50,12 +50,28 @@ export function RoleBreakdown({
   const [notes, setNotes] = React.useState(role.notes ?? "");
   const [internalFill, setInternalFill] = React.useState(role.internalFill ?? false);
   const [internalFillName, setInternalFillName] = React.useState(role.internalFillName ?? "");
+  const [localHcFilled, setLocalHcFilled] = React.useState(role.hcFilled ?? 0);
 
   React.useEffect(() => {
     setNotes(role.notes ?? "");
     setInternalFill(role.internalFill ?? false);
     setInternalFillName(role.internalFillName ?? "");
+    setLocalHcFilled(role.hcFilled ?? 0);
   }, [role.id]);
+
+  function setHcFilled(newFilled: number) {
+    if (!canEdit) return;
+    const clamped = Math.max(0, Math.min(newFilled, role.hcApproved));
+    setLocalHcFilled(clamped);
+    const newStatus: OpenRole["status"] =
+      clamped >= role.hcApproved ? "Filled" : role.status === "Filled" ? "Open" : role.status;
+    updateOpenRole(role.id, {
+      hcFilled: clamped,
+      status: newStatus,
+      ...(newStatus === "Filled" ? { dateClosed: new Date().toISOString() } : {}),
+      ...(newStatus !== "Filled" && role.status === "Filled" ? { dateClosed: undefined } : {}),
+    });
+  }
 
   function saveNotes() {
     if (!canEdit) return;
@@ -90,27 +106,51 @@ export function RoleBreakdown({
 
   return (
     <div className="space-y-3 rounded-lg border border-penda-teal/30 bg-muted/30 p-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <h2 className="text-lg font-semibold">{role.title}</h2>
         <span className="text-sm text-muted-foreground">{role.location}</span>
-        <Select
-          value={role.status}
-          onValueChange={(v) => updateOpenRoleStatus(role.id, v as RoleStatus)}
-          disabled={!canEdit}
-        >
-          <SelectTrigger
-            className="w-32 h-8 ml-auto"
-            onClick={(e) => e.stopPropagation()}
-            title={canEdit ? undefined : "View only — contact a Recruitment Manager to change status"}
+        <div className="ml-auto flex items-center gap-2">
+          {/* Inline HC filled stepper */}
+          <div className="flex items-center gap-1 rounded-md border border-border px-2 py-1">
+            <span className="text-xs text-muted-foreground mr-1">HC filled</span>
+            <button
+              type="button"
+              onClick={() => setHcFilled(localHcFilled - 1)}
+              disabled={!canEdit || localHcFilled <= 0}
+              className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Minus className="h-3 w-3" />
+            </button>
+            <span className="min-w-[2ch] text-center text-sm font-semibold tabular-nums">{localHcFilled}</span>
+            <span className="text-xs text-muted-foreground">/ {role.hcApproved}</span>
+            <button
+              type="button"
+              onClick={() => setHcFilled(localHcFilled + 1)}
+              disabled={!canEdit || localHcFilled >= role.hcApproved}
+              className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
+          <Select
+            value={role.status}
+            onValueChange={(v) => updateOpenRoleStatus(role.id, v as RoleStatus)}
+            disabled={!canEdit}
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((status) => (
-              <SelectItem key={status} value={status}>{status}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <SelectTrigger
+              className="w-32 h-8"
+              onClick={(e) => e.stopPropagation()}
+              title={canEdit ? undefined : "View only — contact a Recruitment Manager to change status"}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((status) => (
+                <SelectItem key={status} value={status}>{status}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Notes & internal fill — always visible */}
@@ -171,11 +211,6 @@ export function RoleBreakdown({
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3 pt-1">
           <DetailItem icon={User} label="Recruiter" value={role.recruiter || null} />
           <DetailItem icon={Briefcase} label="Hiring Manager" value={role.hiringManager || null} />
-          <DetailItem
-            icon={Users}
-            label="Headcount"
-            value={`${role.hcFilled} filled / ${role.hcApproved} approved`}
-          />
           <DetailItem icon={CalendarDays} label="Date Posted" value={datePostedLabel} />
           <DetailItem icon={Briefcase} label="Employment Type" value={role.employmentType ?? null} />
           <DetailItem icon={Briefcase} label="Department" value={role.department || null} />
