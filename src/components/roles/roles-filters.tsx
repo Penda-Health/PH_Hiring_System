@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ChevronDown } from "lucide-react";
-import { Branch, RoleStatus, Priority } from "@/types";
+import { Branch, OpenRole, RoleStatus, Priority } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -16,12 +16,13 @@ import {
 
 export interface RolesFilterState {
   segment: "All" | "IPS" | "SO";
+  department: "All" | string;
   status: "All" | RoleStatus;
   priority: "All" | Priority;
   branches: string[]; // selected branch names — only active when segment === "IPS"
 }
 
-const STATUSES: RoleStatus[] = ["Open", "Filled", "On Hold", "Cancelled"];
+const STATUSES: RoleStatus[] = ["Open", "Allocated", "Filled", "On Hold", "Cancelled"];
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 
 function groupByRegion(branches: Branch[]): { region: string; branches: Branch[] }[] {
@@ -39,17 +40,25 @@ function groupByRegion(branches: Branch[]): { region: string; branches: Branch[]
 export function RolesFilters({
   filters,
   branches,
+  roles,
   onChange,
 }: {
   filters: RolesFilterState;
   branches: Branch[];
+  roles: OpenRole[];
   onChange: (filters: RolesFilterState) => void;
 }) {
   const ipsBranches = branches.filter((b) => b.active).sort((a, b) => a.name.localeCompare(b.name));
   const grouped = React.useMemo(() => groupByRegion(ipsBranches), [ipsBranches]);
 
+  // Departments scoped to current segment selection
+  const departments = React.useMemo(() => {
+    const scoped = filters.segment === "All" ? roles : roles.filter((r) => r.segment === filters.segment);
+    return Array.from(new Set(scoped.map((r) => r.department))).sort();
+  }, [roles, filters.segment]);
+
   function handleSegmentChange(segment: RolesFilterState["segment"]) {
-    onChange({ ...filters, segment, branches: [] });
+    onChange({ ...filters, segment, department: "All", branches: [] });
   }
 
   function toggleBranch(name: string) {
@@ -125,6 +134,18 @@ export function RolesFilters({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+
+      <Select value={filters.department} onValueChange={(v) => onChange({ ...filters, department: v })}>
+        <SelectTrigger className="w-44">
+          <SelectValue placeholder="All Departments" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="All">All Departments</SelectItem>
+          {departments.map((dept) => (
+            <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       <Select value={filters.status} onValueChange={(v) => onChange({ ...filters, status: v as RolesFilterState["status"] })}>
         <SelectTrigger className="w-36">

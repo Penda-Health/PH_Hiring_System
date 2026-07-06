@@ -13,6 +13,7 @@ export default function RolesPage() {
   const { candidates, openRoles, branches } = useRecruitmentData();
   const [filters, setFilters] = React.useState<RolesFilterState>({
     segment: "All",
+    department: "All",
     status: "All",
     priority: "All",
     branches: [],
@@ -22,6 +23,7 @@ export default function RolesPage() {
 
   const filtered = openRoles.filter((role) => {
     if (filters.segment !== "All" && role.segment !== filters.segment) return false;
+    if (filters.department !== "All" && role.department !== filters.department) return false;
     if (filters.status !== "All" && role.status !== filters.status) return false;
     if (filters.priority !== "All" && role.priority !== filters.priority) return false;
     if (filters.segment === "IPS" && filters.branches.length > 0 && !filters.branches.includes(role.location)) return false;
@@ -31,7 +33,7 @@ export default function RolesPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Open Roles Register</h1>
-      <RolesFilters filters={filters} branches={branches} onChange={setFilters} />
+      <RolesFilters filters={filters} branches={branches} roles={openRoles} onChange={setFilters} />
       <Card>
         <CardContent className="p-0">
           <RolesTable roles={filtered} candidates={candidates} onSelectRole={setSelectedRole} />

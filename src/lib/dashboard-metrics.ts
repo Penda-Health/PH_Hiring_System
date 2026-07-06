@@ -1,5 +1,6 @@
 import { Candidate, CandidateStage, Interview, Locum, NewEmployee, Offer, OpenRole, Reliever, Segment, WorkTrial } from "@/types";
 import { getCoverageRate } from "@/lib/pools-helpers";
+import { DashboardPeriod, PERIOD_LABELS } from "@/lib/dashboard-filters";
 
 const HARD_TO_FILL_TITLES = ["Pharm Tech", "COHO", "Dentist"];
 
@@ -24,7 +25,8 @@ function daysBetween(startStr: string | null | undefined, endStr: string | null 
 
 export type MetricRow = {
   num: number;
-  metric: string;
+  metric: string;   // stable lookup key (icon, color, etc.)
+  label?: string;   // display override — e.g. "Hired (Last 30 Days)" vs "Hired MTD"
   category: string;
   formula: string;
   target: string;
@@ -41,7 +43,7 @@ export function getAllMetrics(data: {
   relievers: Reliever[];
   locums: Locum[];
   newEmployees: NewEmployee[];
-}): MetricRow[] {
+}, period: DashboardPeriod = "all"): MetricRow[] {
   const { candidates, openRoles, offers, workTrials, interviews, relievers, locums, newEmployees } = data;
   const coverageRate = getCoverageRate(relievers, locums);
   const roleById = new Map(openRoles.map((r) => [r.id, r]));
@@ -51,7 +53,12 @@ export function getAllMetrics(data: {
   const hcRemaining = openRolesList.reduce((sum, r) => sum + Math.max(r.hcApproved - r.hcFilled, 0), 0);
   const activeCandidates = candidates.filter((c) => isActiveStage(c.stage));
   const offersOut = candidates.filter((c) => c.stage === "Offer");
-  const hiredMtd = candidates.filter((c) => c.stage === "Hired" && isCurrentMonth(c.stageEnteredAt));
+  // When period = "all", scope hired to current calendar month (MTD).
+  // For any other period, the candidates list is already pre-filtered by the
+  // dashboard period filter, so just count all hired in that set.
+  const hiredMtd = period === "all"
+    ? candidates.filter((c) => c.stage === "Hired" && isCurrentMonth(c.stageEnteredAt))
+    : candidates.filter((c) => c.stage === "Hired");
 
   // Time to hire: datePosted → dateClosed on all Filled roles that have both dates.
   // Skip any role missing either data point rather than produce NaN.
@@ -162,6 +169,7 @@ export function getAllMetrics(data: {
     {
       num: 5,
       metric: "Hired MTD",
+      label: period === "all" || period === "mtd" ? undefined : `Hired (${PERIOD_LABELS[period]})`,
       category: "Operations",
       formula: "COUNT(candidates WHERE stage = hired AND joined_date in current month)",
       target: "vs monthly hiring plan",

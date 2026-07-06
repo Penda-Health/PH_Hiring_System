@@ -65,7 +65,7 @@ export function buildKpiTiles(metrics: MetricRow[], names: string[]): KpiTileDat
     .map((name) => byName.get(name))
     .filter((m): m is MetricRow => !!m)
     .map((m) => ({
-      label: m.metric,
+      label: m.label ?? m.metric,
       value: m.value,
       sublabel: `Target: ${m.target}`,
       icon: ICONS[m.metric] ?? Briefcase,

@@ -22,7 +22,7 @@ export default function DashboardPage() {
     { candidates, openRoles, offers, workTrials, interviews, relievers, locums },
     filters
   );
-  const metrics = getAllMetrics({ ...filtered, newEmployees });
+  const metrics = getAllMetrics({ ...filtered, newEmployees }, filters.period);
 
   return (
     <div className="space-y-6">
