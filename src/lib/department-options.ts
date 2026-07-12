@@ -18,6 +18,7 @@ export const IPS_FUNCTIONS = [
 ] as const;
 
 export const SO_DEPARTMENTS = [
+  "IPS Leadership",
   "Pigia Penda / Call Centre",
   "People & Culture",
   "Finance & Expansion Ops",
