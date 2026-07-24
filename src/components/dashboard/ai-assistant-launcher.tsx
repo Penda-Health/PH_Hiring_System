@@ -65,8 +65,8 @@ function buildWeeklySummaryPrompt(
     const d = new Date(c.stageEnteredAt);
     return !isNaN(d.getTime()) && d >= twoWeeksAgo;
   }).map(c => {
-    const role = roleById.get(c.roleId);
-    return { name: c.name, title: role?.title ?? "Unknown", dept: role?.department ?? "", segment: role?.segment ?? "" };
+    const role = roleById.get(c.roleId ?? "");
+    return { name: c.name, title: role?.title ?? "Unknown", dept: c.department ?? role?.department ?? "", segment: c.segment ?? role?.segment ?? "" };
   });
 
   // This-week interviews

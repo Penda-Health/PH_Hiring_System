@@ -102,7 +102,7 @@ export function getAllMetrics(data: {
 
   const ipsWorkTrials = workTrials.filter((wt) => {
     const candidate = candidateById.get(wt.candidateId);
-    const segment = candidate ? roleById.get(candidate.roleId)?.segment : undefined;
+    const segment = candidate ? (candidate.segment ?? roleById.get(candidate.roleId ?? "")?.segment) : undefined;
     return segment === "IPS";
   });
   const ipsPasses = ipsWorkTrials.filter((wt) => wt.passFail === "Pass").length;
@@ -302,7 +302,7 @@ export function getSegmentSplit(openRoles: OpenRole[], candidates: Candidate[]) 
     const roleIds = new Set(openRoles.filter((r) => r.segment === segment).map((r) => r.id));
     return {
       segment,
-      candidateCount: candidates.filter((c) => roleIds.has(c.roleId)).length,
+      candidateCount: candidates.filter((c) => c.segment === segment || roleIds.has(c.roleId ?? "")).length,
       // HC remaining = unfilled slots only, matching the KPI tile and dept bars
       headcount: openInSegment.reduce((sum, r) => sum + Math.max((r.hcApproved ?? 0) - (r.hcFilled ?? 0), 0), 0),
       roleCount: openInSegment.length,

@@ -89,6 +89,8 @@ export const F = {
     PHONE: "Phone",
     EMAIL: "Email",
     ROLE: "Role",
+    SEGMENT: "Segment",
+    DEPARTMENT: "Department",
     STAGE: "Stage",
     SOURCE: "Source",
     GENDER: "Gender",

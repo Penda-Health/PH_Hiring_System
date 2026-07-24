@@ -161,7 +161,9 @@ export interface Candidate {
   name: string;
   phone: string;
   email: string;
-  roleId: string;
+  roleId?: string;
+  segment?: Segment;
+  department?: string;
   stage: CandidateStage;
   source: string;
   gender: "Male" | "Female" | undefined;

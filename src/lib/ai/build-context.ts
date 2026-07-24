@@ -93,7 +93,7 @@ export function buildAiContext(data: {
   // ── Full candidate profiles (names + stages) ───────────────────────────────
   const roleById = new Map(openRoles.map((r) => [r.id, r]));
   const candidateProfiles = candidates.map((c) => {
-    const role = roleById.get(c.roleId);
+    const role = roleById.get(c.roleId ?? "");
     const entered = new Date(c.stageEnteredAt).getTime();
     const daysInStage = isNaN(entered) ? null : Math.floor((Date.now() - entered) / 86400000);
     return {
@@ -173,7 +173,7 @@ export function buildAiContext(data: {
   // ── Offer details ──────────────────────────────────────────────────────────
   const offerDetails = offers.map((o) => {
     const candidate = candidateMap.get(o.candidateId);
-    const role = candidates.find((c) => c.id === o.candidateId) ? roleById.get(candidates.find((c) => c.id === o.candidateId)!.roleId) : undefined;
+    const role = candidates.find((c) => c.id === o.candidateId) ? roleById.get(candidates.find((c) => c.id === o.candidateId)?.roleId ?? "") : undefined;
     return {
       candidateName: candidate?.name || "(no name)",
       roleTitle: role?.title ?? "Unknown Role",

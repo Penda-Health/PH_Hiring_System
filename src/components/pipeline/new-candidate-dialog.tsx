@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CANDIDATE_SOURCES } from "@/lib/candidate-sources";
 import { RELIEVER_CADRES } from "@/lib/mock-data/clusters";
+import { departmentOptionsFor } from "@/lib/department-options";
 
 type AddType = "Candidate" | "Reliever" | "Locum";
 
@@ -34,19 +35,6 @@ const STAGES: CandidateStage[] = [
   "Withdrawn",
 ];
 
-const ASSIGNABLE_STATUSES = new Set(["Open", "On Hold", "Allocated"]);
-
-function rolesScopedTo(roles: OpenRole[], segment: Segment, department?: string): OpenRole[] {
-  return roles.filter(
-    (r) => ASSIGNABLE_STATUSES.has(r.status) && r.segment === segment && (!department || r.department === department)
-  );
-}
-
-function defaultSelection(roles: OpenRole[], segment: Segment) {
-  const department = rolesScopedTo(roles, segment)[0]?.department ?? "";
-  const roleId = rolesScopedTo(roles, segment, department)[0]?.id ?? "";
-  return { department, roleId };
-}
 
 function groupByRegion(branches: Branch[]): { region: string; branches: Branch[] }[] {
   const map = new Map<string, Branch[]>();
@@ -130,12 +118,11 @@ export function NewCandidateDialog({
   const [submitting, setSubmitting] = React.useState(false);
   const [addType, setAddType] = React.useState<AddType>("Candidate");
 
-  const defaultSegment: Segment = roles[0]?.segment ?? "IPS";
   const [candForm, setCandForm] = React.useState(() => ({
     name: "", phone: "", email: "",
     gender: "Female" as "Male" | "Female",
-    segment: defaultSegment,
-    ...defaultSelection(roles, defaultSegment),
+    segment: "IPS" as Segment,
+    department: departmentOptionsFor("IPS")[0] as string,
     stage: "First Interview" as CandidateStage,
     source: "",
     employmentType: "Full-time" as EmploymentType,
@@ -160,13 +147,10 @@ export function NewCandidateDialog({
     setCandForm((prev) => ({ ...prev, [key]: value }));
   }
   function updateCandSegment(segment: Segment) {
-    setCandForm((prev) => ({ ...prev, segment, ...defaultSelection(roles, segment) }));
+    setCandForm((prev) => ({ ...prev, segment, department: departmentOptionsFor(segment)[0] ?? "" }));
   }
   function updateCandDept(department: string) {
-    setCandForm((prev) => ({
-      ...prev, department,
-      roleId: rolesScopedTo(roles, prev.segment, department)[0]?.id ?? "",
-    }));
+    setCandForm((prev) => ({ ...prev, department }));
   }
 
   function updateReliever<K extends keyof typeof relieverForm>(key: K, value: (typeof relieverForm)[K]) {
@@ -195,8 +179,7 @@ export function NewCandidateDialog({
     setLocumForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  const departments = Array.from(new Set(rolesScopedTo(roles, candForm.segment).map((r) => r.department))).sort();
-  const rolesInScope = rolesScopedTo(roles, candForm.segment, candForm.department);
+  const departments = departmentOptionsFor(candForm.segment);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -232,7 +215,8 @@ export function NewCandidateDialog({
           name: candForm.name,
           phone: candForm.phone,
           email: candForm.email,
-          roleId: candForm.roleId,
+          segment: candForm.segment,
+          department: candForm.department,
           stage: candForm.stage,
           source: candForm.source,
           gender: candForm.gender,
@@ -318,16 +302,9 @@ export function NewCandidateDialog({
                 </Field>
               </div>
 
-              <Field label="Role">
-                <Select value={candForm.roleId} onValueChange={(v) => updateCand("roleId", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
-                  <SelectContent>
-                    {rolesInScope.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>{r.title} · {r.location}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+              <p className="text-xs text-muted-foreground bg-muted rounded-md px-3 py-2">
+                Role will be assigned when the candidate is moved to Hired.
+              </p>
 
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Gender">

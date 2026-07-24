@@ -111,7 +111,9 @@ export const candidateSchema = z.object({
   name: z.string().min(1),
   phone: z.string().min(1),
   email: z.string().email(),
-  roleId: z.string().min(1),
+  roleId: z.string().optional(),
+  segment: z.enum(["IPS", "SO"]).optional(),
+  department: z.string().optional(),
   stage: z.enum([
     "First Interview",
     "Second Interview",

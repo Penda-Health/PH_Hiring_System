@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CANDIDATE_SOURCES } from "@/lib/candidate-sources";
+import { departmentOptionsFor } from "@/lib/department-options";
 
 const STAGES: CandidateStage[] = [
   "First Interview",
@@ -34,10 +35,6 @@ function rolesScopedTo(roles: OpenRole[], segment: Segment, department?: string)
   return roles.filter((r) => r.segment === segment && (!department || r.department === department));
 }
 
-function departmentsFor(roles: OpenRole[], segment: Segment): string[] {
-  return Array.from(new Set(rolesScopedTo(roles, segment).map((r) => r.department))).sort();
-}
-
 function makeForm(candidate: Candidate | null, openRoles: OpenRole[]) {
   if (!candidate) {
     return {
@@ -48,7 +45,7 @@ function makeForm(candidate: Candidate | null, openRoles: OpenRole[]) {
       segment: "IPS" as Segment, department: "", roleId: "",
     };
   }
-  const role = openRoles.find((r) => r.id === candidate.roleId);
+  const role = candidate.roleId ? openRoles.find((r) => r.id === candidate.roleId) : undefined;
   return {
     name: candidate.name,
     phone: candidate.phone,
@@ -57,9 +54,9 @@ function makeForm(candidate: Candidate | null, openRoles: OpenRole[]) {
     employmentType: candidate.employmentType,
     source: candidate.source,
     stage: candidate.stage,
-    segment: (role?.segment ?? "IPS") as Segment,
-    department: role?.department ?? "",
-    roleId: candidate.roleId,
+    segment: (candidate.segment ?? role?.segment ?? "IPS") as Segment,
+    department: candidate.department ?? role?.department ?? "",
+    roleId: candidate.roleId ?? "",
   };
 }
 
@@ -103,7 +100,7 @@ export function EditCandidateDialog({
   }
 
   function updateSegment(segment: Segment) {
-    const depts = departmentsFor(openRoles, segment);
+    const depts = departmentOptionsFor(segment);
     const department = depts[0] ?? "";
     const roleId = rolesScopedTo(openRoles, segment, department)[0]?.id ?? "";
     setForm((prev) => ({ ...prev, segment, department, roleId }));
@@ -114,7 +111,7 @@ export function EditCandidateDialog({
     setForm((prev) => ({ ...prev, department, roleId }));
   }
 
-  const departments = departmentsFor(openRoles, form.segment);
+  const departments = departmentOptionsFor(form.segment);
   const rolesInScope = rolesScopedTo(openRoles, form.segment, form.department);
 
   async function handleSave(e: React.FormEvent) {
@@ -130,7 +127,9 @@ export function EditCandidateDialog({
         employmentType: form.employmentType,
         source: form.source,
         stage: form.stage,
-        roleId: form.roleId,
+        segment: form.segment,
+        department: form.department,
+        roleId: form.roleId || undefined,
         ...(form.stage !== candidate.stage ? { stageEnteredAt: new Date().toISOString() } : {}),
       };
       onSave(candidate.id, patch);

@@ -70,7 +70,7 @@ type RecruitmentDataContextValue = {
   candidates: Candidate[];
   createCandidate: (candidate: Candidate) => Promise<void>;
   updateCandidate: (id: string, patch: Partial<Candidate>) => void;
-  updateCandidateStage: (id: string, stage: Candidate["stage"]) => void;
+  updateCandidateStage: (id: string, stage: Candidate["stage"], roleId?: string) => void;
   deleteCandidate: (id: string) => void;
 
   relievers: Reliever[];
@@ -493,10 +493,14 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   );
 
   const updateCandidateStage = React.useCallback(
-    (id: string, stage: Candidate["stage"]) => {
+    (id: string, stage: Candidate["stage"], roleId?: string) => {
       if (!guardEdit(canEdit, "updateCandidateStage")) return;
       const now = new Date().toISOString();
-      const patch: Partial<Candidate> = { stage, stageEnteredAt: now };
+      const patch: Partial<Candidate> = {
+        stage,
+        stageEnteredAt: now,
+        ...(roleId ? { roleId } : {}),
+      };
       setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
       persist<Candidate>("candidates", id, patch);
 

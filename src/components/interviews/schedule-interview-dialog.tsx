@@ -70,7 +70,7 @@ export function ScheduleInterviewDialog({
       id: `int-${Date.now()}`,
       schedId: "", // assigned by the server on create
       candidateId: candidate.id,
-      roleId: candidate.roleId,
+      roleId: candidate.roleId ?? "",
       date: form.date,
       time: form.time,
       weekLabel,

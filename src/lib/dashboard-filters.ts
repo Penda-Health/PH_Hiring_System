@@ -98,7 +98,7 @@ export function filterDashboardData(
   const openRolesFiltered = roleFilterActive ? openRoles.filter((r) => matchedRoleIds.has(r.id)) : openRoles;
 
   const roleMatchedCandidateIds = new Set(
-    candidates.filter((c) => !roleFilterActive || matchedRoleIds.has(c.roleId)).map((c) => c.id)
+    candidates.filter((c) => !roleFilterActive || matchedRoleIds.has(c.roleId ?? "")).map((c) => c.id)
   );
 
   const candidatesFiltered = candidates.filter(

@@ -53,9 +53,11 @@ export default function CandidatesPage() {
   const filtered = React.useMemo(() => {
     const search = filters.search.trim().toLowerCase();
     return candidates.filter((c) => {
-      const role = roleById.get(c.roleId);
-      if (filters.segment !== "All" && role?.segment !== filters.segment) return false;
-      if (filters.department !== "All" && role?.department !== filters.department) return false;
+      const role = roleById.get(c.roleId ?? "");
+      const candidateSegment = c.segment ?? role?.segment;
+      const candidateDepartment = c.department ?? role?.department;
+      if (filters.segment !== "All" && candidateSegment !== filters.segment) return false;
+      if (filters.department !== "All" && candidateDepartment !== filters.department) return false;
       if (statusGroup !== "all" && getCandidateStageGroupId(c.stage) !== statusGroup) return false;
       if (search && !`${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(search)) return false;
       return true;
@@ -175,6 +177,7 @@ export default function CandidatesPage() {
       />
       <MoveStageDialog
         candidate={movingCandidate}
+        openRoles={openRoles}
         onOpenChange={(open) => !open && setMovingCandidate(null)}
         onMove={updateCandidateStage}
       />
