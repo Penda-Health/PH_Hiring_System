@@ -3,7 +3,7 @@ import { workTrialFromAirtable, workTrialToAirtable } from "@/lib/airtable/mappe
 import { TABLE_NAMES } from "@/lib/airtable/field-names";
 import { workTrialSchema } from "@/lib/airtable/schemas";
 
-export const { PATCH } = makeItemHandlers(
+export const { PATCH, DELETE } = makeItemHandlers(
   TABLE_NAMES.WorkTrials,
   workTrialFromAirtable,
   workTrialToAirtable,
