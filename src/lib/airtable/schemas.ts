@@ -159,9 +159,11 @@ export const interviewSchema = z.object({
 export const workTrialSchema = z.object({
   wtId: z.string().optional(),
   candidateId: z.string().min(1),
-  branchId: z.string().min(1),
+  roleId: z.string().optional(),
+  branchId: z.string().optional(),   // optional — auto-created trials may not have branch yet
   date: z.string().min(1),
-  supervisor: z.string().min(1),
+  supervisor: z.string().optional(), // optional — assigned after scheduling
+  createdAt: z.string().optional(),
   arrivalMarked: z.boolean().nullable(),
   scoreTechnical: z.number().nullable(),
   scorePatient: z.number().nullable(),

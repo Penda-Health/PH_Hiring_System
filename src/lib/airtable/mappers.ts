@@ -312,9 +312,11 @@ export function workTrialFromAirtable(r: AirtableRecord): WorkTrial {
     id: r.id,
     wtId: str(f[F.WorkTrials.WT_ID]),
     candidateId: firstLink(f[F.WorkTrials.CANDIDATE]) ?? "",
+    roleId: firstLink(f[F.WorkTrials.ROLE]) ?? undefined,
     branchId: firstLink(f[F.WorkTrials.BRANCH]) ?? "",
     date: str(f[F.WorkTrials.DATE]),
     supervisor: str(f[F.WorkTrials.SUPERVISOR]),
+    createdAt: opt<string>(f[F.WorkTrials.CREATED_AT]) ?? undefined,
     arrivalMarked: arrivalFromLabel(f[F.WorkTrials.ARRIVAL_MARKED]),
     scoreTechnical: opt<number>(f[F.WorkTrials.SCORE_TECHNICAL]) ?? null,
     scorePatient: opt<number>(f[F.WorkTrials.SCORE_PATIENT]) ?? null,
@@ -330,10 +332,14 @@ export function workTrialFromAirtable(r: AirtableRecord): WorkTrial {
 export function workTrialToAirtable(w: Partial<WorkTrial>) {
   return cleanFields({
     [F.WorkTrials.WT_ID]: w.wtId,
-    [F.WorkTrials.CANDIDATE]: w.candidateId !== undefined ? link(w.candidateId) : undefined,
-    [F.WorkTrials.BRANCH]: w.branchId !== undefined ? link(w.branchId) : undefined,
+    // Only pass linked-record arrays when the ID is a non-empty string —
+    // an empty string creates [""] which Airtable rejects.
+    [F.WorkTrials.CANDIDATE]: w.candidateId ? link(w.candidateId) : undefined,
+    [F.WorkTrials.ROLE]: w.roleId ? link(w.roleId) : undefined,
+    [F.WorkTrials.BRANCH]: w.branchId ? link(w.branchId) : undefined,
     [F.WorkTrials.DATE]: w.date,
-    [F.WorkTrials.SUPERVISOR]: w.supervisor,
+    [F.WorkTrials.SUPERVISOR]: w.supervisor || undefined,
+    [F.WorkTrials.CREATED_AT]: w.createdAt,
     [F.WorkTrials.ARRIVAL_MARKED]: arrivalToLabel(w.arrivalMarked),
     [F.WorkTrials.SCORE_TECHNICAL]: w.scoreTechnical,
     [F.WorkTrials.SCORE_PATIENT]: w.scorePatient,

@@ -127,9 +127,11 @@ export const F = {
   WorkTrials: {
     WT_ID: "WT ID",
     CANDIDATE: "Candidate",
+    ROLE: "Role",
     BRANCH: "Branch",
     DATE: "Date",
     SUPERVISOR: "Supervisor",
+    CREATED_AT: "Created At",
     ARRIVAL_MARKED: "Arrival Marked",
     SCORE_TECHNICAL: "Score Technical",
     SCORE_PATIENT: "Score Patient",

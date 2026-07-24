@@ -498,13 +498,16 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         if (candidate) {
           const linkedRole = openRoles.find((r) => r.id === candidate.roleId);
           const branchId = branches.find((b) => b.name === linkedRole?.location)?.id ?? "";
+          const now = new Date().toISOString();
           createWorkTrial({
             id: `wt-${Date.now()}`,
             wtId: "",
             candidateId: id,
+            roleId: candidate.roleId || undefined,
             branchId,
-            date: new Date().toISOString().slice(0, 10),
+            date: now.slice(0, 10),
             supervisor: "",
+            createdAt: now,
             arrivalMarked: null,
             scoreTechnical: null,
             scorePatient: null,

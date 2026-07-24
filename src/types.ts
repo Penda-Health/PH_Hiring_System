@@ -200,9 +200,11 @@ export interface WorkTrial {
   id: string;
   wtId: string;
   candidateId: string;
+  roleId?: string;        // linked role — enables filtering by dept/function over time
   branchId: string;
   date: string;
   supervisor: string;
+  createdAt?: string;     // when the trial was scheduled
   arrivalMarked: boolean | null;
   scoreTechnical: number | null;
   scorePatient: number | null;

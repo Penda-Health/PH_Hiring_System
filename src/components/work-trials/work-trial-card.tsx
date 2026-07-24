@@ -46,11 +46,12 @@ export function WorkTrialCard({
   onSubmitScores: (id: string, scores: { technical: number; patient: number; safety: number; culture: number }) => void;
   onDelete?: (id: string) => void;
 }) {
-  const { candidates, branches, canEdit } = useRecruitmentData();
+  const { candidates, branches, openRoles, canEdit } = useRecruitmentData();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [copied, setCopied] = React.useState<string | null>(null);
   const candidate = getCandidateForTrial(trial, candidates);
   const branch = getBranchForTrial(trial, branches);
+  const role = openRoles.find((r) => r.id === (trial.roleId ?? candidate?.roleId));
   const status = getDisplayStatus(trial);
   const isOrphaned = !candidate;
 
@@ -79,7 +80,8 @@ export function WorkTrialCard({
               <span className="text-destructive/80">Unlinked record</span>
             )}
           </CardTitle>
-          <p className="text-xs text-muted-foreground">{branch?.name ?? "—"} · {trial.date || "No date"}</p>
+          {role && <p className="text-xs font-medium text-penda-teal/80">{role.title} · {role.department}</p>}
+          <p className="text-xs text-muted-foreground">{branch?.name ?? "No branch"} · {trial.date || "No date"}</p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {isOrphaned && canEdit && onDelete && (
