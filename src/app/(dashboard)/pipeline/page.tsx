@@ -17,7 +17,7 @@ export default function PipelinePage() {
     segment: "All",
     department: "All",
     recruiter: "All",
-    monthRange: "1",
+    monthRange: "all",
   });
   const [selected, setSelected] = React.useState<Candidate | null>(null);
   const [selectedRoleId, setSelectedRoleId] = React.useState<string | null>(null);

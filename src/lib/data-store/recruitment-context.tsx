@@ -180,17 +180,24 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     };
   }, []);
 
-  // Keep core data in sync with Airtable changes made outside the UI.
-  // Re-fetches open-roles and candidates every 60 s and whenever the browser
-  // tab regains focus (the most common case: user edits Airtable, switches back).
+  // Keep data in sync with Airtable changes made outside the UI.
+  // Refreshes on a 60s interval and whenever the browser tab regains focus.
   const refreshCoreData = React.useCallback(async () => {
     try {
-      const [rolesRes, candidatesRes] = await Promise.all([
+      const [rolesRes, candidatesRes, interviewsRes, offersRes, workTrialsRes, refChecksRes] = await Promise.all([
         listResource<OpenRole>("open-roles"),
         listResource<Candidate>("candidates"),
+        listResource<Interview>("interviews"),
+        listResource<Offer>("offers"),
+        listResource<WorkTrial>("work-trials"),
+        listResource<ReferenceCheck>("reference-checks"),
       ]);
       setOpenRoles(rolesRes);
       setCandidates(candidatesRes);
+      setInterviews(interviewsRes);
+      setOffers(offersRes);
+      setWorkTrials(workTrialsRes);
+      setReferenceChecks(refChecksRes);
     } catch {
       // Silent — a background refresh failing shouldn't interrupt the user
     }
@@ -233,11 +240,14 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     (id: string, status: OpenRole["status"]) => {
       if (!guardEdit(canEdit, "updateOpenRoleStatus")) return;
       const patch: Partial<OpenRole> = { status };
-      if (status !== "Open") {
+      if (status === "Open") {
+        // Clear dateClosed so the Pipeline's month-range filter never hides a reopened role.
+        (patch as Record<string, unknown>).dateClosed = null;
+      } else {
         patch.dateClosed = new Date().toISOString();
       }
       persist<OpenRole>("open-roles", id, patch);
-      setOpenRoles((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+      setOpenRoles((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch, dateClosed: status === "Open" ? undefined : patch.dateClosed } : r)));
     },
     [canEdit]
   );
@@ -409,7 +419,8 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   const reopenOffer = React.useCallback(
     (id: string) => {
       if (!guardEdit(canEdit, "reopenOffer")) return;
-      persist<Offer>("offers", id, { outcome: "Pending", dropReason: undefined });
+      // Use null so cleanFields passes it through and Airtable clears the field.
+      persist<Offer>("offers", id, { outcome: "Pending", dropReason: null as unknown as string });
       setOffers((prev) =>
         prev.map((offer) => (offer.id === id ? { ...offer, outcome: "Pending", dropReason: undefined } : offer))
       );
@@ -472,14 +483,17 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       const candidate = candidates.find((c) => c.id === id);
       if (!candidate) return;
 
-      // Auto-add to Locum or Reliever pool
+      // Auto-add to Locum or Reliever pool on hire.
+      // Locums are NOT assigned branches at hire — they join the pool as available
+      // across all branches until a permanent assignment is made.
+      // Relievers DO get an initial branch from the role's location.
       if (candidate.employmentType === "Locum") {
         const linkedRole = openRoles.find((r) => r.id === candidate.roleId);
         createLocum({
           id: `loc-${Date.now()}`,
           name: candidate.name,
-          speciality: linkedRole?.title ?? "General",
-          branchesCovered: linkedRole?.location ? [linkedRole.location] : [],
+          speciality: linkedRole?.department ?? linkedRole?.title ?? "General",
+          branchesCovered: [],
           dailyRate: 0,
           licenseNumber: "Pending",
           availability: "TBD",
@@ -489,11 +503,11 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         createReliever({
           id: `rel-${Date.now()}`,
           name: candidate.name,
-          role: linkedRole?.title ?? "General",
+          role: linkedRole?.department ?? linkedRole?.title ?? "General",
           branchesCovered: linkedRole?.location ? [linkedRole.location] : [],
           availabilityDates: "TBD",
           status: "Active",
-          phone: candidate.phone || "Pending",
+          phone: candidate.phone || "",
         } as Reliever).catch((err) => console.error("Failed to auto-create reliever:", err));
       }
 

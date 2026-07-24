@@ -23,12 +23,15 @@ export default function CandidatesPage() {
   const {
     candidates,
     openRoles,
+    branches,
     canEdit,
     createCandidate,
     updateCandidate,
     updateCandidateStage,
     deleteCandidate,
     createInterview,
+    createReliever,
+    createLocum,
   } = useRecruitmentData();
 
   const [filters, setFilters] = React.useState<CandidatesFilterState>({
@@ -78,7 +81,13 @@ export default function CandidatesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Candidates</h1>
-        <NewCandidateDialog roles={openRoles} onCreate={createCandidate} />
+        <NewCandidateDialog
+          roles={openRoles}
+          branches={branches}
+          onCreate={createCandidate}
+          onCreateReliever={createReliever}
+          onCreateLocum={createLocum}
+        />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">

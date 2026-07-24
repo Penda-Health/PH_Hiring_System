@@ -19,35 +19,176 @@ import { AI_PROVIDERS, type ProviderId } from "@/lib/ai/providers";
 import { buildAiContext } from "@/lib/ai/build-context";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { cn } from "@/lib/utils";
+import type { Candidate, Interview, OpenRole } from "@/types";
 
 type ChatMessage = UIMessage<unknown, UIDataTypes, InferUITools<typeof aiTools>>;
-
 type Preset = { label: string; prompt?: string; getPrompt?: () => string };
 
-const PRESETS: Preset[] = [
-  { label: "Summary", prompt: "Give me a quick summary of today's recruiting status." },
-  { label: "Stalled roles", prompt: "Which open roles have no candidates in pipeline and are high priority?" },
-  { label: "By department", prompt: "Break down open roles by department for both IPS and SO." },
-  { label: "By branch", prompt: "Which branches have the most open headcount gaps? List each branch and its gap." },
-  {
-    label: "Weekly Summary",
-    getPrompt: () => {
-      const date = new Date().toLocaleDateString("en-GB", {
-        weekday: "long", year: "numeric", month: "long", day: "numeric",
-      });
-      return `Generate a weekly recruitment status update ready to copy and paste into WhatsApp.
+// ── Weekly Summary data pre-computation ───────────────────────────────────────
+// Numbers are computed in JS from live state — never inferred by the LLM —
+// so the summary is always numerically accurate regardless of context window size.
 
-Format rules — follow exactly:
-- WhatsApp bold = *text* (single asterisk). Do NOT use **double** asterisks or markdown headers.
-- Use emoji section headers and ━ dividers for visual separation.
-- Plain text only — no code blocks, no bullet dashes replaced with other symbols.
-- Status icon per role: 🔴 High priority, 0 pipeline  🟡 Pipeline active  🟢 hcGap ≤ 1 (nearly filled)  ⚪ Not urgent, no pipeline.
-- Pull actual numbers from your context (roster, departmentBreakdown, stageCounts, offerSummary, workTrialSummary).
-- If a role has a notes field in the roster, include it as an indented note on the next line after the role bullet (prefix with "  📌 ").
-- If a role has internalFill: true, add "(Internal)" after the role title and include internalFillName if present.
-- For the pipeline count on each role: if candidatesInPipeline > 0, list the stage breakdown from pipelineByStage inline, e.g. "2 in pipeline (1 at First Interview, 1 at Offer)". If candidatesInPipeline is 0, omit the pipeline part entirely — do NOT write "0 in pipeline".
+function dayOfWeek(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-GB", { weekday: "long" });
+}
 
-Produce exactly this structure:
+function buildWeeklySummaryPrompt(
+  openRoles: OpenRole[],
+  candidates: Candidate[],
+  interviews: Interview[]
+): string {
+  const date = new Date().toLocaleDateString("en-GB", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+
+  const ACTIVE_STAGES = new Set(["First Interview","Second Interview","Panel Interview","Work Trial","Reference Check","Offer"]);
+  const now = new Date();
+  const twoWeeksAgo = new Date(now.getTime() - 14 * 86400000);
+  const weekEnd   = new Date(now.getTime() + 7  * 86400000);
+
+  const roleById = new Map(openRoles.map(r => [r.id, r]));
+
+  // Candidates helpers
+  const activeCands   = (roleId: string) => candidates.filter(c => c.roleId === roleId && ACTIVE_STAGES.has(c.stage));
+  const pipelineLabel = (roleId: string): string => {
+    const active = activeCands(roleId);
+    if (active.length === 0) return "";
+    const counts: Record<string, number> = {};
+    for (const c of active) counts[c.stage] = (counts[c.stage] ?? 0) + 1;
+    const parts = Object.entries(counts).map(([s, n]) => `${n} at ${s}`);
+    return ` | ${active.length} in pipeline (${parts.join(", ")})`;
+  };
+
+  // Recently hired (last 14 days)
+  const recentlyHired = candidates.filter(c => {
+    if (c.stage !== "Hired") return false;
+    const d = new Date(c.stageEnteredAt);
+    return !isNaN(d.getTime()) && d >= twoWeeksAgo;
+  }).map(c => {
+    const role = roleById.get(c.roleId);
+    return { name: c.name, title: role?.title ?? "Unknown", dept: role?.department ?? "", segment: role?.segment ?? "" };
+  });
+
+  // This-week interviews
+  const thisWeekInterviews = interviews.filter(i => {
+    const d = new Date(i.date);
+    return d >= now && d <= weekEnd;
+  });
+  const interviewsByRoleDay = new Map<string, number>();
+  for (const i of thisWeekInterviews) {
+    const role = roleById.get(i.roleId);
+    const key  = `${role?.title ?? "Unknown"}|||${dayOfWeek(i.date)}`;
+    interviewsByRoleDay.set(key, (interviewsByRoleDay.get(key) ?? 0) + 1);
+  }
+
+  // Pipeline stage counts
+  const stageCounts: Record<string, number> = {};
+  for (const c of candidates) {
+    if (ACTIVE_STAGES.has(c.stage)) stageCounts[c.stage] = (stageCounts[c.stage] ?? 0) + 1;
+  }
+
+  // Offers out / work trials
+  const offersOut  = candidates.filter(c => c.stage === "Offer").length;
+  const hiredTotal = candidates.filter(c => c.stage === "Hired").length;
+  const pendingWorkTrials = candidates.filter(c => c.stage === "Work Trial").length;
+
+  // Build per-segment, per-department role blocks
+  const segments = ["IPS", "SO"] as const;
+  const segmentBlocks: string[] = [];
+
+  for (const seg of segments) {
+    const segRoles = openRoles.filter(r => r.segment === seg && r.status !== "Cancelled");
+    const openOnly = segRoles.filter(r => r.status === "Open" || r.status === "Allocated" || r.status === "On Hold");
+
+    const totalHcGap = openOnly.reduce((s, r) => s + Math.max(r.hcApproved - r.hcFilled, 0), 0);
+    const totalPipeline = openOnly.reduce((s, r) => s + activeCands(r.id).length, 0);
+    const segOffers  = openOnly.reduce((s, r) => s + candidates.filter(c => c.roleId === r.id && c.stage === "Offer").length, 0);
+    const segHired   = recentlyHired.filter(h => h.segment === seg);
+
+    const depts = Array.from(new Set(openOnly.map(r => r.department))).sort();
+    const deptBlocks: string[] = [];
+
+    for (const dept of depts) {
+      const deptRoles = openOnly.filter(r => r.department === dept);
+      const deptHcGap = deptRoles.reduce((s, r) => s + Math.max(r.hcApproved - r.hcFilled, 0), 0);
+      const deptHired = segHired.filter(h => h.dept === dept).map(h => h.title);
+
+      const lines: string[] = [];
+      for (const r of deptRoles) {
+        const gap = Math.max(r.hcApproved - r.hcFilled, 0);
+        const pipeline = pipelineLabel(r.id);
+        const status = r.status !== "Open" ? ` (${r.status})` : "";
+        lines.push(`  ROLE: ${r.title} – ${r.location} | HC: ${r.hcFilled}/${r.hcApproved} | gap: ${gap}${status}${pipeline}${r.notes ? ` | notes: ${r.notes}` : ""}`);
+      }
+      if (deptHired.length > 0) {
+        lines.push(`  RECENTLY_HIRED: ${deptHired.join(", ")} (last 14 days)`);
+      }
+
+      deptBlocks.push(`DEPT: ${dept} | total HC gap: ${deptHcGap}\n${lines.join("\n")}`);
+    }
+
+    segmentBlocks.push(
+      `=== ${seg} SEGMENT ===\n` +
+      `HC Gap: ${totalHcGap} | Active Pipeline: ${totalPipeline} | Offers Out: ${segOffers}\n\n` +
+      deptBlocks.join("\n\n")
+    );
+  }
+
+  // This week's interview schedule
+  const interviewLines = Array.from(interviewsByRoleDay.entries())
+    .map(([key, count]) => {
+      const [title, day] = key.split("|||");
+      return `  ${title}${count > 1 ? ` (${count} panels)` : ""} – ${day}`;
+    })
+    .sort();
+  const interviewBlock = interviewLines.length > 0
+    ? interviewLines.join("\n")
+    : "  [No interviews logged in the system for this week]";
+
+  // Pipeline stages summary
+  const stageOrder = ["First Interview","Second Interview","Panel Interview","Work Trial","Reference Check","Offer"];
+  const stageLines = stageOrder.filter(s => (stageCounts[s] ?? 0) > 0).map(s => `${s}: ${stageCounts[s]}`).join(" · ");
+
+  // Recently hired block
+  const hiredBlock = recentlyHired.length > 0
+    ? recentlyHired.map(h => `  ${h.name} – ${h.title} (${h.dept})`).join("\n")
+    : "  [No hires in last 14 days]";
+
+  const verifiedData = `
+=== VERIFIED DATA (pre-computed in JS — use these numbers exactly) ===
+
+${segmentBlocks.join("\n\n")}
+
+=== PIPELINE STAGES (all candidates) ===
+${stageLines || "No active pipeline"}
+
+=== OFFERS & HIRING ===
+Offers out: ${offersOut} | Total hired (all time): ${hiredTotal} | Work Trials pending: ${pendingWorkTrials}
+
+=== RECENTLY HIRED (last 14 days) ===
+${hiredBlock}
+
+=== THIS WEEK INTERVIEWS (next 7 days, from system) ===
+${interviewBlock}
+
+=== END VERIFIED DATA ===`.trim();
+
+  return `You are generating a weekly recruitment status WhatsApp update for Penda Health.
+
+${verifiedData}
+
+INSTRUCTIONS:
+1. Format as a WhatsApp message using the EXACT structure below.
+2. Use ONLY the verified numbers above — never compute from context JSON.
+3. WhatsApp bold = *text* (single asterisk). No double asterisks, no markdown headers.
+4. Status icon per role: 🔴 gap ≥ 2 AND 0 pipeline  🟡 has pipeline  🟢 gap ≤ 1 or allocated  ⚪ gap = 0, no pipeline
+5. Include 📌 notes inline under each role where notes are present.
+6. After each department's role list, add a "Status:" line ONLY if RECENTLY_HIRED data or a clear pattern (stalled candidates, notes context) supports a genuine insight. Do NOT invent context (e.g. maternity leave) unless it's in the notes field.
+7. For the Offers & Hiring section, "Accepted" means the total hired count from the data above.
+8. For THIS WEEK INTERVIEWS: if the system has interview data, format as the example. If not, flag it and add a question asking what interviews are planned.
+9. Close with a ❓ *QUESTIONS* section: ask specific, answerable questions ONLY for departments where the gap is significant (≥ 2) or new and no notes explain it, AND about missing interview details if not logged. Max 5 questions. Omit section entirely if no genuine gaps in knowledge.
+
+EXACT FORMAT:
 
 📊 *PENDA HEALTH | WEEKLY RECRUITMENT UPDATE*
 📅 ${date}
@@ -55,34 +196,63 @@ Produce exactly this structure:
 ━━━━━━━━━━━━━━━━
 🏥 *IPS SEGMENT*
 ━━━━━━━━━━━━━━━━
-HC Gap: [total IPS hcGap] | Active Pipeline: [total IPS candidatesInPipeline]
+HC Gap: [number] | Active Candidates: [number] | Active Offers: [number]
 
-[One line per open IPS role, grouped under department header:]
-*[Department]*
-• [Role Title] – [Location]: [hcGap] HC gap[if pipeline > 0: | [N] in pipeline ([stage breakdown])] [status icon]
-  📌 [role notes if present]
+*[Department]* HC: [total dept HC gap]
+• [Role] – [Location]: [gap] HC gap[pipeline if any] [icon]
+  📌 [notes if present]
+[Status: insight if data supports it]
+
+[repeat per department]
 
 ━━━━━━━━━━━━━━━━
 🏢 *SO SEGMENT*
 ━━━━━━━━━━━━━━━━
-HC Gap: [total SO hcGap] | Active Pipeline: [total SO candidatesInPipeline]
+HC Gap: [number] | Active Pipeline: [number]
 
-[Same per-role format as IPS]
+[same per-dept format]
 
 ━━━━━━━━━━━━━━━━
 📋 *PIPELINE STAGES*
 ━━━━━━━━━━━━━━━━
-[Each active stage and its count on one line, e.g.: First Interview: 12 · Work Trial: 5 · Offer: 3]
+[Stage: count · Stage: count ...]
 
 ━━━━━━━━━━━━━━━━
 📝 *OFFERS & HIRING*
 ━━━━━━━━━━━━━━━━
-Offers out: [pending + negotiating] | Accepted: [X] | Work Trials pending: [awaitingArrival + awaitingScore]
+Offers out: [n] | Accepted: [hired total] | Work Trials pending: [n]
 
-Generate the full report now using live data from your context.`;
-    },
-  },
-];
+━━━━━━━━━━━━━━━━
+📅 *THIS WEEK INTERVIEWS*
+━━━━━━━━━━━━━━━━
+[Role (N panels) – Day]
+[or flag if not in system]
+
+[❓ *QUESTIONS* section only if needed]
+
+Generate the full report now.`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CopyButton({ getText }: { getText: () => string }) {
+  const [copied, setCopied] = React.useState(false);
+  function handleCopy() {
+    const text = getText();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  return (
+    <button type="button" onClick={handleCopy}
+      className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+      <Copy className="h-3 w-3" />
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
+}
 
 export function AiAssistantLauncher() {
   const {
@@ -92,6 +262,18 @@ export function AiAssistantLauncher() {
   const [providerId, setProviderId] = React.useState<ProviderId>("llama");
   const [input, setInput] = React.useState("");
   const bottomRef = React.useRef<HTMLDivElement>(null);
+
+  // Presets live inside the component so Weekly Summary can access live data
+  const PRESETS = React.useMemo((): Preset[] => [
+    { label: "Summary", prompt: "Give me a quick summary of today's recruiting status." },
+    { label: "Stalled roles", prompt: "Which open roles have no candidates in pipeline and are high priority?" },
+    { label: "By department", prompt: "Break down open roles by department for both IPS and SO." },
+    { label: "By branch", prompt: "Which branches have the most open headcount gaps? List each branch and its gap." },
+    {
+      label: "Weekly Summary",
+      getPrompt: () => buildWeeklySummaryPrompt(openRoles, candidates, interviews),
+    },
+  ], [openRoles, candidates, interviews]);
 
   const transport = React.useMemo(() => new DefaultChatTransport<ChatMessage>({ api: "/api/ai/chat" }), []);
 
@@ -264,7 +446,6 @@ export function AiAssistantLauncher() {
               <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                 <span>{(() => {
-                  // Transport sends response.text() as the message — parse JSON body if present
                   let msg = error.message;
                   try { const parsed = JSON.parse(msg); msg = parsed.error ?? parsed.message ?? msg; } catch { /* plain text */ }
                   if (msg.includes("503") || msg.includes("not configured"))
@@ -304,27 +485,5 @@ export function AiAssistantLauncher() {
         </form>
       </SheetContent>
     </Sheet>
-  );
-}
-
-function CopyButton({ getText }: { getText: () => string }) {
-  const [copied, setCopied] = React.useState(false);
-  function handleCopy() {
-    const text = getText();
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-    >
-      <Copy className="h-3 w-3" />
-      {copied ? "Copied!" : "Copy"}
-    </button>
   );
 }

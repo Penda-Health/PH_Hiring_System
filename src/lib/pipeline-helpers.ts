@@ -88,8 +88,11 @@ export const MONTH_RANGE_OPTIONS: { value: MonthRangeOption; label: string }[] =
 // never dropped just because the calendar month rolled over.
 export function isRoleInMonthRange(role: OpenRole, months: MonthRangeOption, now: Date = new Date()): boolean {
   if (months === "all" || role.status === "Open" || role.status === "On Hold") return true;
+  // Roles without a dateClosed were never properly closed via the app — show
+  // them rather than hiding them based on the unrelated datePosted field.
+  if (!role.dateClosed) return true;
   const days = Number(months) * 30;
   const windowStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-  const closedAt = new Date(role.dateClosed ?? role.datePosted);
+  const closedAt = new Date(role.dateClosed);
   return closedAt >= windowStart;
 }
