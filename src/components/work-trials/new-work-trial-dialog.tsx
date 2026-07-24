@@ -84,7 +84,13 @@ export function NewWorkTrialDialog({ candidates, branches, onCreate }: Props) {
           </div>
           <div className="space-y-1.5">
             <Label>Branch</Label>
-            <Select value={form.branchId} onValueChange={(v) => setForm((f) => ({ ...f, branchId: v }))}>
+            <Select
+              value={form.branchId}
+              onValueChange={(v) => {
+                const branch = branches.find((b) => b.id === v);
+                setForm((f) => ({ ...f, branchId: v, supervisor: branch?.branchManager ?? f.supervisor }));
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select branch…" />
               </SelectTrigger>

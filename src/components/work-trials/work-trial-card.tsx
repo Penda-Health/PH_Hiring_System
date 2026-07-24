@@ -101,7 +101,15 @@ function EditWorkTrialDialog({
             <Label>Branch</Label>
             <Select
               value={form.branchId || "__none"}
-              onValueChange={(v) => setForm((f) => ({ ...f, branchId: v === "__none" ? "" : v }))}
+              onValueChange={(v) => {
+                const branchId = v === "__none" ? "" : v;
+                const branch = branches.find((b) => b.id === branchId);
+                setForm((f) => ({
+                  ...f,
+                  branchId,
+                  supervisor: branch?.branchManager ?? f.supervisor,
+                }));
+              }}
             >
               <SelectTrigger><SelectValue placeholder="Select branch" /></SelectTrigger>
               <SelectContent>

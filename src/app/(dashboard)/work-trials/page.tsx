@@ -30,15 +30,15 @@ export default function WorkTrialsPage() {
       await Promise.all(
         unsynced.map((candidate) => {
           const linkedRole = openRoles.find((r) => r.id === candidate.roleId);
-          const branchId = branches.find((b) => b.name === linkedRole?.location)?.id ?? "";
+          const branch = branches.find((b) => b.name === linkedRole?.location);
           return createWorkTrial({
             id: `wt-${Date.now()}-${candidate.id}`,
             wtId: "",
             candidateId: candidate.id,
             roleId: candidate.roleId || undefined,
-            branchId,
+            branchId: branch?.id ?? "",
             date: now.slice(0, 10),
-            supervisor: "",
+            supervisor: branch?.branchManager ?? "",
             createdAt: now,
             arrivalMarked: null,
             scoreTechnical: null,

@@ -511,16 +511,16 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         const candidate = candidates.find((c) => c.id === id);
         if (candidate) {
           const linkedRole = openRoles.find((r) => r.id === candidate.roleId);
-          const branchId = branches.find((b) => b.name === linkedRole?.location)?.id ?? "";
+          const branch = branches.find((b) => b.name === linkedRole?.location);
           const now = new Date().toISOString();
           createWorkTrial({
             id: `wt-${Date.now()}`,
             wtId: "",
             candidateId: id,
             roleId: candidate.roleId || undefined,
-            branchId,
+            branchId: branch?.id ?? "",
             date: now.slice(0, 10),
-            supervisor: "",
+            supervisor: branch?.branchManager ?? "",
             createdAt: now,
             arrivalMarked: null,
             scoreTechnical: null,
