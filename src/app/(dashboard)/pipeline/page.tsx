@@ -37,7 +37,7 @@ export default function PipelinePage() {
         <h1 className="text-2xl font-semibold">Pipeline</h1>
         <div className="flex items-center gap-2">
           {canEdit && <NewOpenRoleDialog branches={branches} openRoles={openRoles} onCreate={createOpenRole} />}
-          <NewCandidateDialog roles={openRoles} onCreate={createCandidate} />
+          <NewCandidateDialog onCreate={createCandidate} />
         </div>
       </div>
       <div className="flex items-center justify-between gap-3">

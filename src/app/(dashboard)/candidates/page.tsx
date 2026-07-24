@@ -84,7 +84,6 @@ export default function CandidatesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Candidates</h1>
         <NewCandidateDialog
-          roles={openRoles}
           branches={branches}
           onCreate={createCandidate}
           onCreateReliever={createReliever}

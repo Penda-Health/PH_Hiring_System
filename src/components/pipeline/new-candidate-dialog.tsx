@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Branch, Candidate, CandidateStage, EmploymentType, Locum, OpenRole, Reliever, Segment } from "@/types";
+import { Branch, Candidate, CandidateStage, EmploymentType, Locum, Reliever, Segment } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -102,13 +102,11 @@ function BranchPicker({
 }
 
 export function NewCandidateDialog({
-  roles,
   branches = [],
   onCreate,
   onCreateReliever,
   onCreateLocum,
 }: {
-  roles: OpenRole[];
   branches?: Branch[];
   onCreate: (candidate: Candidate) => Promise<void>;
   onCreateReliever?: (reliever: Reliever) => Promise<void>;
