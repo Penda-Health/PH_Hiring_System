@@ -5,7 +5,7 @@ import { WorkTrialCard } from "@/components/work-trials/work-trial-card";
 import { NewWorkTrialDialog } from "@/components/work-trials/new-work-trial-dialog";
 
 export default function WorkTrialsPage() {
-  const { workTrials, candidates, branches, createWorkTrial, submitWorkTrialScores, canEdit } = useRecruitmentData();
+  const { workTrials, candidates, branches, createWorkTrial, deleteWorkTrial, submitWorkTrialScores, canEdit } = useRecruitmentData();
 
   return (
     <div className="space-y-4">
@@ -24,7 +24,7 @@ export default function WorkTrialsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {workTrials.map((trial) => (
-            <WorkTrialCard key={trial.id} trial={trial} onSubmitScores={submitWorkTrialScores} />
+            <WorkTrialCard key={trial.id} trial={trial} onSubmitScores={submitWorkTrialScores} onDelete={deleteWorkTrial} />
           ))}
         </div>
       )}

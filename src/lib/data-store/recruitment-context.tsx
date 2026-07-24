@@ -48,6 +48,7 @@ type RecruitmentDataContextValue = {
 
   workTrials: WorkTrial[];
   createWorkTrial: (trial: WorkTrial) => Promise<void>;
+  deleteWorkTrial: (id: string) => void;
   submitWorkTrialScores: (
     id: string,
     scores: { technical: number; patient: number; safety: number; culture: number }
@@ -320,6 +321,17 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit]
   );
 
+  const deleteWorkTrial = React.useCallback(
+    (id: string) => {
+      if (!guardEdit(canEdit, "deleteWorkTrial")) return;
+      setWorkTrials((prev) => prev.filter((t) => t.id !== id));
+      deleteResource("work-trials", id).catch((err) =>
+        console.error("Failed to delete work trial from Airtable:", err)
+      );
+    },
+    [canEdit]
+  );
+
   const submitWorkTrialScores = React.useCallback(
     (id: string, scores: { technical: number; patient: number; safety: number; culture: number }) => {
       if (!guardEdit(canEdit, "submitWorkTrialScores")) return;
@@ -478,6 +490,36 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
       persist<Candidate>("candidates", id, patch);
 
+      // When a candidate moves to Work Trial, auto-create the WorkTrial record
+      // so it appears on the Work Trials page immediately. The recruiter can
+      // update the branch/date/supervisor details from there.
+      if (stage === "Work Trial") {
+        const candidate = candidates.find((c) => c.id === id);
+        if (candidate) {
+          const linkedRole = openRoles.find((r) => r.id === candidate.roleId);
+          const branchId = branches.find((b) => b.name === linkedRole?.location)?.id ?? "";
+          createWorkTrial({
+            id: `wt-${Date.now()}`,
+            wtId: "",
+            candidateId: id,
+            branchId,
+            date: new Date().toISOString().slice(0, 10),
+            supervisor: "",
+            arrivalMarked: null,
+            scoreTechnical: null,
+            scorePatient: null,
+            scoreSafety: null,
+            scoreCulture: null,
+            total: null,
+            passFail: "Pending",
+            formSubmittedAt: null,
+            reminder12hSent: false,
+            escalation24hSent: false,
+          } as WorkTrial).catch((err) => console.error("Failed to auto-create work trial:", err));
+        }
+        return;
+      }
+
       if (stage !== "Hired") return;
 
       const candidate = candidates.find((c) => c.id === id);
@@ -530,7 +572,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         }
       }
     },
-    [canEdit, candidates, openRoles, createLocum, createReliever]
+    [canEdit, candidates, openRoles, branches, createWorkTrial, createLocum, createReliever]
   );
 
   const deleteCandidate = React.useCallback(
@@ -566,6 +608,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       createInterview,
       workTrials,
       createWorkTrial,
+      deleteWorkTrial,
       submitWorkTrialScores,
       referenceChecks,
       createReferenceCheck,
@@ -608,6 +651,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       createInterview,
       workTrials,
       createWorkTrial,
+      deleteWorkTrial,
       submitWorkTrialScores,
       referenceChecks,
       createReferenceCheck,
