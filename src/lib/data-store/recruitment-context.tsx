@@ -48,6 +48,7 @@ type RecruitmentDataContextValue = {
 
   workTrials: WorkTrial[];
   createWorkTrial: (trial: WorkTrial) => Promise<void>;
+  updateWorkTrial: (id: string, patch: Partial<WorkTrial>) => void;
   deleteWorkTrial: (id: string) => void;
   submitWorkTrialScores: (
     id: string,
@@ -317,6 +318,15 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       if (!guardEdit(canEdit, "createWorkTrial")) return;
       const created = await createResource<WorkTrial>("work-trials", trial);
       setWorkTrials((prev) => [created, ...prev]);
+    },
+    [canEdit]
+  );
+
+  const updateWorkTrial = React.useCallback(
+    (id: string, patch: Partial<WorkTrial>) => {
+      if (!guardEdit(canEdit, "updateWorkTrial")) return;
+      setWorkTrials((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+      persist<WorkTrial>("work-trials", id, patch);
     },
     [canEdit]
   );
@@ -611,6 +621,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       createInterview,
       workTrials,
       createWorkTrial,
+      updateWorkTrial,
       deleteWorkTrial,
       submitWorkTrialScores,
       referenceChecks,
@@ -654,6 +665,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       createInterview,
       workTrials,
       createWorkTrial,
+      updateWorkTrial,
       deleteWorkTrial,
       submitWorkTrialScores,
       referenceChecks,
