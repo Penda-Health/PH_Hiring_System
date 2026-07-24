@@ -142,9 +142,11 @@ const F = {
   WorkTrials: {
     WT_ID: "WT ID",
     CANDIDATE: "Candidate",
+    ROLE: "Role",
     BRANCH: "Branch",
     DATE: "Date",
     SUPERVISOR: "Supervisor",
+    CREATED_AT: "Created At",
     ARRIVAL_MARKED: "Arrival Marked",
     SCORE_TECHNICAL: "Score Technical",
     SCORE_PATIENT: "Score Patient",
@@ -416,9 +418,11 @@ const TABLES = [
     fields: [
       { name: F.WorkTrials.WT_ID, type: "singleLineText" },
       { name: F.WorkTrials.CANDIDATE, type: "multipleRecordLinks", linkedTable: "Candidates" },
+      { name: F.WorkTrials.ROLE, type: "multipleRecordLinks", linkedTable: "Open Roles" },
       { name: F.WorkTrials.BRANCH, type: "multipleRecordLinks", linkedTable: "Branches" },
       { name: F.WorkTrials.DATE, type: "date", options: dateOpts },
       { name: F.WorkTrials.SUPERVISOR, type: "singleLineText" },
+      { name: F.WorkTrials.CREATED_AT, type: "date", options: dateOpts },
       { name: F.WorkTrials.ARRIVAL_MARKED, type: "singleSelect", options: choices(["Arrived", "Not Arrived", "Pending"]) },
       { name: F.WorkTrials.SCORE_TECHNICAL, type: "number", options: scoreOpts },
       { name: F.WorkTrials.SCORE_PATIENT, type: "number", options: scoreOpts },

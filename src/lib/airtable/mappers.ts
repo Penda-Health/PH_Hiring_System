@@ -339,14 +339,11 @@ export function workTrialToAirtable(w: Partial<WorkTrial>) {
     // Only pass linked-record arrays when the ID is a non-empty string —
     // an empty string creates [""] which Airtable rejects.
     [F.WorkTrials.CANDIDATE]: w.candidateId ? link(w.candidateId) : undefined,
-    // ROLE only written when it exists as a linked-record column in Airtable.
-    // CREATED_AT is intentionally never written — it is an auto-populated
-    // "Created time" field in Airtable; writing it causes a 500 if the column
-    // doesn't exist, and it can't be set via API anyway once it does.
     ...(w.roleId ? { [F.WorkTrials.ROLE]: link(w.roleId) } : {}),
     [F.WorkTrials.BRANCH]: w.branchId ? link(w.branchId) : undefined,
     [F.WorkTrials.DATE]: w.date,
     [F.WorkTrials.SUPERVISOR]: w.supervisor || undefined,
+    [F.WorkTrials.CREATED_AT]: w.createdAt ? w.createdAt.slice(0, 10) : undefined,
     [F.WorkTrials.ARRIVAL_MARKED]: arrivalToLabel(w.arrivalMarked),
     [F.WorkTrials.SCORE_TECHNICAL]: w.scoreTechnical,
     [F.WorkTrials.SCORE_PATIENT]: w.scorePatient,
