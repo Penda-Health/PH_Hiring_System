@@ -6,7 +6,7 @@ import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { WorkTrialCard } from "@/components/work-trials/work-trial-card";
 import { NewWorkTrialDialog } from "@/components/work-trials/new-work-trial-dialog";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { Check, Copy, RefreshCw } from "lucide-react";
 
 export default function WorkTrialsPage() {
   const {
@@ -15,6 +15,15 @@ export default function WorkTrialsPage() {
   } = useRecruitmentData();
 
   const [syncing, setSyncing] = React.useState(false);
+  const [linkCopied, setLinkCopied] = React.useState(false);
+
+  function copySchedulingLink() {
+    const url = `${window.location.origin}/work-trial-request`;
+    navigator.clipboard.writeText(url).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  }
 
   // Candidates at Work Trial stage with no matching WorkTrial record.
   const unsynced = React.useMemo(() => {
@@ -76,6 +85,16 @@ export default function WorkTrialsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Work Trials</h1>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copySchedulingLink}
+            className="gap-1.5"
+            title="Copy the universal candidate scheduling link"
+          >
+            {linkCopied ? <Check className="h-3.5 w-3.5 text-penda-teal" /> : <Copy className="h-3.5 w-3.5" />}
+            {linkCopied ? "Copied!" : "Candidate scheduling link"}
+          </Button>
           {canEdit && unsynced.length > 0 && (
             <Button
               variant="outline"
