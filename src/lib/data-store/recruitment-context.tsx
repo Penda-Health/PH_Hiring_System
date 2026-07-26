@@ -15,6 +15,22 @@ import {
   Locum,
 } from "@/types";
 import { computeWeightedTotal, PASS_THRESHOLD } from "@/lib/work-trial-helpers";
+
+// Keep one record per candidate — prefer the record with the most data set
+// (branch + date + score), then fall back to newest wtId.
+function dedupWorkTrials(trials: WorkTrial[]): WorkTrial[] {
+  const byCandidate = new Map<string, WorkTrial>();
+  const orphaned: WorkTrial[] = [];
+  function score(t: WorkTrial) {
+    return (t.branchId ? 1 : 0) + (t.date ? 1 : 0) + (t.total !== null ? 2 : 0);
+  }
+  for (const t of trials) {
+    if (!t.candidateId) { orphaned.push(t); continue; }
+    const existing = byCandidate.get(t.candidateId);
+    if (!existing || score(t) > score(existing)) byCandidate.set(t.candidateId, t);
+  }
+  return Array.from(byCandidate.values()).concat(orphaned);
+}
 import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
 import { listResource, createResource, updateResource, deleteResource } from "@/lib/airtable/browser-api";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -164,7 +180,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         if (cancelled) return;
         setRequisitions(requisitionsRes);
         setInterviews(interviewsRes);
-        setWorkTrials(workTrialsRes);
+        setWorkTrials(dedupWorkTrials(workTrialsRes));
         setReferenceChecks(referenceChecksRes);
         setOffers(offersRes);
         setRelievers(relieversRes);
@@ -198,7 +214,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       setCandidates(candidatesRes);
       setInterviews(interviewsRes);
       setOffers(offersRes);
-      setWorkTrials(workTrialsRes);
+      setWorkTrials(dedupWorkTrials(workTrialsRes));
       setReferenceChecks(refChecksRes);
     } catch {
       // Silent — a background refresh failing shouldn't interrupt the user
