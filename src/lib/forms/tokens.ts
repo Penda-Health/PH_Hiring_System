@@ -33,6 +33,12 @@ export type ConfirmEmploymentTokenPayload = {
   newEmployeeId: string;
 };
 
+export type WorkTrialRequestTokenPayload = {
+  type: "work-trial-request";
+  candidateId: string;
+  workTrialId: string;
+};
+
 export async function signWorkTrialToken(payload: Omit<WorkTrialTokenPayload, "type">): Promise<string> {
   return new SignJWT({ type: "work-trial", ...payload })
     .setProtectedHeader({ alg: "HS256" })
@@ -102,6 +108,26 @@ export async function verifyConfirmEmploymentToken(token: string): Promise<Confi
     const { payload } = await jwtVerify(token, secret());
     if (payload.type !== "confirm-employment") return null;
     return payload as unknown as ConfirmEmploymentTokenPayload;
+  } catch {
+    return null;
+  }
+}
+
+export async function signWorkTrialRequestToken(
+  payload: Omit<WorkTrialRequestTokenPayload, "type">
+): Promise<string> {
+  return new SignJWT({ type: "work-trial-request", ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("30m")
+    .sign(secret());
+}
+
+export async function verifyWorkTrialRequestToken(token: string): Promise<WorkTrialRequestTokenPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    if (payload.type !== "work-trial-request") return null;
+    return payload as unknown as WorkTrialRequestTokenPayload;
   } catch {
     return null;
   }
