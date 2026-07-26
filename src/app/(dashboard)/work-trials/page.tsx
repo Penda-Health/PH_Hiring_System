@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, LayoutList, Columns3, RefreshCw } from "lucide-react";
+import { Check, ClipboardCheck, Copy, LayoutList, Columns3, RefreshCw } from "lucide-react";
 import { getDisplayStatus, getCandidateForTrial, getBranchForTrial } from "@/lib/work-trial-helpers";
+import { ManualReviewDialog } from "@/components/work-trials/work-trial-card";
 
 type StatusFilter = "all" | "Awaiting Arrival" | "Awaiting Score" | "Complete";
 type BookedFilter = "all" | "booked" | "not-booked";
@@ -53,6 +54,7 @@ export default function WorkTrialsPage() {
   const [scoreDialogTrialId, setScoreDialogTrialId] = React.useState<string | null>(null);
   const [copiedLinkId, setCopiedLinkId] = React.useState<string | null>(null);
   const [linkError, setLinkError] = React.useState<string | null>(null);
+  const [reviewTrialId, setReviewTrialId] = React.useState<string | null>(null);
 
   const unsynced = React.useMemo(() => {
     const linked = new Set(workTrials.map((t) => t.candidateId));
@@ -351,6 +353,17 @@ export default function WorkTrialsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1.5">
+                        {canEdit && candidate && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1"
+                            onClick={() => setReviewTrialId(trial.id)}
+                          >
+                            <ClipboardCheck className="h-3 w-3" />
+                            Review
+                          </Button>
+                        )}
                         {status !== "Complete" && !pendingApproval && canEdit && candidate && (
                           <Button
                             size="sm"
@@ -358,7 +371,7 @@ export default function WorkTrialsPage() {
                             className="h-7 text-xs"
                             onClick={() => setScoreDialogTrialId(trial.id)}
                           >
-                            Submit Scores
+                            Scores
                           </Button>
                         )}
                         {candidate && (
@@ -389,6 +402,17 @@ export default function WorkTrialsPage() {
         onOpenChange={(open) => { if (!open) setScoreDialogTrialId(null); }}
         onSubmit={(scores) => { if (scoreDialogTrialId) submitWorkTrialScores(scoreDialogTrialId, scores); }}
       />
+
+      {(() => {
+        const reviewTrial = reviewTrialId ? workTrials.find((t) => t.id === reviewTrialId) : null;
+        return reviewTrial ? (
+          <ManualReviewDialog
+            trial={reviewTrial}
+            open
+            onOpenChange={(open) => { if (!open) setReviewTrialId(null); }}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }

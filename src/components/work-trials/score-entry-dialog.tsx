@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { computeWeightedTotal, PASS_THRESHOLD } from "@/lib/work-trial-helpers";
+import { computeWeightedTotal, computePassFail, CULTURE_AUTO_FAIL_BELOW } from "@/lib/work-trial-helpers";
 
 export function ScoreEntryDialog({
   open,
@@ -24,7 +24,8 @@ export function ScoreEntryDialog({
 }) {
   const [scores, setScores] = React.useState({ technical: 0, patient: 0, culture: 0 });
   const total = computeWeightedTotal(scores);
-  const willPass = total >= PASS_THRESHOLD;
+  const passFail = computePassFail(scores);
+  const cultureAutoFail = scores.culture > 0 && scores.culture < CULTURE_AUTO_FAIL_BELOW;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,14 +42,19 @@ export function ScoreEntryDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
-            <ScoreField label="Technical Fit (40%)" value={scores.technical} onChange={(v) => setScores((s) => ({ ...s, technical: v }))} />
-            <ScoreField label="Patient Experience (40%)" value={scores.patient} onChange={(v) => setScores((s) => ({ ...s, patient: v }))} />
-            <ScoreField label="Culture Fit (20%)" value={scores.culture} onChange={(v) => setScores((s) => ({ ...s, culture: v }))} />
+            <ScoreField label="Culture Fit (40%)" value={scores.culture} onChange={(v) => setScores((s) => ({ ...s, culture: v }))} />
+            <ScoreField label="Patient Experience (30%)" value={scores.patient} onChange={(v) => setScores((s) => ({ ...s, patient: v }))} />
+            <ScoreField label="Technical Fit (30%)" value={scores.technical} onChange={(v) => setScores((s) => ({ ...s, technical: v }))} />
           </div>
+          {cultureAutoFail && (
+            <p className="text-sm text-destructive">
+              Culture Fit below 20 — automatic fail regardless of other scores.
+            </p>
+          )}
           <div className="flex items-center justify-between rounded-md border border-border p-3">
             <span className="text-sm font-medium">Weighted Total</span>
-            <span className={`text-lg font-semibold ${willPass ? "text-penda-teal" : "text-destructive"}`}>
-              {total} — {willPass ? "Pass" : "Fail"}
+            <span className={`text-lg font-semibold ${passFail === "Pass" ? "text-penda-teal" : "text-destructive"}`}>
+              {total} — {passFail}
             </span>
           </div>
           <DialogFooter>

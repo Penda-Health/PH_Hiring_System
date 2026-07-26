@@ -25,10 +25,11 @@ import {
   getDisplayStatus,
   getCandidateForTrial,
   getBranchForTrial,
+  CULTURE_AUTO_FAIL_BELOW,
 } from "@/lib/work-trial-helpers";
 import { ScoreEntryDialog } from "./score-entry-dialog";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
-import { Check, ChevronDown, Copy, Pencil, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ClipboardCheck, Copy, Pencil, Trash2 } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
   "Awaiting Arrival": "bg-muted text-muted-foreground border-transparent",
@@ -49,6 +50,190 @@ async function getFormLink(body: Record<string, unknown>): Promise<string> {
   const { url } = await res.json();
   return url as string;
 }
+
+// ── Manual Review Dialog ─────────────────────────────────────────────────────
+// Exported so the list view in work-trials/page.tsx can open it per-row.
+
+type ReviewOutcome = "Pass" | "Fail" | "Did Not Attend";
+
+export function ManualReviewDialog({
+  trial,
+  open,
+  onOpenChange,
+}: {
+  trial: WorkTrial;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { candidates, branches, openRoles, updateWorkTrial, updateCandidateStage } = useRecruitmentData();
+  const candidate = getCandidateForTrial(trial, candidates);
+  const branch = getBranchForTrial(trial, branches);
+  const role = openRoles.find((r) => r.id === (trial.roleId ?? candidate?.roleId));
+
+  const [outcome, setOutcome] = React.useState<ReviewOutcome>(
+    trial.arrivalMarked === false ? "Did Not Attend"
+      : trial.passFail === "Pass" ? "Pass"
+      : trial.passFail === "Fail" ? "Fail"
+      : "Pass"
+  );
+  const [advanceStage, setAdvanceStage] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) {
+      setOutcome(
+        trial.arrivalMarked === false ? "Did Not Attend"
+          : trial.passFail === "Pass" ? "Pass"
+          : trial.passFail === "Fail" ? "Fail"
+          : "Pass"
+      );
+      setAdvanceStage(false);
+    }
+  }, [open, trial]);
+
+  const cultureAutoFail =
+    trial.scoreCulture !== null &&
+    trial.scoreCulture < CULTURE_AUTO_FAIL_BELOW;
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const patch: Partial<WorkTrial> = {
+        arrivalMarked: outcome === "Did Not Attend" ? false : true,
+        passFail: outcome === "Pass" ? "Pass" : "Fail",
+        formSubmittedAt: trial.formSubmittedAt ?? new Date().toISOString(),
+        // Fill in a placeholder total of 0 so the record counts as "Complete"
+        total: outcome === "Did Not Attend" ? 0 : (trial.total ?? 0),
+      };
+      updateWorkTrial(trial.id, patch);
+
+      if (outcome === "Pass" && advanceStage && candidate) {
+        updateCandidateStage(candidate.id, "Reference Check");
+      }
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const hasScores = trial.scoreTechnical !== null || trial.scorePatient !== null || trial.scoreCulture !== null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Manual Review</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          {/* Summary */}
+          <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm space-y-0.5">
+            <p className="font-medium">{candidate?.name ?? "Unknown candidate"}</p>
+            {role && <p className="text-muted-foreground text-xs">{role.title}</p>}
+            <p className="text-muted-foreground text-xs">
+              {branch?.name ?? "No branch"} · {trial.date || "No date"}
+            </p>
+          </div>
+
+          {/* Existing scores (if any) */}
+          {hasScores && (
+            <div className="rounded-lg border border-border divide-y divide-border text-sm">
+              {trial.scoreCulture !== null && (
+                <div className="flex justify-between px-3 py-2">
+                  <span className="text-muted-foreground">Culture Fit (40%)</span>
+                  <span className={cultureAutoFail ? "text-destructive font-semibold" : "font-medium"}>
+                    {trial.scoreCulture / 10}/10
+                    {cultureAutoFail && " — auto-fail"}
+                  </span>
+                </div>
+              )}
+              {trial.scorePatient !== null && (
+                <div className="flex justify-between px-3 py-2">
+                  <span className="text-muted-foreground">Patient Experience (30%)</span>
+                  <span className="font-medium">{trial.scorePatient / 10}/10</span>
+                </div>
+              )}
+              {trial.scoreTechnical !== null && (
+                <div className="flex justify-between px-3 py-2">
+                  <span className="text-muted-foreground">Technical Fit (30%)</span>
+                  <span className="font-medium">{trial.scoreTechnical / 10}/10</span>
+                </div>
+              )}
+              {trial.total !== null && (
+                <div className="flex justify-between px-3 py-2 bg-muted/40">
+                  <span className="font-medium">Total</span>
+                  <span className="font-semibold">{trial.total}/100</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {cultureAutoFail && (
+            <p className="text-xs text-destructive rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1.5">
+              Culture Fit scored below 2/10 — automatic fail rule applies.
+            </p>
+          )}
+
+          {/* Outcome selector */}
+          <div className="space-y-1.5">
+            <Label>Outcome</Label>
+            <Select
+              value={outcome}
+              onValueChange={(v) => {
+                setOutcome(v as ReviewOutcome);
+                if (v !== "Pass") setAdvanceStage(false);
+              }}
+              disabled={cultureAutoFail}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Pass" disabled={cultureAutoFail}>Pass</SelectItem>
+                <SelectItem value="Fail">Fail</SelectItem>
+                <SelectItem value="Did Not Attend">Did Not Attend</SelectItem>
+              </SelectContent>
+            </Select>
+            {cultureAutoFail && (
+              <p className="text-xs text-muted-foreground">Outcome locked to Fail due to culture auto-fail rule.</p>
+            )}
+          </div>
+
+          {/* Advance stage toggle — only shown on Pass */}
+          {outcome === "Pass" && !cultureAutoFail && (
+            <label className="flex items-start gap-3 rounded-lg border border-penda-teal/30 bg-penda-teal/5 p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={advanceStage}
+                onChange={(e) => setAdvanceStage(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-penda-teal"
+              />
+              <div>
+                <p className="text-sm font-medium">Advance to Reference Checks</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Moves {candidate?.name ?? "this candidate"} to the Reference Check stage immediately.
+                </p>
+              </div>
+            </label>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className={outcome === "Pass" && !cultureAutoFail ? "bg-penda-teal hover:bg-penda-teal-dark" : "bg-destructive hover:bg-destructive/90"}
+          >
+            {saving ? "Saving…" : `Mark as ${cultureAutoFail ? "Fail" : outcome}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Edit Details Dialog ───────────────────────────────────────────────────────
 
 function EditWorkTrialDialog({
   trial,
@@ -162,6 +347,8 @@ function EditWorkTrialDialog({
   );
 }
 
+// ── Work Trial Card ───────────────────────────────────────────────────────────
+
 export function WorkTrialCard({
   trial,
   onSubmitScores,
@@ -176,6 +363,7 @@ export function WorkTrialCard({
   const { candidates, branches, openRoles, canEdit } = useRecruitmentData();
   const [scoreDialogOpen, setScoreDialogOpen] = React.useState(false);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = React.useState(false);
   const [copied, setCopied] = React.useState<string | null>(null);
   const [linkError, setLinkError] = React.useState<string | null>(null);
 
@@ -186,6 +374,7 @@ export function WorkTrialCard({
   const isOrphaned = !candidate;
 
   const pendingApproval = trial.formSubmittedAt && trial.submittedByRole === "Incharge" && !trial.bmApprovedAt;
+  const cultureAutoFail = trial.scoreCulture !== null && trial.scoreCulture < CULTURE_AUTO_FAIL_BELOW;
 
   async function copyLink(type: "work-trial" | "bm-feedback") {
     setLinkError(null);
@@ -271,11 +460,17 @@ export function WorkTrialCard({
                 </p>
               )}
 
+              {cultureAutoFail && (
+                <p className="text-xs rounded-md border border-destructive/20 bg-destructive/5 text-destructive px-2 py-1.5">
+                  Culture Fit below 2/10 — automatic fail
+                </p>
+              )}
+
               {status === "Complete" && (
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <Score label="Technical Fit"       value={trial.scoreTechnical} />
-                  <Score label="Patient Experience"  value={trial.scorePatient} />
                   <Score label="Culture Fit"         value={trial.scoreCulture} />
+                  <Score label="Patient Experience"  value={trial.scorePatient} />
+                  <Score label="Technical Fit"       value={trial.scoreTechnical} />
                   {trial.submittedByRole && (
                     <div className="flex items-center gap-1 text-muted-foreground col-span-2 mt-0.5">
                       <span>Scored by:</span>
@@ -306,9 +501,24 @@ export function WorkTrialCard({
               )}
 
               <div className="flex items-center gap-2 flex-wrap">
-                {status !== "Complete" && !pendingApproval && (
+                {/* Manual review — shown when no formal score yet */}
+                {canEdit && status !== "Complete" && !pendingApproval && (
+                  <Button size="sm" variant="outline" onClick={() => setReviewDialogOpen(true)} className="gap-1">
+                    <ClipboardCheck className="h-3.5 w-3.5" />
+                    Review
+                  </Button>
+                )}
+                {/* Score via dialog — for in-app scoring */}
+                {canEdit && status !== "Complete" && !pendingApproval && (
                   <Button size="sm" variant="outline" onClick={() => setScoreDialogOpen(true)}>
                     Submit Scores
+                  </Button>
+                )}
+                {/* Quick review on complete trials (to advance stage) */}
+                {canEdit && status === "Complete" && (
+                  <Button size="sm" variant="outline" onClick={() => setReviewDialogOpen(true)} className="gap-1">
+                    <ClipboardCheck className="h-3.5 w-3.5" />
+                    Review &amp; Advance
                   </Button>
                 )}
                 <DropdownMenu>
@@ -350,15 +560,22 @@ export function WorkTrialCard({
           onSave={(patch) => onUpdate(trial.id, patch)}
         />
       )}
+
+      <ManualReviewDialog
+        trial={trial}
+        open={reviewDialogOpen}
+        onOpenChange={setReviewDialogOpen}
+      />
     </>
   );
 }
 
 function Score({ label, value }: { label: string; value: number | null }) {
+  const display = value !== null ? `${(value / 10).toFixed(1)}/10` : "—";
   return (
     <div className="flex items-center justify-between rounded-md bg-muted px-2 py-1">
       <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value ?? "—"}</span>
+      <span className="font-medium">{display}</span>
     </div>
   );
 }

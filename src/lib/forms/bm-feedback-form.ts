@@ -4,7 +4,7 @@
 import { getRecord, updateRecord } from "@/lib/airtable/client";
 import { TABLE_NAMES, F } from "@/lib/airtable/field-names";
 import { branchFromAirtable, candidateFromAirtable, openRoleFromAirtable, workTrialFromAirtable } from "@/lib/airtable/mappers";
-import { computeWeightedTotal, PASS_THRESHOLD } from "@/lib/work-trial-helpers";
+import { computeWeightedTotal, computePassFail, PASS_THRESHOLD, isCultureAutoFail } from "@/lib/work-trial-helpers";
 
 export type BmFeedbackFormData = {
   candidateName: string;
@@ -78,7 +78,7 @@ export async function submitScores(
   submittedByRole: "BM" | "Incharge"
 ): Promise<{ total: number; passFail: "Pass" | "Fail" }> {
   const total = computeWeightedTotal(scores);
-  const passFail = total >= PASS_THRESHOLD ? "Pass" : "Fail";
+  const passFail = computePassFail(scores);
   await updateRecord(TABLE_NAMES.WorkTrials, workTrialId, {
     [F.WorkTrials.SCORE_TECHNICAL]: scores.technical,
     [F.WorkTrials.SCORE_PATIENT]: scores.patient,
@@ -99,7 +99,9 @@ export async function approveBmScores(workTrialId: string): Promise<{ total: num
   const trial = workTrialFromAirtable(record);
 
   const total = trial.total ?? 0;
-  const passFail = total >= PASS_THRESHOLD ? "Pass" : "Fail";
+  const cultureScore = trial.scoreCulture ?? 0;
+  const passFail =
+    isCultureAutoFail(cultureScore) || total < PASS_THRESHOLD ? "Fail" : "Pass";
   await updateRecord(TABLE_NAMES.WorkTrials, workTrialId, {
     [F.WorkTrials.PASS_FAIL]: passFail,
     [F.WorkTrials.BM_APPROVED_AT]: new Date().toISOString(),

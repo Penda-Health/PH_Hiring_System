@@ -14,7 +14,7 @@ import {
   Reliever,
   Locum,
 } from "@/types";
-import { computeWeightedTotal, PASS_THRESHOLD } from "@/lib/work-trial-helpers";
+import { computeWeightedTotal, computePassFail } from "@/lib/work-trial-helpers";
 
 // Keep one record per candidate — prefer the record with the most data set
 // (branch + date + score), then fall back to newest wtId.
@@ -368,7 +368,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         scoreSafety: null,
         scoreCulture: scores.culture,
         total,
-        passFail: total >= PASS_THRESHOLD ? "Pass" : "Fail",
+        passFail: computePassFail(scores),
         formSubmittedAt: new Date().toISOString(),
       };
       persist<WorkTrial>("work-trials", id, patch);

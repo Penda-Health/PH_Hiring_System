@@ -26,22 +26,22 @@ type FormData = {
 
 const CATEGORIES = [
   {
-    key: "technical" as const,
-    label: "Technical Fit",
+    key: "culture" as const,
+    label: "Culture Fit",
     weight: 40,
-    description: "Clinical competency, procedure accuracy, equipment handling, and adherence to clinical protocols.",
+    description: "Team behaviour, alignment with Penda values, attitude, and professional conduct. Score below 2/10 is an automatic fail.",
   },
   {
     key: "patient" as const,
     label: "Patient Experience",
-    weight: 40,
+    weight: 30,
     description: "Communication with patients, empathy, bedside manner, and patient-centred care.",
   },
   {
-    key: "culture" as const,
-    label: "Culture Fit",
-    weight: 20,
-    description: "Team behaviour, alignment with Penda values, attitude, and professional conduct.",
+    key: "technical" as const,
+    label: "Technical Fit",
+    weight: 30,
+    description: "Clinical competency, procedure accuracy, equipment handling, and adherence to clinical protocols.",
   },
 ] as const;
 
@@ -233,7 +233,8 @@ function BmFeedbackForm() {
     (sum, c) => sum + (scores[c.key] / 100) * c.weight,
     0
   );
-  const willPass = weightedTotal >= 70;
+  const cultureAutoFail = scores.culture > 0 && scores.culture < 20;
+  const willPass = !cultureAutoFail && weightedTotal >= 65;
 
   // ─── Arrival step ───────────────────────────────────────────────────────────
   if (step === "arrival" && data.arrivalMarked === null) {
@@ -346,6 +347,12 @@ function BmFeedbackForm() {
               {weightedTotal === 0 ? "—" : willPass ? "PASS" : "FAIL"}
             </Badge>
           </div>
+
+          {cultureAutoFail && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+              Culture Fit score is below 2/10 — this is an automatic fail regardless of other scores.
+            </div>
+          )}
 
           {selectedRole === "Incharge" && (
             <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
