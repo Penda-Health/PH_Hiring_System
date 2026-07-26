@@ -42,7 +42,10 @@ async function getFormLink(body: Record<string, unknown>): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error("Failed to get link");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? "Failed to get link");
+  }
   const { url } = await res.json();
   return url as string;
 }
@@ -166,7 +169,7 @@ export function WorkTrialCard({
   onDelete,
 }: {
   trial: WorkTrial;
-  onSubmitScores: (id: string, scores: { technical: number; patient: number; safety: number; culture: number }) => void;
+  onSubmitScores: (id: string, scores: { technical: number; patient: number; culture: number }) => void;
   onUpdate?: (id: string, patch: Partial<WorkTrial>) => void;
   onDelete?: (id: string) => void;
 }) {
@@ -174,6 +177,7 @@ export function WorkTrialCard({
   const [scoreDialogOpen, setScoreDialogOpen] = React.useState(false);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
   const [copied, setCopied] = React.useState<string | null>(null);
+  const [linkError, setLinkError] = React.useState<string | null>(null);
 
   const candidate = getCandidateForTrial(trial, candidates);
   const branch    = getBranchForTrial(trial, branches);
@@ -181,14 +185,18 @@ export function WorkTrialCard({
   const status    = getDisplayStatus(trial);
   const isOrphaned = !candidate;
 
+  const pendingApproval = trial.formSubmittedAt && trial.submittedByRole === "Incharge" && !trial.bmApprovedAt;
+
   async function copyLink(type: "work-trial" | "bm-feedback") {
+    setLinkError(null);
     try {
       const url = await getFormLink({ type, workTrialId: trial.id, candidateId: trial.candidateId });
       await navigator.clipboard.writeText(url);
       setCopied(type);
       setTimeout(() => setCopied(null), 2000);
-    } catch {
-      // silent
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : "Failed to copy link");
+      setTimeout(() => setLinkError(null), 4000);
     }
   }
 
@@ -248,7 +256,6 @@ export function WorkTrialCard({
                 Supervisor: {trial.supervisor || <span className="italic">Not set</span>}
               </p>
 
-              {/* Arrival indicator */}
               {trial.arrivalMarked !== null && (
                 <p className="text-xs">
                   Arrival:{" "}
@@ -258,12 +265,24 @@ export function WorkTrialCard({
                 </p>
               )}
 
+              {pendingApproval && (
+                <p className="text-xs rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-1.5">
+                  Scores submitted by Incharge — pending BM approval
+                </p>
+              )}
+
               {status === "Complete" && (
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <Score label="Technical" value={trial.scoreTechnical} />
-                  <Score label="Patient"   value={trial.scorePatient} />
-                  <Score label="Safety"    value={trial.scoreSafety} />
-                  <Score label="Culture"   value={trial.scoreCulture} />
+                  <Score label="Technical Fit"       value={trial.scoreTechnical} />
+                  <Score label="Patient Experience"  value={trial.scorePatient} />
+                  <Score label="Culture Fit"         value={trial.scoreCulture} />
+                  {trial.submittedByRole && (
+                    <div className="flex items-center gap-1 text-muted-foreground col-span-2 mt-0.5">
+                      <span>Scored by:</span>
+                      <span className="font-medium text-foreground">{trial.submittedByRole}</span>
+                      {trial.bmApprovedAt && <span className="text-penda-teal">· BM approved</span>}
+                    </div>
+                  )}
                   <div className="col-span-2 flex items-center justify-between rounded-md border border-border p-2 mt-1">
                     <span className="font-medium">Total</span>
                     <Badge variant={trial.passFail === "Pass" ? "ips" : "critical"}>
@@ -280,8 +299,14 @@ export function WorkTrialCard({
                 </div>
               )}
 
+              {linkError && (
+                <p className="text-xs text-destructive rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1.5">
+                  {linkError}
+                </p>
+              )}
+
               <div className="flex items-center gap-2 flex-wrap">
-                {status !== "Complete" && (
+                {status !== "Complete" && !pendingApproval && (
                   <Button size="sm" variant="outline" onClick={() => setScoreDialogOpen(true)}>
                     Submit Scores
                   </Button>
@@ -295,13 +320,13 @@ export function WorkTrialCard({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    <DropdownMenuItem onClick={() => copyLink("work-trial")}>
-                      {copied === "work-trial" ? <Check className="h-3.5 w-3.5 mr-2 text-penda-teal" /> : <Copy className="h-3.5 w-3.5 mr-2" />}
-                      Candidate form link
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => copyLink("bm-feedback")}>
                       {copied === "bm-feedback" ? <Check className="h-3.5 w-3.5 mr-2 text-penda-teal" /> : <Copy className="h-3.5 w-3.5 mr-2" />}
-                      BM feedback link
+                      BM / Incharge scoring link
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => copyLink("work-trial")}>
+                      {copied === "work-trial" ? <Check className="h-3.5 w-3.5 mr-2 text-penda-teal" /> : <Copy className="h-3.5 w-3.5 mr-2" />}
+                      Candidate confirmation link
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

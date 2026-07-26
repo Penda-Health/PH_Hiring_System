@@ -22,7 +22,9 @@ const schema = z.union([
 ]);
 
 function appUrl() {
-  return (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+  const base = process.env.NEXT_PUBLIC_APP_URL;
+  if (!base) throw new Error("Missing NEXT_PUBLIC_APP_URL environment variable.");
+  return base.replace(/\/$/, "");
 }
 
 export async function POST(request: NextRequest) {

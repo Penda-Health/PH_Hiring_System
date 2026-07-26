@@ -10,9 +10,18 @@ export type BmFeedbackFormData = {
   candidateName: string;
   roleTitle: string;
   branchName: string;
+  supervisor: string;
   trialDate: string;
   arrivalMarked: boolean | null;
   alreadyScored: boolean;
+  submittedByRole: "BM" | "Incharge" | null;
+  bmApprovedAt: string | null;
+  pendingApproval: boolean;
+  scoreTechnical: number | null;
+  scorePatient: number | null;
+  scoreCulture: number | null;
+  total: number | null;
+  passFail: "Pass" | "Fail" | "Pending";
 };
 
 export async function loadBmFeedbackFormData(workTrialId: string): Promise<BmFeedbackFormData | null> {
@@ -33,13 +42,27 @@ export async function loadBmFeedbackFormData(workTrialId: string): Promise<BmFee
     roleTitle = openRoleFromAirtable(roleRecord).title;
   }
 
+  const pendingApproval =
+    Boolean(trial.formSubmittedAt) &&
+    trial.submittedByRole === "Incharge" &&
+    !trial.bmApprovedAt;
+
   return {
     candidateName: candidate.name,
     roleTitle,
     branchName: branch?.name ?? "",
+    supervisor: trial.supervisor,
     trialDate: trial.date,
     arrivalMarked: trial.arrivalMarked,
-    alreadyScored: Boolean(trial.formSubmittedAt) && trial.total !== null,
+    alreadyScored: Boolean(trial.formSubmittedAt) && trial.total !== null && !pendingApproval,
+    submittedByRole: trial.submittedByRole,
+    bmApprovedAt: trial.bmApprovedAt,
+    pendingApproval,
+    scoreTechnical: trial.scoreTechnical,
+    scorePatient: trial.scorePatient,
+    scoreCulture: trial.scoreCulture,
+    total: trial.total,
+    passFail: trial.passFail,
   };
 }
 
@@ -51,18 +74,35 @@ export async function submitArrival(workTrialId: string, arrived: boolean): Prom
 
 export async function submitScores(
   workTrialId: string,
-  scores: { technical: number; patient: number; safety: number; culture: number }
+  scores: { technical: number; patient: number; culture: number },
+  submittedByRole: "BM" | "Incharge"
 ): Promise<{ total: number; passFail: "Pass" | "Fail" }> {
   const total = computeWeightedTotal(scores);
   const passFail = total >= PASS_THRESHOLD ? "Pass" : "Fail";
   await updateRecord(TABLE_NAMES.WorkTrials, workTrialId, {
     [F.WorkTrials.SCORE_TECHNICAL]: scores.technical,
     [F.WorkTrials.SCORE_PATIENT]: scores.patient,
-    [F.WorkTrials.SCORE_SAFETY]: scores.safety,
+    [F.WorkTrials.SCORE_SAFETY]: null,
     [F.WorkTrials.SCORE_CULTURE]: scores.culture,
     [F.WorkTrials.TOTAL]: total,
-    [F.WorkTrials.PASS_FAIL]: passFail,
+    // If Incharge submits, passFail stays Pending until BM approves
+    [F.WorkTrials.PASS_FAIL]: submittedByRole === "BM" ? passFail : "Pending",
     [F.WorkTrials.FORM_SUBMITTED_AT]: new Date().toISOString(),
+    [F.WorkTrials.SUBMITTED_BY_ROLE]: submittedByRole,
+  });
+  return { total, passFail };
+}
+
+export async function approveBmScores(workTrialId: string): Promise<{ total: number; passFail: "Pass" | "Fail" }> {
+  const record = await getRecord(TABLE_NAMES.WorkTrials, workTrialId);
+  if (!record) throw new Error("Work trial not found");
+  const trial = workTrialFromAirtable(record);
+
+  const total = trial.total ?? 0;
+  const passFail = total >= PASS_THRESHOLD ? "Pass" : "Fail";
+  await updateRecord(TABLE_NAMES.WorkTrials, workTrialId, {
+    [F.WorkTrials.PASS_FAIL]: passFail,
+    [F.WorkTrials.BM_APPROVED_AT]: new Date().toISOString(),
   });
   return { total, passFail };
 }

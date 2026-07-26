@@ -19,10 +19,10 @@ export function getBranchForTrial(trial: WorkTrial, branches: Branch[]) {
 export function computeWeightedTotal(scores: {
   technical: number;
   patient: number;
-  safety: number;
   culture: number;
+  safety?: number;
 }): number {
-  const total = scores.technical * 0.4 + scores.patient * 0.3 + scores.safety * 0.2 + scores.culture * 0.1;
+  const total = scores.technical * 0.4 + scores.patient * 0.4 + scores.culture * 0.2;
   return Math.round(total * 10) / 10;
 }
 

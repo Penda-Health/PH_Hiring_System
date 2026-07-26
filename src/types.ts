@@ -215,6 +215,8 @@ export interface WorkTrial {
   total: number | null;
   passFail: "Pass" | "Fail" | "Pending";
   formSubmittedAt: string | null;
+  submittedByRole: "BM" | "Incharge" | null;
+  bmApprovedAt: string | null;
   reminder12hSent: boolean;
   escalation24hSent: boolean;
 }

@@ -52,7 +52,7 @@ type RecruitmentDataContextValue = {
   deleteWorkTrial: (id: string) => void;
   submitWorkTrialScores: (
     id: string,
-    scores: { technical: number; patient: number; safety: number; culture: number }
+    scores: { technical: number; patient: number; culture: number }
   ) => void;
 
   referenceChecks: ReferenceCheck[];
@@ -343,13 +343,13 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   );
 
   const submitWorkTrialScores = React.useCallback(
-    (id: string, scores: { technical: number; patient: number; safety: number; culture: number }) => {
+    (id: string, scores: { technical: number; patient: number; culture: number }) => {
       if (!guardEdit(canEdit, "submitWorkTrialScores")) return;
       const total = computeWeightedTotal(scores);
       const patch: Partial<WorkTrial> = {
         scoreTechnical: scores.technical,
         scorePatient: scores.patient,
-        scoreSafety: scores.safety,
+        scoreSafety: null,
         scoreCulture: scores.culture,
         total,
         passFail: total >= PASS_THRESHOLD ? "Pass" : "Fail",
@@ -530,6 +530,8 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
             total: null,
             passFail: "Pending",
             formSubmittedAt: null,
+            submittedByRole: null,
+            bmApprovedAt: null,
             reminder12hSent: false,
             escalation24hSent: false,
           } as WorkTrial).catch((err) => console.error("Failed to auto-create work trial:", err));

@@ -48,6 +48,8 @@ export default function WorkTrialsPage() {
             total: null,
             passFail: "Pending",
             formSubmittedAt: null,
+            submittedByRole: null,
+            bmApprovedAt: null,
             reminder12hSent: false,
             escalation24hSent: false,
           } as WorkTrial);

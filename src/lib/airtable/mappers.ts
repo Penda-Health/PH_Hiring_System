@@ -329,6 +329,8 @@ export function workTrialFromAirtable(r: AirtableRecord): WorkTrial {
     total: opt<number>(f[F.WorkTrials.TOTAL]) ?? null,
     passFail: f[F.WorkTrials.PASS_FAIL] as WorkTrial["passFail"],
     formSubmittedAt: opt<string>(f[F.WorkTrials.FORM_SUBMITTED_AT]) ?? null,
+    submittedByRole: (opt<string>(f[F.WorkTrials.SUBMITTED_BY_ROLE]) ?? null) as WorkTrial["submittedByRole"],
+    bmApprovedAt: opt<string>(f[F.WorkTrials.BM_APPROVED_AT]) ?? null,
     reminder12hSent: bool(f[F.WorkTrials.REMINDER_12H_SENT]),
     escalation24hSent: bool(f[F.WorkTrials.ESCALATION_24H_SENT]),
   };
@@ -352,6 +354,8 @@ export function workTrialToAirtable(w: Partial<WorkTrial>) {
     [F.WorkTrials.TOTAL]: w.total,
     [F.WorkTrials.PASS_FAIL]: w.passFail,
     [F.WorkTrials.FORM_SUBMITTED_AT]: w.formSubmittedAt,
+    [F.WorkTrials.SUBMITTED_BY_ROLE]: w.submittedByRole ?? undefined,
+    [F.WorkTrials.BM_APPROVED_AT]: w.bmApprovedAt ?? undefined,
     [F.WorkTrials.REMINDER_12H_SENT]: w.reminder12hSent,
     [F.WorkTrials.ESCALATION_24H_SENT]: w.escalation24hSent,
   });

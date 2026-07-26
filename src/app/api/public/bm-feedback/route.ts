@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyBmFeedbackToken } from "@/lib/forms/tokens";
-import { loadBmFeedbackFormData, submitArrival, submitScores } from "@/lib/forms/bm-feedback-form";
+import { loadBmFeedbackFormData, submitArrival, submitScores, approveBmScores } from "@/lib/forms/bm-feedback-form";
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -31,16 +31,21 @@ const arrivalSchema = z.object({
 const scoringSchema = z.object({
   token: z.string(),
   step: z.literal("scoring"),
+  submittedByRole: z.enum(["BM", "Incharge"]),
   scores: z.object({
     technical: z.number().min(0).max(100),
     patient: z.number().min(0).max(100),
-    safety: z.number().min(0).max(100),
     culture: z.number().min(0).max(100),
   }),
   notes: z.string().optional(),
 });
 
-const submitSchema = z.union([arrivalSchema, scoringSchema]);
+const approvalSchema = z.object({
+  token: z.string(),
+  step: z.literal("approval"),
+});
+
+const submitSchema = z.union([arrivalSchema, scoringSchema, approvalSchema]);
 
 export async function POST(request: NextRequest) {
   const json = await request.json().catch(() => null);
@@ -56,12 +61,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    if (result.data.step === "approval") {
+      const existing = await loadBmFeedbackFormData(payload.workTrialId);
+      if (!existing) return NextResponse.json({ error: "not_found" }, { status: 404 });
+      if (!existing.pendingApproval) return NextResponse.json({ error: "not_pending_approval" }, { status: 409 });
+
+      const { total, passFail } = await approveBmScores(payload.workTrialId);
+      return NextResponse.json({ ok: true, total, passFail });
+    }
+
+    // step === "scoring"
     const existing = await loadBmFeedbackFormData(payload.workTrialId);
     if (!existing) return NextResponse.json({ error: "not_found" }, { status: 404 });
     if (existing.alreadyScored) return NextResponse.json({ error: "already_submitted" }, { status: 409 });
 
-    const { total, passFail } = await submitScores(payload.workTrialId, result.data.scores);
-    return NextResponse.json({ ok: true, total, passFail });
+    const { total, passFail } = await submitScores(
+      payload.workTrialId,
+      result.data.scores,
+      result.data.submittedByRole
+    );
+    return NextResponse.json({ ok: true, total, passFail, submittedByRole: result.data.submittedByRole });
   } catch (err) {
     console.error("[api/public/bm-feedback] POST failed:", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });

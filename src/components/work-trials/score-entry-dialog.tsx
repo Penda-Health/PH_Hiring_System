@@ -20,9 +20,9 @@ export function ScoreEntryDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (scores: { technical: number; patient: number; safety: number; culture: number }) => void;
+  onSubmit: (scores: { technical: number; patient: number; culture: number }) => void;
 }) {
-  const [scores, setScores] = React.useState({ technical: 0, patient: 0, safety: 0, culture: 0 });
+  const [scores, setScores] = React.useState({ technical: 0, patient: 0, culture: 0 });
   const total = computeWeightedTotal(scores);
   const willPass = total >= PASS_THRESHOLD;
 
@@ -30,7 +30,7 @@ export function ScoreEntryDialog({
     e.preventDefault();
     onSubmit(scores);
     onOpenChange(false);
-    setScores({ technical: 0, patient: 0, safety: 0, culture: 0 });
+    setScores({ technical: 0, patient: 0, culture: 0 });
   }
 
   return (
@@ -40,11 +40,10 @@ export function ScoreEntryDialog({
           <DialogTitle>Submit Work Trial Scores</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <ScoreField label="Technical (40%)" value={scores.technical} onChange={(v) => setScores((s) => ({ ...s, technical: v }))} />
-            <ScoreField label="Patient Care (30%)" value={scores.patient} onChange={(v) => setScores((s) => ({ ...s, patient: v }))} />
-            <ScoreField label="Safety (20%)" value={scores.safety} onChange={(v) => setScores((s) => ({ ...s, safety: v }))} />
-            <ScoreField label="Culture Fit (10%)" value={scores.culture} onChange={(v) => setScores((s) => ({ ...s, culture: v }))} />
+          <div className="grid grid-cols-1 gap-4">
+            <ScoreField label="Technical Fit (40%)" value={scores.technical} onChange={(v) => setScores((s) => ({ ...s, technical: v }))} />
+            <ScoreField label="Patient Experience (40%)" value={scores.patient} onChange={(v) => setScores((s) => ({ ...s, patient: v }))} />
+            <ScoreField label="Culture Fit (20%)" value={scores.culture} onChange={(v) => setScores((s) => ({ ...s, culture: v }))} />
           </div>
           <div className="flex items-center justify-between rounded-md border border-border p-3">
             <span className="text-sm font-medium">Weighted Total</span>
