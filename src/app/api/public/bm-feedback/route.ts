@@ -4,6 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyBmFeedbackToken } from "@/lib/forms/tokens";
 import { loadBmFeedbackFormData, submitArrival, submitScores, approveBmScores, ScoreComments } from "@/lib/forms/bm-feedback-form";
+import { WRITTEN_ASSESSMENT_MIN_LENGTH } from "@/lib/work-trial-helpers";
+
+const writtenAssessmentField = z
+  .string()
+  .trim()
+  .min(WRITTEN_ASSESSMENT_MIN_LENGTH, `Must be at least ${WRITTEN_ASSESSMENT_MIN_LENGTH} characters.`);
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -38,13 +44,13 @@ const scoringSchema = z.object({
     culture: z.number().min(0).max(100),
   }),
   comments: z.object({
-    commentCulture: z.string().optional(),
-    commentPatient: z.string().optional(),
-    commentTechnical: z.string().optional(),
-    strengths: z.string().optional(),
-    areasOfDevelopment: z.string().optional(),
-    overallRecommendation: z.string().optional(),
-  }).optional(),
+    commentCulture: writtenAssessmentField,
+    commentPatient: writtenAssessmentField,
+    commentTechnical: writtenAssessmentField,
+    strengths: writtenAssessmentField,
+    areasOfDevelopment: writtenAssessmentField,
+    overallRecommendation: writtenAssessmentField,
+  }),
 });
 
 const approvalSchema = z.object({

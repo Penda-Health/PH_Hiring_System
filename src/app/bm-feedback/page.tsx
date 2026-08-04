@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FormShell, FormMessage } from "@/components/forms/form-shell";
-import { CULTURE_AUTO_FAIL_BELOW, TECHNICAL_AUTO_FAIL_BELOW } from "@/lib/work-trial-helpers";
+import { FormattableTextarea } from "@/components/forms/formattable-textarea";
+import { CULTURE_AUTO_FAIL_BELOW, TECHNICAL_AUTO_FAIL_BELOW, WRITTEN_ASSESSMENT_MIN_LENGTH } from "@/lib/work-trial-helpers";
 
 type FormData = {
   candidateName: string;
@@ -81,7 +82,7 @@ function BmFeedbackForm() {
   const [loadError, setLoadError] = React.useState<string | null>(null);
 
   // Step tracking
-  const [step, setStep] = React.useState<"arrival" | "role-select" | "scoring" | "done" | "pending-approval" | "approving" | "approved">("arrival");
+  const [step, setStep] = React.useState<"arrival" | "role-select" | "scoring" | "feedback" | "done" | "pending-approval" | "approving" | "approved">("arrival");
   const [arrivalSubmitting, setArrivalSubmitting] = React.useState(false);
   const [selectedRole, setSelectedRole] = React.useState<"BM" | "Incharge" | null>(null);
   const [scores, setScores] = React.useState<Record<ScoreKey, number>>({
@@ -268,7 +269,7 @@ function BmFeedbackForm() {
           </div>
 
           <div className="space-y-3">
-            <p className="text-sm font-medium">Step 1 of 3 — Did the candidate arrive?</p>
+            <p className="text-sm font-medium">Step 1 of 4 — Did the candidate arrive?</p>
             {submitError && <p className="text-sm text-destructive">{submitError}</p>}
             <div className="flex gap-3">
               <Button
@@ -298,7 +299,7 @@ function BmFeedbackForm() {
     return (
       <FormShell title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-5">
-          <p className="text-sm font-medium">Step 2 of 3 — I am the:</p>
+          <p className="text-sm font-medium">Step 2 of 4 — I am the:</p>
           <div className="grid grid-cols-2 gap-3">
             {(["BM", "Incharge"] as const).map((role) => (
               <button
@@ -326,9 +327,9 @@ function BmFeedbackForm() {
     const commentKey = { culture: "commentCulture", patient: "commentPatient", technical: "commentTechnical" } as const;
     return (
       <FormShell title="Work Trial Assessment" subtitle={header}>
-        <form onSubmit={handleScoreSubmit} className="space-y-6">
+        <div className="space-y-6">
           <p className="text-sm font-medium text-muted-foreground">
-            Step 3 of 3 — Score each area (1 = Poor · 5 = Good · 10 = Excellent)
+            Step 3 of 4 — Score each area (1 = Poor · 5 = Good · 10 = Excellent)
           </p>
 
           {CATEGORIES.map((cat) => (
@@ -354,12 +355,13 @@ function BmFeedbackForm() {
                   )}
                 </p>
               )}
-              <textarea
+              <FormattableTextarea
                 placeholder={`Specific observations on ${cat.label.toLowerCase()}…`}
                 value={comments[commentKey[cat.key]]}
-                onChange={(e) => setComments((c) => ({ ...c, [commentKey[cat.key]]: e.target.value }))}
+                onChange={(v) => setComments((c) => ({ ...c, [commentKey[cat.key]]: v }))}
                 rows={3}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-penda-teal/40 resize-none"
+                required
+                minLength={WRITTEN_ASSESSMENT_MIN_LENGTH}
               />
             </div>
           ))}
@@ -389,43 +391,86 @@ function BmFeedbackForm() {
             </div>
           )}
 
-          {/* ─── Written assessment sections ─── */}
+          <Button
+            type="button"
+            className="w-full bg-penda-teal hover:bg-penda-teal-dark"
+            onClick={() => setStep("feedback")}
+            disabled={
+              Object.values(scores).some((v) => v === 0) ||
+              CATEGORIES.some((cat) => comments[commentKey[cat.key]].trim().length < WRITTEN_ASSESSMENT_MIN_LENGTH)
+            }
+          >
+            Continue to qualitative feedback
+          </Button>
+        </div>
+      </FormShell>
+    );
+  }
+
+  // ─── Qualitative feedback step ────────────────────────────────────────────────
+  if (step === "feedback") {
+    return (
+      <FormShell title="Work Trial Assessment" subtitle={header}>
+        <form onSubmit={handleScoreSubmit} className="space-y-6">
+          <p className="text-sm font-medium text-muted-foreground">
+            Step 4 of 4 — Qualitative feedback
+          </p>
+
+          <div className="rounded-lg border border-border bg-muted/40 p-3 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Weighted score</span>
+            <span className="font-semibold flex items-center gap-2">
+              {weightedTotal.toFixed(1)} / 100
+              <Badge variant={willPass ? "ips" : "so"} className="text-xs">
+                {willPass ? "PASS" : "FAIL"}
+              </Badge>
+            </span>
+          </div>
+
+          {/* ─── Qualitative feedback sections ─── */}
           <div className="space-y-4 rounded-lg border border-border p-4">
-            <p className="text-sm font-semibold">Written Assessment</p>
+            <div>
+              <p className="text-sm font-semibold">Qualitative Feedback</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Required — at least {WRITTEN_ASSESSMENT_MIN_LENGTH} characters each. Use the toolbar for **bold**, *italic*, and bullet lists.
+              </p>
+            </div>
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Strengths</label>
               <p className="text-xs text-muted-foreground">List specific strengths observed in the candidate.</p>
-              <textarea
+              <FormattableTextarea
                 placeholder="e.g. Excellent communication with patients, quick to learn procedures…"
                 value={comments.strengths}
-                onChange={(e) => setComments((c) => ({ ...c, strengths: e.target.value }))}
+                onChange={(v) => setComments((c) => ({ ...c, strengths: v }))}
                 rows={3}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-penda-teal/40 resize-none"
+                required
+                minLength={WRITTEN_ASSESSMENT_MIN_LENGTH}
               />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Areas of Development</label>
               <p className="text-xs text-muted-foreground">List specific areas where the candidate could improve.</p>
-              <textarea
+              <FormattableTextarea
                 placeholder="e.g. Needs to improve documentation speed, could be more proactive…"
                 value={comments.areasOfDevelopment}
-                onChange={(e) => setComments((c) => ({ ...c, areasOfDevelopment: e.target.value }))}
+                onChange={(v) => setComments((c) => ({ ...c, areasOfDevelopment: v }))}
                 rows={3}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-penda-teal/40 resize-none"
+                required
+                minLength={WRITTEN_ASSESSMENT_MIN_LENGTH}
               />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Overall Recommendation</label>
               <p className="text-xs text-muted-foreground">Provide your general recommendation on the candidate&apos;s performance and suitability.</p>
-              <textarea
+              <FormattableTextarea
                 placeholder="e.g. Strong candidate — recommend for hire. Would fit well in a busy branch…"
                 value={comments.overallRecommendation}
-                onChange={(e) => setComments((c) => ({ ...c, overallRecommendation: e.target.value }))}
+                onChange={(v) => setComments((c) => ({ ...c, overallRecommendation: v }))}
                 rows={4}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-penda-teal/40 resize-none"
+                required
+                minLength={WRITTEN_ASSESSMENT_MIN_LENGTH}
               />
             </div>
           </div>
@@ -438,17 +483,32 @@ function BmFeedbackForm() {
 
           {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 
-          <Button
-            type="submit"
-            className="w-full bg-penda-teal hover:bg-penda-teal-dark"
-            disabled={Object.values(scores).some((v) => v === 0) || scoreSubmitting}
-          >
-            {scoreSubmitting
-              ? "Submitting…"
-              : selectedRole === "Incharge"
-              ? "Submit for BM approval"
-              : "Submit assessment"}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStep("scoring")}
+              disabled={scoreSubmitting}
+            >
+              Back
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 bg-penda-teal hover:bg-penda-teal-dark"
+              disabled={
+                comments.strengths.trim().length < WRITTEN_ASSESSMENT_MIN_LENGTH ||
+                comments.areasOfDevelopment.trim().length < WRITTEN_ASSESSMENT_MIN_LENGTH ||
+                comments.overallRecommendation.trim().length < WRITTEN_ASSESSMENT_MIN_LENGTH ||
+                scoreSubmitting
+              }
+            >
+              {scoreSubmitting
+                ? "Submitting…"
+                : selectedRole === "Incharge"
+                ? "Submit for BM approval"
+                : "Submit assessment"}
+            </Button>
+          </div>
         </form>
       </FormShell>
     );

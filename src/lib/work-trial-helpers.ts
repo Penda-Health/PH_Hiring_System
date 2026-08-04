@@ -36,6 +36,12 @@ export const PASS_THRESHOLD = 65;
 export const CULTURE_AUTO_FAIL_BELOW = 61;
 export const TECHNICAL_AUTO_FAIL_BELOW = 61;
 
+// Minimum length (trimmed) required for every free-text field on the BM
+// feedback form: the per-category observations (commentCulture,
+// commentPatient, commentTechnical) and the qualitative feedback fields
+// (strengths, areasOfDevelopment, overallRecommendation).
+export const WRITTEN_ASSESSMENT_MIN_LENGTH = 250;
+
 export function isCultureAutoFail(cultureScore: number): boolean {
   return cultureScore < CULTURE_AUTO_FAIL_BELOW;
 }
