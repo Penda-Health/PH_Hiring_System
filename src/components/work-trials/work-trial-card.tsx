@@ -170,7 +170,7 @@ export function ManualReviewDialog({
 
           {cultureAutoFail && (
             <p className="text-xs text-destructive rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1.5">
-              Culture Fit scored below 2/10 — automatic fail rule applies.
+              Culture Fit 6/10 or below — automatic fail rule applies.
             </p>
           )}
 
@@ -462,7 +462,7 @@ export function WorkTrialCard({
 
               {cultureAutoFail && (
                 <p className="text-xs rounded-md border border-destructive/20 bg-destructive/5 text-destructive px-2 py-1.5">
-                  Culture Fit below 2/10 — automatic fail
+                  Culture Fit 6/10 or below — automatic fail
                 </p>
               )}
 

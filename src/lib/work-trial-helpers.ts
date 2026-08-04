@@ -30,8 +30,8 @@ export function computeWeightedTotal(scores: {
 export const PASS_THRESHOLD = 65;
 
 // Culture score below this value (out of 100) is an automatic fail,
-// regardless of the weighted total.
-export const CULTURE_AUTO_FAIL_BELOW = 20;
+// regardless of the weighted total. 61 = anything 6/10 or below auto-fails.
+export const CULTURE_AUTO_FAIL_BELOW = 61;
 
 export function isCultureAutoFail(cultureScore: number): boolean {
   return cultureScore < CULTURE_AUTO_FAIL_BELOW;

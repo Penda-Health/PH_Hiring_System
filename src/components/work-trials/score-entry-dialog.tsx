@@ -48,7 +48,7 @@ export function ScoreEntryDialog({
           </div>
           {cultureAutoFail && (
             <p className="text-sm text-destructive">
-              Culture Fit below 20 — automatic fail regardless of other scores.
+              Culture Fit 6/10 or below — automatic fail regardless of other scores.
             </p>
           )}
           <div className="flex items-center justify-between rounded-md border border-border p-3">

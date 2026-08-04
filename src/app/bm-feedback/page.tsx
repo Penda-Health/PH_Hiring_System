@@ -29,7 +29,7 @@ const CATEGORIES = [
     key: "culture" as const,
     label: "Culture Fit",
     weight: 40,
-    description: "Team behaviour, alignment with Penda values, attitude, and professional conduct. Score below 2/10 is an automatic fail.",
+    description: "Team behaviour, alignment with Penda values, attitude, and professional conduct. Score of 6/10 or below is an automatic fail.",
   },
   {
     key: "patient" as const,
@@ -350,7 +350,7 @@ function BmFeedbackForm() {
 
           {cultureAutoFail && (
             <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-              Culture Fit score is below 2/10 — this is an automatic fail regardless of other scores.
+              Culture Fit score is 6/10 or below — this is an automatic fail regardless of other scores.
             </div>
           )}
 
