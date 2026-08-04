@@ -341,6 +341,12 @@ export function workTrialFromAirtable(r: AirtableRecord): WorkTrial {
     bmApprovedAt: opt<string>(f[F.WorkTrials.BM_APPROVED_AT]) ?? null,
     reminder12hSent: bool(f[F.WorkTrials.REMINDER_12H_SENT]),
     escalation24hSent: bool(f[F.WorkTrials.ESCALATION_24H_SENT]),
+    commentCulture: opt<string>(f[F.WorkTrials.COMMENT_CULTURE]) ?? undefined,
+    commentPatient: opt<string>(f[F.WorkTrials.COMMENT_PATIENT]) ?? undefined,
+    commentTechnical: opt<string>(f[F.WorkTrials.COMMENT_TECHNICAL]) ?? undefined,
+    strengths: opt<string>(f[F.WorkTrials.STRENGTHS]) ?? undefined,
+    areasOfDevelopment: opt<string>(f[F.WorkTrials.AREAS_OF_DEVELOPMENT]) ?? undefined,
+    overallRecommendation: opt<string>(f[F.WorkTrials.OVERALL_RECOMMENDATION]) ?? undefined,
   };
 }
 export function workTrialToAirtable(w: Partial<WorkTrial>) {
@@ -366,6 +372,12 @@ export function workTrialToAirtable(w: Partial<WorkTrial>) {
     [F.WorkTrials.BM_APPROVED_AT]: w.bmApprovedAt ?? undefined,
     [F.WorkTrials.REMINDER_12H_SENT]: w.reminder12hSent,
     [F.WorkTrials.ESCALATION_24H_SENT]: w.escalation24hSent,
+    [F.WorkTrials.COMMENT_CULTURE]: w.commentCulture,
+    [F.WorkTrials.COMMENT_PATIENT]: w.commentPatient,
+    [F.WorkTrials.COMMENT_TECHNICAL]: w.commentTechnical,
+    [F.WorkTrials.STRENGTHS]: w.strengths,
+    [F.WorkTrials.AREAS_OF_DEVELOPMENT]: w.areasOfDevelopment,
+    [F.WorkTrials.OVERALL_RECOMMENDATION]: w.overallRecommendation,
   });
 }
 

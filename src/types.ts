@@ -223,6 +223,12 @@ export interface WorkTrial {
   bmApprovedAt: string | null;
   reminder12hSent: boolean;
   escalation24hSent: boolean;
+  commentCulture?: string;
+  commentPatient?: string;
+  commentTechnical?: string;
+  strengths?: string;
+  areasOfDevelopment?: string;
+  overallRecommendation?: string;
 }
 
 export type RehireAnswer = "Yes, without hesitation" | "Yes, with some reservations" | "No, I would not recommend them";

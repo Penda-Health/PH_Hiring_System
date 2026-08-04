@@ -4,7 +4,7 @@
 import { getRecord, updateRecord } from "@/lib/airtable/client";
 import { TABLE_NAMES, F } from "@/lib/airtable/field-names";
 import { branchFromAirtable, candidateFromAirtable, openRoleFromAirtable, workTrialFromAirtable } from "@/lib/airtable/mappers";
-import { computeWeightedTotal, computePassFail, PASS_THRESHOLD, isCultureAutoFail } from "@/lib/work-trial-helpers";
+import { computeWeightedTotal, computePassFail, PASS_THRESHOLD, isCultureAutoFail, isTechnicalAutoFail } from "@/lib/work-trial-helpers";
 
 export type BmFeedbackFormData = {
   candidateName: string;
@@ -22,6 +22,12 @@ export type BmFeedbackFormData = {
   scoreCulture: number | null;
   total: number | null;
   passFail: "Pass" | "Fail" | "Pending";
+  commentCulture?: string;
+  commentPatient?: string;
+  commentTechnical?: string;
+  strengths?: string;
+  areasOfDevelopment?: string;
+  overallRecommendation?: string;
 };
 
 export async function loadBmFeedbackFormData(workTrialId: string): Promise<BmFeedbackFormData | null> {
@@ -63,6 +69,12 @@ export async function loadBmFeedbackFormData(workTrialId: string): Promise<BmFee
     scoreCulture: trial.scoreCulture,
     total: trial.total,
     passFail: trial.passFail,
+    commentCulture: trial.commentCulture,
+    commentPatient: trial.commentPatient,
+    commentTechnical: trial.commentTechnical,
+    strengths: trial.strengths,
+    areasOfDevelopment: trial.areasOfDevelopment,
+    overallRecommendation: trial.overallRecommendation,
   };
 }
 
@@ -72,10 +84,20 @@ export async function submitArrival(workTrialId: string, arrived: boolean): Prom
   });
 }
 
+export type ScoreComments = {
+  commentCulture?: string;
+  commentPatient?: string;
+  commentTechnical?: string;
+  strengths?: string;
+  areasOfDevelopment?: string;
+  overallRecommendation?: string;
+};
+
 export async function submitScores(
   workTrialId: string,
   scores: { technical: number; patient: number; culture: number },
-  submittedByRole: "BM" | "Incharge"
+  submittedByRole: "BM" | "Incharge",
+  comments?: ScoreComments
 ): Promise<{ total: number; passFail: "Pass" | "Fail" }> {
   const total = computeWeightedTotal(scores);
   const passFail = computePassFail(scores);
@@ -89,6 +111,12 @@ export async function submitScores(
     [F.WorkTrials.PASS_FAIL]: submittedByRole === "BM" ? passFail : "Pending",
     [F.WorkTrials.FORM_SUBMITTED_AT]: new Date().toISOString(),
     [F.WorkTrials.SUBMITTED_BY_ROLE]: submittedByRole,
+    ...(comments?.commentCulture    ? { [F.WorkTrials.COMMENT_CULTURE]:       comments.commentCulture    } : {}),
+    ...(comments?.commentPatient    ? { [F.WorkTrials.COMMENT_PATIENT]:       comments.commentPatient    } : {}),
+    ...(comments?.commentTechnical  ? { [F.WorkTrials.COMMENT_TECHNICAL]:     comments.commentTechnical  } : {}),
+    ...(comments?.strengths         ? { [F.WorkTrials.STRENGTHS]:             comments.strengths         } : {}),
+    ...(comments?.areasOfDevelopment? { [F.WorkTrials.AREAS_OF_DEVELOPMENT]:  comments.areasOfDevelopment} : {}),
+    ...(comments?.overallRecommendation ? { [F.WorkTrials.OVERALL_RECOMMENDATION]: comments.overallRecommendation } : {}),
   });
   return { total, passFail };
 }
@@ -100,8 +128,11 @@ export async function approveBmScores(workTrialId: string): Promise<{ total: num
 
   const total = trial.total ?? 0;
   const cultureScore = trial.scoreCulture ?? 0;
+  const technicalScore = trial.scoreTechnical ?? 0;
   const passFail =
-    isCultureAutoFail(cultureScore) || total < PASS_THRESHOLD ? "Fail" : "Pass";
+    isCultureAutoFail(cultureScore) || isTechnicalAutoFail(technicalScore) || total < PASS_THRESHOLD
+      ? "Fail"
+      : "Pass";
   await updateRecord(TABLE_NAMES.WorkTrials, workTrialId, {
     [F.WorkTrials.PASS_FAIL]: passFail,
     [F.WorkTrials.BM_APPROVED_AT]: new Date().toISOString(),

@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { computeWeightedTotal, computePassFail, CULTURE_AUTO_FAIL_BELOW } from "@/lib/work-trial-helpers";
+import { computeWeightedTotal, computePassFail, CULTURE_AUTO_FAIL_BELOW, TECHNICAL_AUTO_FAIL_BELOW } from "@/lib/work-trial-helpers";
 
 export function ScoreEntryDialog({
   open,
@@ -26,6 +26,7 @@ export function ScoreEntryDialog({
   const total = computeWeightedTotal(scores);
   const passFail = computePassFail(scores);
   const cultureAutoFail = scores.culture > 0 && scores.culture < CULTURE_AUTO_FAIL_BELOW;
+  const technicalAutoFail = scores.technical > 0 && scores.technical < TECHNICAL_AUTO_FAIL_BELOW;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,12 +44,17 @@ export function ScoreEntryDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             <ScoreField label="Culture Fit (40%)" value={scores.culture} onChange={(v) => setScores((s) => ({ ...s, culture: v }))} />
-            <ScoreField label="Patient Experience (30%)" value={scores.patient} onChange={(v) => setScores((s) => ({ ...s, patient: v }))} />
-            <ScoreField label="Technical Fit (30%)" value={scores.technical} onChange={(v) => setScores((s) => ({ ...s, technical: v }))} />
+            <ScoreField label="Patient Experience (40%)" value={scores.patient} onChange={(v) => setScores((s) => ({ ...s, patient: v }))} />
+            <ScoreField label="Technical Fit (20%)" value={scores.technical} onChange={(v) => setScores((s) => ({ ...s, technical: v }))} />
           </div>
           {cultureAutoFail && (
             <p className="text-sm text-destructive">
               Culture Fit 6/10 or below — automatic fail regardless of other scores.
+            </p>
+          )}
+          {technicalAutoFail && (
+            <p className="text-sm text-destructive">
+              Technical Fit 6/10 or below — automatic fail regardless of other scores.
             </p>
           )}
           <div className="flex items-center justify-between rounded-md border border-border p-3">

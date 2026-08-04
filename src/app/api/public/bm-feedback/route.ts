@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyBmFeedbackToken } from "@/lib/forms/tokens";
-import { loadBmFeedbackFormData, submitArrival, submitScores, approveBmScores } from "@/lib/forms/bm-feedback-form";
+import { loadBmFeedbackFormData, submitArrival, submitScores, approveBmScores, ScoreComments } from "@/lib/forms/bm-feedback-form";
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -37,7 +37,14 @@ const scoringSchema = z.object({
     patient: z.number().min(0).max(100),
     culture: z.number().min(0).max(100),
   }),
-  notes: z.string().optional(),
+  comments: z.object({
+    commentCulture: z.string().optional(),
+    commentPatient: z.string().optional(),
+    commentTechnical: z.string().optional(),
+    strengths: z.string().optional(),
+    areasOfDevelopment: z.string().optional(),
+    overallRecommendation: z.string().optional(),
+  }).optional(),
 });
 
 const approvalSchema = z.object({
@@ -78,7 +85,8 @@ export async function POST(request: NextRequest) {
     const { total, passFail } = await submitScores(
       payload.workTrialId,
       result.data.scores,
-      result.data.submittedByRole
+      result.data.submittedByRole,
+      result.data.comments as ScoreComments | undefined
     );
     return NextResponse.json({ ok: true, total, passFail, submittedByRole: result.data.submittedByRole });
   } catch (err) {

@@ -26,6 +26,7 @@ import {
   getCandidateForTrial,
   getBranchForTrial,
   CULTURE_AUTO_FAIL_BELOW,
+  TECHNICAL_AUTO_FAIL_BELOW,
 } from "@/lib/work-trial-helpers";
 import { ScoreEntryDialog } from "./score-entry-dialog";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
@@ -94,6 +95,9 @@ export function ManualReviewDialog({
   const cultureAutoFail =
     trial.scoreCulture !== null &&
     trial.scoreCulture < CULTURE_AUTO_FAIL_BELOW;
+  const technicalAutoFail =
+    trial.scoreTechnical !== null &&
+    trial.scoreTechnical < TECHNICAL_AUTO_FAIL_BELOW;
 
   async function handleSave() {
     setSaving(true);
@@ -149,14 +153,17 @@ export function ManualReviewDialog({
               )}
               {trial.scorePatient !== null && (
                 <div className="flex justify-between px-3 py-2">
-                  <span className="text-muted-foreground">Patient Experience (30%)</span>
+                  <span className="text-muted-foreground">Patient Experience (40%)</span>
                   <span className="font-medium">{trial.scorePatient / 10}/10</span>
                 </div>
               )}
               {trial.scoreTechnical !== null && (
                 <div className="flex justify-between px-3 py-2">
-                  <span className="text-muted-foreground">Technical Fit (30%)</span>
-                  <span className="font-medium">{trial.scoreTechnical / 10}/10</span>
+                  <span className="text-muted-foreground">Technical Fit (20%)</span>
+                  <span className={technicalAutoFail ? "text-destructive font-semibold" : "font-medium"}>
+                    {trial.scoreTechnical / 10}/10
+                    {technicalAutoFail && " — auto-fail"}
+                  </span>
                 </div>
               )}
               {trial.total !== null && (
@@ -173,6 +180,11 @@ export function ManualReviewDialog({
               Culture Fit 6/10 or below — automatic fail rule applies.
             </p>
           )}
+          {technicalAutoFail && (
+            <p className="text-xs text-destructive rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1.5">
+              Technical Fit 6/10 or below — automatic fail rule applies.
+            </p>
+          )}
 
           {/* Outcome selector */}
           <div className="space-y-1.5">
@@ -183,24 +195,24 @@ export function ManualReviewDialog({
                 setOutcome(v as ReviewOutcome);
                 if (v !== "Pass") setAdvanceStage(false);
               }}
-              disabled={cultureAutoFail}
+              disabled={cultureAutoFail || technicalAutoFail}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Pass" disabled={cultureAutoFail}>Pass</SelectItem>
+                <SelectItem value="Pass" disabled={cultureAutoFail || technicalAutoFail}>Pass</SelectItem>
                 <SelectItem value="Fail">Fail</SelectItem>
                 <SelectItem value="Did Not Attend">Did Not Attend</SelectItem>
               </SelectContent>
             </Select>
-            {cultureAutoFail && (
-              <p className="text-xs text-muted-foreground">Outcome locked to Fail due to culture auto-fail rule.</p>
+            {(cultureAutoFail || technicalAutoFail) && (
+              <p className="text-xs text-muted-foreground">Outcome locked to Fail due to auto-fail rule.</p>
             )}
           </div>
 
           {/* Advance stage toggle — only shown on Pass */}
-          {outcome === "Pass" && !cultureAutoFail && (
+          {outcome === "Pass" && !cultureAutoFail && !technicalAutoFail && (
             <label className="flex items-start gap-3 rounded-lg border border-penda-teal/30 bg-penda-teal/5 p-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -375,6 +387,7 @@ export function WorkTrialCard({
 
   const pendingApproval = trial.formSubmittedAt && trial.submittedByRole === "Incharge" && !trial.bmApprovedAt;
   const cultureAutoFail = trial.scoreCulture !== null && trial.scoreCulture < CULTURE_AUTO_FAIL_BELOW;
+  const technicalAutoFail = trial.scoreTechnical !== null && trial.scoreTechnical < TECHNICAL_AUTO_FAIL_BELOW;
 
   async function copyLink(type: "work-trial" | "bm-feedback") {
     setLinkError(null);
@@ -463,6 +476,11 @@ export function WorkTrialCard({
               {cultureAutoFail && (
                 <p className="text-xs rounded-md border border-destructive/20 bg-destructive/5 text-destructive px-2 py-1.5">
                   Culture Fit 6/10 or below — automatic fail
+                </p>
+              )}
+              {technicalAutoFail && (
+                <p className="text-xs rounded-md border border-destructive/20 bg-destructive/5 text-destructive px-2 py-1.5">
+                  Technical Fit 6/10 or below — automatic fail
                 </p>
               )}
 

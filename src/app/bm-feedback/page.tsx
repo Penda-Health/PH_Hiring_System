@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FormShell, FormMessage } from "@/components/forms/form-shell";
+import { CULTURE_AUTO_FAIL_BELOW, TECHNICAL_AUTO_FAIL_BELOW } from "@/lib/work-trial-helpers";
 
 type FormData = {
   candidateName: string;
@@ -34,14 +35,14 @@ const CATEGORIES = [
   {
     key: "patient" as const,
     label: "Patient Experience",
-    weight: 30,
+    weight: 40,
     description: "Communication with patients, empathy, bedside manner, and patient-centred care.",
   },
   {
     key: "technical" as const,
     label: "Technical Fit",
-    weight: 30,
-    description: "Clinical competency, procedure accuracy, equipment handling, and adherence to clinical protocols.",
+    weight: 20,
+    description: "Clinical competency, procedure accuracy, equipment handling, and adherence to clinical protocols. Score of 6/10 or below is an automatic fail.",
   },
 ] as const;
 
@@ -90,6 +91,14 @@ function BmFeedbackForm() {
   });
   const [scoreSubmitting, setScoreSubmitting] = React.useState(false);
   const [scoreResult, setScoreResult] = React.useState<{ total: number; passFail: "Pass" | "Fail"; submittedByRole: "BM" | "Incharge" } | null>(null);
+  const [comments, setComments] = React.useState({
+    commentCulture: "",
+    commentPatient: "",
+    commentTechnical: "",
+    strengths: "",
+    areasOfDevelopment: "",
+    overallRecommendation: "",
+  });
   const [approvalSubmitting, setApprovalSubmitting] = React.useState(false);
   const [approvalResult, setApprovalResult] = React.useState<{ total: number; passFail: "Pass" | "Fail" } | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -189,6 +198,14 @@ function BmFeedbackForm() {
           step: "scoring",
           submittedByRole: selectedRole,
           scores,
+          comments: {
+            commentCulture: comments.commentCulture || undefined,
+            commentPatient: comments.commentPatient || undefined,
+            commentTechnical: comments.commentTechnical || undefined,
+            strengths: comments.strengths || undefined,
+            areasOfDevelopment: comments.areasOfDevelopment || undefined,
+            overallRecommendation: comments.overallRecommendation || undefined,
+          },
         }),
       });
       if (!res.ok) {
@@ -233,8 +250,9 @@ function BmFeedbackForm() {
     (sum, c) => sum + (scores[c.key] / 100) * c.weight,
     0
   );
-  const cultureAutoFail = scores.culture > 0 && scores.culture < 20;
-  const willPass = !cultureAutoFail && weightedTotal >= 65;
+  const cultureAutoFail = scores.culture > 0 && scores.culture < CULTURE_AUTO_FAIL_BELOW;
+  const technicalAutoFail = scores.technical > 0 && scores.technical < TECHNICAL_AUTO_FAIL_BELOW;
+  const willPass = !cultureAutoFail && !technicalAutoFail && weightedTotal >= 65;
 
   // ─── Arrival step ───────────────────────────────────────────────────────────
   if (step === "arrival" && data.arrivalMarked === null) {
@@ -305,6 +323,7 @@ function BmFeedbackForm() {
 
   // ─── Scoring step ────────────────────────────────────────────────────────────
   if (step === "scoring") {
+    const commentKey = { culture: "commentCulture", patient: "commentPatient", technical: "commentTechnical" } as const;
     return (
       <FormShell title="Work Trial Assessment" subtitle={header}>
         <form onSubmit={handleScoreSubmit} className="space-y-6">
@@ -314,12 +333,12 @@ function BmFeedbackForm() {
 
           {CATEGORIES.map((cat) => (
             <div key={cat.key} className="space-y-3 rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
                   <p className="font-semibold text-sm">{cat.label}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{cat.description}</p>
                 </div>
-                <Badge variant="outline" className="ml-3 shrink-0 text-xs">
+                <Badge variant="outline" className="shrink-0 text-xs mt-0.5">
                   {cat.weight}%
                 </Badge>
               </div>
@@ -330,11 +349,22 @@ function BmFeedbackForm() {
               {scores[cat.key] > 0 && (
                 <p className="text-xs text-penda-teal font-medium">
                   Rating: {scores[cat.key] / 10} / 10
+                  {((cat.key === "culture" && cultureAutoFail) || (cat.key === "technical" && technicalAutoFail)) && (
+                    <span className="ml-2 text-destructive">— automatic fail</span>
+                  )}
                 </p>
               )}
+              <textarea
+                placeholder={`Specific observations on ${cat.label.toLowerCase()}…`}
+                value={comments[commentKey[cat.key]]}
+                onChange={(e) => setComments((c) => ({ ...c, [commentKey[cat.key]]: e.target.value }))}
+                rows={3}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-penda-teal/40 resize-none"
+              />
             </div>
           ))}
 
+          {/* ─── Weighted score summary ─── */}
           <div className="rounded-lg border border-border bg-muted/40 p-4 flex items-center justify-between">
             <div>
               <p className="text-xs text-muted-foreground">Weighted score</p>
@@ -353,6 +383,52 @@ function BmFeedbackForm() {
               Culture Fit score is 6/10 or below — this is an automatic fail regardless of other scores.
             </div>
           )}
+          {technicalAutoFail && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+              Technical Fit score is 6/10 or below — this is an automatic fail regardless of other scores.
+            </div>
+          )}
+
+          {/* ─── Written assessment sections ─── */}
+          <div className="space-y-4 rounded-lg border border-border p-4">
+            <p className="text-sm font-semibold">Written Assessment</p>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Strengths</label>
+              <p className="text-xs text-muted-foreground">List specific strengths observed in the candidate.</p>
+              <textarea
+                placeholder="e.g. Excellent communication with patients, quick to learn procedures…"
+                value={comments.strengths}
+                onChange={(e) => setComments((c) => ({ ...c, strengths: e.target.value }))}
+                rows={3}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-penda-teal/40 resize-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Areas of Development</label>
+              <p className="text-xs text-muted-foreground">List specific areas where the candidate could improve.</p>
+              <textarea
+                placeholder="e.g. Needs to improve documentation speed, could be more proactive…"
+                value={comments.areasOfDevelopment}
+                onChange={(e) => setComments((c) => ({ ...c, areasOfDevelopment: e.target.value }))}
+                rows={3}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-penda-teal/40 resize-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Overall Recommendation</label>
+              <p className="text-xs text-muted-foreground">Provide your general recommendation on the candidate&apos;s performance and suitability.</p>
+              <textarea
+                placeholder="e.g. Strong candidate — recommend for hire. Would fit well in a busy branch…"
+                value={comments.overallRecommendation}
+                onChange={(e) => setComments((c) => ({ ...c, overallRecommendation: e.target.value }))}
+                rows={4}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-penda-teal/40 resize-none"
+              />
+            </div>
+          </div>
 
           {selectedRole === "Incharge" && (
             <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
@@ -389,9 +465,9 @@ function BmFeedbackForm() {
 
           <div className="rounded-lg border border-border divide-y divide-border">
             {[
-              { label: "Technical Fit (40%)", value: data.scoreTechnical },
+              { label: "Culture Fit (40%)", value: data.scoreCulture },
               { label: "Patient Experience (40%)", value: data.scorePatient },
-              { label: "Culture Fit (20%)", value: data.scoreCulture },
+              { label: "Technical Fit (20%)", value: data.scoreTechnical },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between px-4 py-2.5">
                 <span className="text-sm text-muted-foreground">{label}</span>

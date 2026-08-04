@@ -151,6 +151,12 @@ export const F = {
     BM_SCORING_LINK: "BM Scoring Link",
     REMINDER_12H_SENT: "Reminder 12h Sent",
     ESCALATION_24H_SENT: "Escalation 24h Sent",
+    COMMENT_CULTURE: "Comment Culture",
+    COMMENT_PATIENT: "Comment Patient",
+    COMMENT_TECHNICAL: "Comment Technical",
+    STRENGTHS: "Strengths",
+    AREAS_OF_DEVELOPMENT: "Areas of Development",
+    OVERALL_RECOMMENDATION: "Overall Recommendation",
   },
   ReferenceChecks: {
     REF_ID: "Ref ID",
