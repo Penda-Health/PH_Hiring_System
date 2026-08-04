@@ -192,9 +192,9 @@ function WorkTrialRequestForm() {
         subtitle="Enter your details below to confirm your work trial at Penda Health."
       >
         <form onSubmit={handleIdentify} className="space-y-5">
-          <div className="rounded-lg border border-penda-teal-light/50 bg-penda-teal/5 p-3 text-sm text-foreground/80">
-            A work trial is a short, paid opportunity to work alongside our team at one of our branches.
-            It usually lasts a single day.
+          <div className="rounded-lg border border-penda-teal-light/50 bg-penda-teal/5 p-3 text-sm text-foreground/80 space-y-1">
+            <p>A work trial is a paid, full-day opportunity to work alongside our team at one of our branches.</p>
+            <p className="font-medium">Hours: 9:00 AM – 5:00 PM. Please ensure you are available for the entire day.</p>
           </div>
 
           <div className="space-y-1.5">
@@ -305,6 +305,12 @@ function WorkTrialRequestForm() {
             )}
           </div>
 
+          {/* Full-day notice */}
+          <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-200 space-y-0.5">
+            <p className="font-semibold">This is a full-day event</p>
+            <p>The work trial runs from <strong>9:00 AM to 5:00 PM</strong>. Please only book a date on which you are available for the entire day.</p>
+          </div>
+
           {/* Date picker */}
           <div className="space-y-2">
             <Label>Preferred date</Label>
@@ -359,6 +365,7 @@ function WorkTrialRequestForm() {
           {confirmedDate && (
             <p className="text-lg font-semibold text-center">{formatDateDisplay(confirmedDate)}</p>
           )}
+          <p className="text-sm font-medium text-penda-teal">9:00 AM – 5:00 PM (Full day)</p>
         </div>
 
         {/* Branch card */}
@@ -400,11 +407,12 @@ function WorkTrialRequestForm() {
         </div>
 
         <FormMessage>
-          <ul className="space-y-1 text-sm">
-            <li>Please arrive on time — the trial usually runs for one full day.</li>
+          <ul className="space-y-1.5 text-sm">
+            <li><strong>The work trial runs from 9:00 AM to 5:00 PM.</strong> Please plan to be available for the entire day.</li>
+            <li>Arrive by <strong>9:00 AM sharp</strong> — punctuality is taken into account during the assessment.</li>
             <li>Bring a valid national ID or passport.</li>
             <li>Dress professionally and bring a pen.</li>
-            <li>A confirmation has been sent to your email.</li>
+            <li>A confirmation email has been sent to you with these details.</li>
           </ul>
           <p className="text-sm mt-2">
             Need to make changes? Contact{" "}
