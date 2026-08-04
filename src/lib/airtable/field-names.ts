@@ -24,9 +24,13 @@ export const F = {
     CITY: "City",
     REGION: "Region",
     BRANCH_MANAGER: "Branch Manager",
+    BM_EMAIL: "BM Email",
+    BM_PHONE: "BM Phone",
     REGIONAL_MANAGER: "Regional Manager",
     CAPACITY: "Capacity",
     ACTIVE: "Active",
+    ADDRESS: "Address",
+    MAP_PIN_URL: "Map Pin URL",
   },
   Requisitions: {
     REQ_ID: "Req ID",

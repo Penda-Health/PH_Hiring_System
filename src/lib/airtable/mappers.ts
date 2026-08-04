@@ -42,9 +42,13 @@ export function branchFromAirtable(r: AirtableRecord): Branch {
     city: str(f[F.Branches.CITY]),
     region: str(f[F.Branches.REGION]),
     branchManager: str(f[F.Branches.BRANCH_MANAGER]),
+    bmEmail: str(f[F.Branches.BM_EMAIL]),
+    bmPhone: str(f[F.Branches.BM_PHONE]),
     regionalManager: str(f[F.Branches.REGIONAL_MANAGER]),
     capacity: num(f[F.Branches.CAPACITY]),
     active: bool(f[F.Branches.ACTIVE]),
+    address: str(f[F.Branches.ADDRESS]),
+    mapPinUrl: str(f[F.Branches.MAP_PIN_URL]),
   };
 }
 export function branchToAirtable(b: Partial<Branch>) {
@@ -54,9 +58,13 @@ export function branchToAirtable(b: Partial<Branch>) {
     [F.Branches.CITY]: b.city,
     [F.Branches.REGION]: b.region,
     [F.Branches.BRANCH_MANAGER]: b.branchManager,
+    [F.Branches.BM_EMAIL]: b.bmEmail,
+    [F.Branches.BM_PHONE]: b.bmPhone,
     [F.Branches.REGIONAL_MANAGER]: b.regionalManager,
     [F.Branches.CAPACITY]: b.capacity,
     [F.Branches.ACTIVE]: b.active,
+    [F.Branches.ADDRESS]: b.address,
+    [F.Branches.MAP_PIN_URL]: b.mapPinUrl,
   });
 }
 

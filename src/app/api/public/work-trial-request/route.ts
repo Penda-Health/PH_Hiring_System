@@ -11,11 +11,14 @@ import {
   workTrialFromAirtable,
   branchFromAirtable,
 } from "@/lib/airtable/mappers";
+import {
+  sendBmWorkTrialNotification,
+  sendCandidateWorkTrialConfirmation,
+} from "@/lib/email";
 
 // ── Phone helpers ─────────────────────────────────────────────────────────────
 
 function normalizePhone(raw: string): string {
-  // Input from form: "7XXXXXXXX" (9 digits). Store as "2547XXXXXXXX".
   const digits = raw.replace(/\D/g, "");
   if (digits.startsWith("254")) return digits;
   if (digits.startsWith("0")) return `254${digits.slice(1)}`;
@@ -36,7 +39,7 @@ async function nextId(tableName: string, field: string, prefix: string, pad = 3)
   return `${prefix}-${String(max + 1).padStart(pad, "0")}`;
 }
 
-// ── GET — return branch list (no auth needed, just branch names) ──────────────
+// ── GET — return branch list ──────────────────────────────────────────────────
 
 export async function GET() {
   try {
@@ -45,6 +48,10 @@ export async function GET() {
       id: b.id,
       name: b.name,
       city: b.city,
+      address: b.address,
+      mapPinUrl: b.mapPinUrl,
+      bmName: b.branchManager,
+      bmPhone: b.bmPhone,
     }));
     return NextResponse.json({ branches });
   } catch (err) {
@@ -58,7 +65,6 @@ export async function GET() {
 const identifySchema = z.object({
   step: z.literal("identify"),
   name: z.string().min(2).max(120),
-  // phone arrives as "7XXXXXXXX" (9 digits, validated client-side)
   phone: z.string().regex(/^7\d{8}$/, "Phone must be 9 digits starting with 7"),
   email: z.string().email(),
 });
@@ -87,7 +93,6 @@ export async function POST(request: NextRequest) {
     const phone = normalizePhone(result.data.phone);
 
     try {
-      // Look up by phone OR email
       const escapedPhone = phone.replace(/'/g, "\\'");
       const escapedEmail = email.replace(/'/g, "\\'");
       const formula = `OR({${F.Candidates.PHONE}}='${escapedPhone}',{${F.Candidates.EMAIL}}='${escapedEmail}')`;
@@ -97,7 +102,6 @@ export async function POST(request: NextRequest) {
       let isNew = false;
 
       if (!candidate) {
-        // New candidate — add to pool at Work Trial stage
         isNew = true;
         const candId = await nextId(TABLE_NAMES.Candidates, F.Candidates.CAND_ID, "CAND", 3);
         const newRecord = await createRecord(TABLE_NAMES.Candidates, {
@@ -111,13 +115,11 @@ export async function POST(request: NextRequest) {
         });
         candidate = candidateFromAirtable(newRecord);
       } else if (candidate.stage !== "Work Trial") {
-        // Existing candidate not yet at Work Trial — move them
         await updateRecord(TABLE_NAMES.Candidates, candidate.id, {
           [F.Candidates.STAGE]: "Work Trial",
         });
       }
 
-      // Find or create the WorkTrial record
       const allTrials = await listRecords(TABLE_NAMES.WorkTrials);
       const existingTrial = allTrials
         .map(workTrialFromAirtable)
@@ -127,6 +129,10 @@ export async function POST(request: NextRequest) {
       let alreadyScheduled = false;
       let selectedBranchName: string | null = null;
       let selectedDate: string | null = null;
+      let selectedBranchAddress: string | null = null;
+      let selectedMapPinUrl: string | null = null;
+      let selectedBmName: string | null = null;
+      let selectedBmPhone: string | null = null;
 
       if (existingTrial) {
         workTrialId = existingTrial.id;
@@ -138,9 +144,12 @@ export async function POST(request: NextRequest) {
             .find((b) => b.id === existingTrial.branchId);
           selectedBranchName = branch?.name ?? null;
           selectedDate = existingTrial.date;
+          selectedBranchAddress = branch?.address ?? null;
+          selectedMapPinUrl = branch?.mapPinUrl ?? null;
+          selectedBmName = branch?.branchManager ?? null;
+          selectedBmPhone = branch?.bmPhone ?? null;
         }
       } else {
-        // Create a bare work trial record (branch/date filled in step 2)
         const wtId = await nextId(TABLE_NAMES.WorkTrials, F.WorkTrials.WT_ID, "WT", 3);
         const newTrial = await createRecord(TABLE_NAMES.WorkTrials, {
           [F.WorkTrials.WT_ID]: wtId,
@@ -154,6 +163,9 @@ export async function POST(request: NextRequest) {
       const sessionToken = await signWorkTrialRequestToken({
         candidateId: candidate.id,
         workTrialId,
+        candidateName: candidate.name,
+        candidatePhone: phone,
+        candidateEmail: email,
       });
 
       return NextResponse.json({
@@ -163,6 +175,10 @@ export async function POST(request: NextRequest) {
         alreadyScheduled,
         selectedBranchName,
         selectedDate,
+        selectedBranchAddress,
+        selectedMapPinUrl,
+        selectedBmName,
+        selectedBmPhone,
       });
     } catch (err) {
       console.error("[api/public/work-trial-request] identify failed:", err);
@@ -175,10 +191,9 @@ export async function POST(request: NextRequest) {
   const payload = await verifyWorkTrialRequestToken(sessionToken);
   if (!payload) return NextResponse.json({ error: "session_expired" }, { status: 401 });
 
-  // Basic weekend check (server-side safeguard)
   const dayOfWeek = new Date(`${date}T00:00:00`).getDay();
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    return NextResponse.json({ error: "weekend_date" }, { status: 400 });
+  if (dayOfWeek === 0) {
+    return NextResponse.json({ error: "sunday_date" }, { status: 400 });
   }
 
   try {
@@ -192,7 +207,52 @@ export async function POST(request: NextRequest) {
       [F.WorkTrials.SUPERVISOR]: branch.branchManager || undefined,
     });
 
-    return NextResponse.json({ ok: true, branchName: branch.name, date });
+    // Build scoring link for BM notification
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+    const scoringLink = appUrl
+      ? `${appUrl}/api/forms/get-link?type=bm-feedback&workTrialId=${payload.workTrialId}&candidateId=${payload.candidateId}`
+      : "";
+
+    // Fire and forget — don't fail the schedule if emails fail
+    const candidateName = payload.candidateName ?? "";
+    const candidatePhone = payload.candidatePhone ?? "";
+    const candidateEmail = payload.candidateEmail ?? "";
+
+    if (branch.bmEmail) {
+      sendBmWorkTrialNotification({
+        bmEmail: branch.bmEmail,
+        bmName: branch.branchManager,
+        branchName: branch.name,
+        candidateName,
+        candidatePhone,
+        candidateEmail,
+        date,
+        scoringLink,
+      }).catch((e) => console.error("[email] BM notification failed:", e));
+    }
+
+    if (candidateEmail) {
+      sendCandidateWorkTrialConfirmation({
+        candidateEmail,
+        candidateName,
+        branchName: branch.name,
+        branchAddress: branch.address,
+        mapPinUrl: branch.mapPinUrl,
+        bmName: branch.branchManager,
+        bmPhone: branch.bmPhone,
+        date,
+      }).catch((e) => console.error("[email] Candidate confirmation failed:", e));
+    }
+
+    return NextResponse.json({
+      ok: true,
+      branchName: branch.name,
+      branchAddress: branch.address,
+      mapPinUrl: branch.mapPinUrl,
+      bmName: branch.branchManager,
+      bmPhone: branch.bmPhone,
+      date,
+    });
   } catch (err) {
     console.error("[api/public/work-trial-request] schedule failed:", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });

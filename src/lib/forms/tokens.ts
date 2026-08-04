@@ -37,6 +37,10 @@ export type WorkTrialRequestTokenPayload = {
   type: "work-trial-request";
   candidateId: string;
   workTrialId: string;
+  // Carried so the schedule step can send email without a second Airtable lookup
+  candidateName?: string;
+  candidatePhone?: string;
+  candidateEmail?: string;
 };
 
 export async function signWorkTrialToken(payload: Omit<WorkTrialTokenPayload, "type">): Promise<string> {

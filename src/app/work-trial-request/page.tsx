@@ -5,8 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormShell, FormMessage } from "@/components/forms/form-shell";
+import { DatePickerCalendar } from "@/components/forms/date-picker-calendar";
+import { MapPin, Phone, Calendar, CheckCircle2 } from "lucide-react";
 
-type Branch = { id: string; name: string; city: string };
+type Branch = {
+  id: string;
+  name: string;
+  city: string;
+  address?: string;
+  mapPinUrl?: string;
+  bmName?: string;
+  bmPhone?: string;
+};
 
 type IdentifyResult = {
   sessionToken: string;
@@ -15,20 +25,21 @@ type IdentifyResult = {
   alreadyScheduled: boolean;
   selectedBranchName: string | null;
   selectedDate: string | null;
+  selectedBranchAddress: string | null;
+  selectedMapPinUrl: string | null;
+  selectedBmName: string | null;
+  selectedBmPhone: string | null;
 };
 
-function minMaxDate() {
-  const min = new Date();
-  min.setDate(min.getDate() + 3);
-  const max = new Date();
-  max.setDate(max.getDate() + 21);
-  return { min: min.toISOString().slice(0, 10), max: max.toISOString().slice(0, 10) };
-}
-
-function isWeekend(dateStr: string) {
-  const day = new Date(`${dateStr}T00:00:00`).getDay();
-  return day === 0 || day === 6;
-}
+type ScheduleResult = {
+  ok: boolean;
+  branchName: string;
+  branchAddress: string;
+  mapPinUrl: string;
+  bmName: string;
+  bmPhone: string;
+  date: string;
+};
 
 function formatDateDisplay(dateStr: string) {
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-KE", {
@@ -45,35 +56,53 @@ function WorkTrialRequestForm() {
 
   // Identify step
   const [name, setName] = React.useState("");
-  const [phoneLocal, setPhoneLocal] = React.useState(""); // 7XXXXXXXX
+  const [phoneLocal, setPhoneLocal] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [identifying, setIdentifying] = React.useState(false);
   const [identifyError, setIdentifyError] = React.useState<string | null>(null);
 
-  // Schedule step (populated after identify)
+  // Schedule step
   const [sessionToken, setSessionToken] = React.useState("");
   const [candidateName, setCandidateName] = React.useState("");
   const [branchId, setBranchId] = React.useState("");
   const [date, setDate] = React.useState("");
-  const [dateError, setDateError] = React.useState<string | null>(null);
   const [scheduling, setScheduling] = React.useState(false);
   const [scheduleError, setScheduleError] = React.useState<string | null>(null);
-  const [scheduledBranch, setScheduledBranch] = React.useState("");
-  const [scheduledDate, setScheduledDate] = React.useState("");
 
-  // Load branches on mount
+  // Confirmation data
+  const [confirmedBranchName, setConfirmedBranchName] = React.useState("");
+  const [confirmedBranchAddress, setConfirmedBranchAddress] = React.useState("");
+  const [confirmedMapPinUrl, setConfirmedMapPinUrl] = React.useState("");
+  const [confirmedBmName, setConfirmedBmName] = React.useState("");
+  const [confirmedBmPhone, setConfirmedBmPhone] = React.useState("");
+  const [confirmedDate, setConfirmedDate] = React.useState("");
+
+  // Earliest selectable date: tomorrow
+  const minDate = React.useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  // Latest: 60 days out
+  const maxDate = React.useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 60);
+    return d;
+  }, []);
+
   React.useEffect(() => {
     fetch("/api/public/work-trial-request")
       .then((r) => r.json())
       .then((d) => setBranches(d.branches ?? []))
-      .catch(() => {/* branches stay empty — handled below */});
+      .catch(() => {});
   }, []);
 
   function handlePhoneChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value.replace(/\D/g, ""); // digits only
-    // Must start with 7, max 9 digits
+    const raw = e.target.value.replace(/\D/g, "");
     if (raw.length === 0) { setPhoneLocal(""); return; }
-    if (raw[0] !== "7") return; // block other leading digits
+    if (raw[0] !== "7") return;
     setPhoneLocal(raw.slice(0, 9));
   }
 
@@ -99,8 +128,12 @@ function WorkTrialRequestForm() {
       setSessionToken(data.sessionToken);
 
       if (data.alreadyScheduled) {
-        setScheduledBranch(data.selectedBranchName ?? "");
-        setScheduledDate(data.selectedDate ?? "");
+        setConfirmedBranchName(data.selectedBranchName ?? "");
+        setConfirmedBranchAddress(data.selectedBranchAddress ?? "");
+        setConfirmedMapPinUrl(data.selectedMapPinUrl ?? "");
+        setConfirmedBmName(data.selectedBmName ?? "");
+        setConfirmedBmPhone(data.selectedBmPhone ?? "");
+        setConfirmedDate(data.selectedDate ?? "");
         setStep("done");
       } else {
         setStep("schedule");
@@ -118,11 +151,6 @@ function WorkTrialRequestForm() {
 
   async function handleSchedule(e: React.FormEvent) {
     e.preventDefault();
-    if (isWeekend(date)) {
-      setDateError("Please pick a weekday (Monday – Friday).");
-      return;
-    }
-    setDateError(null);
     setScheduleError(null);
     setScheduling(true);
     try {
@@ -134,16 +162,21 @@ function WorkTrialRequestForm() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "server_error");
 
-      setScheduledBranch(body.branchName ?? "");
-      setScheduledDate(body.date ?? date);
+      const data = body as ScheduleResult;
+      setConfirmedBranchName(data.branchName ?? "");
+      setConfirmedBranchAddress(data.branchAddress ?? "");
+      setConfirmedMapPinUrl(data.mapPinUrl ?? "");
+      setConfirmedBmName(data.bmName ?? "");
+      setConfirmedBmPhone(data.bmPhone ?? "");
+      setConfirmedDate(data.date ?? date);
       setStep("done");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       setScheduleError(
         msg === "session_expired"
           ? "Your session expired. Please go back and re-enter your details."
-          : msg === "weekend_date"
-          ? "Please pick a weekday (Monday – Friday)."
+          : msg === "sunday_date"
+          ? "Sundays are not available. Please pick a different day."
           : "Something went wrong. Please try again."
       );
     } finally {
@@ -151,9 +184,7 @@ function WorkTrialRequestForm() {
     }
   }
 
-  const { min, max } = minMaxDate();
-
-  // ── Identify step ────────────────────────────────────────────────────────────
+  // ── Identify step ─────────────────────────────────────────────────────────
   if (step === "identify") {
     return (
       <FormShell
@@ -229,14 +260,17 @@ function WorkTrialRequestForm() {
     );
   }
 
-  // ── Schedule step ─────────────────────────────────────────────────────────────
+  // ── Schedule step ─────────────────────────────────────────────────────────
   if (step === "schedule") {
+    const selectedBranch = branches.find((b) => b.id === branchId);
+
     return (
       <FormShell
         title="Choose your work trial"
         subtitle={`Hi ${candidateName}, please pick a branch and date below.`}
       >
         <form onSubmit={handleSchedule} className="space-y-6">
+          {/* Branch selector */}
           <div className="space-y-2">
             <Label>Choose a branch</Label>
             {branches.length === 0 ? (
@@ -253,33 +287,53 @@ function WorkTrialRequestForm() {
                     onClick={() => setBranchId(b.id)}
                     className={`text-left rounded-lg border p-3 transition-colors ${
                       branchId === b.id
-                        ? "border-penda-teal bg-penda-teal/5"
+                        ? "border-penda-teal bg-penda-teal/5 ring-1 ring-penda-teal/30"
                         : "border-border hover:border-penda-teal/50"
                     }`}
                   >
                     <p className="font-medium text-sm">{b.name}</p>
                     {b.city && <p className="text-xs text-muted-foreground mt-0.5">{b.city}</p>}
+                    {branchId === b.id && b.address && (
+                      <p className="text-xs text-muted-foreground mt-1 flex items-start gap-1">
+                        <MapPin className="h-3 w-3 mt-0.5 shrink-0 text-penda-teal" />
+                        {b.address}
+                      </p>
+                    )}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
+          {/* Date picker */}
           <div className="space-y-2">
-            <Label htmlFor="date">Preferred date</Label>
-            <input
-              id="date"
-              type="date"
-              required
-              min={min}
-              max={max}
+            <Label>Preferred date</Label>
+            <DatePickerCalendar
               value={date}
-              onChange={(e) => { setDate(e.target.value); setDateError(null); }}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              onChange={setDate}
+              minDate={minDate}
+              maxDate={maxDate}
+              placeholder="Select a date"
             />
-            {dateError && <p className="text-sm text-destructive">{dateError}</p>}
-            <p className="text-xs text-muted-foreground">Weekdays only, 3–21 days from today.</p>
+            <p className="text-xs text-muted-foreground">
+              Available from tomorrow · Monday – Saturday · up to 60 days ahead
+            </p>
           </div>
+
+          {/* Branch + date preview */}
+          {selectedBranch && date && (
+            <div className="rounded-lg border border-penda-teal/30 bg-penda-teal/5 p-3 text-sm space-y-1">
+              <p className="font-medium text-penda-teal">Your selection</p>
+              <p className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-penda-teal" />
+                {selectedBranch.name}{selectedBranch.city ? `, ${selectedBranch.city}` : ""}
+              </p>
+              <p className="flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 shrink-0 text-penda-teal" />
+                {formatDateDisplay(date)}
+              </p>
+            </div>
+          )}
 
           {scheduleError && <p className="text-sm text-destructive">{scheduleError}</p>}
 
@@ -295,25 +349,69 @@ function WorkTrialRequestForm() {
     );
   }
 
-  // ── Done ──────────────────────────────────────────────────────────────────────
+  // ── Confirmation ──────────────────────────────────────────────────────────
   return (
-    <FormShell title="You&apos;re all set!" subtitle={`Hi ${candidateName}`}>
-      <FormMessage>
-        <p>
-          Your work trial is confirmed at{" "}
-          <strong>{scheduledBranch}</strong>
-          {scheduledDate && (
-            <>
-              {" "}on <strong>{formatDateDisplay(scheduledDate)}</strong>
-            </>
+    <FormShell title="You're confirmed!" subtitle={`Great news, ${candidateName}`}>
+      <div className="space-y-4">
+        {/* Tick + date hero */}
+        <div className="flex flex-col items-center gap-2 py-4">
+          <CheckCircle2 className="h-14 w-14 text-penda-teal" />
+          {confirmedDate && (
+            <p className="text-lg font-semibold text-center">{formatDateDisplay(confirmedDate)}</p>
           )}
-          .
-        </p>
-        <p>
-          Please arrive on time and bring a valid ID. If you need to make changes, contact{" "}
-          <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
-        </p>
-      </FormMessage>
+        </div>
+
+        {/* Branch card */}
+        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+          <div>
+            <p className="font-semibold">{confirmedBranchName}</p>
+            {confirmedBranchAddress && (
+              <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-line">{confirmedBranchAddress}</p>
+            )}
+          </div>
+
+          {confirmedMapPinUrl && (
+            <a
+              href={confirmedMapPinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 font-medium transition-colors"
+            >
+              <MapPin className="h-4 w-4" />
+              Open in Google Maps
+            </a>
+          )}
+
+          {confirmedBmName && (
+            <div className="border-t border-border pt-3">
+              <p className="text-xs text-muted-foreground font-medium mb-1">Your supervisor</p>
+              <p className="text-sm font-medium">{confirmedBmName}</p>
+              {confirmedBmPhone && (
+                <a
+                  href={`tel:${confirmedBmPhone}`}
+                  className="inline-flex items-center gap-1 text-sm text-penda-teal mt-0.5"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  {confirmedBmPhone}
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+
+        <FormMessage>
+          <ul className="space-y-1 text-sm">
+            <li>Please arrive on time — the trial usually runs for one full day.</li>
+            <li>Bring a valid national ID or passport.</li>
+            <li>Dress professionally and bring a pen.</li>
+            <li>A confirmation has been sent to your email.</li>
+          </ul>
+          <p className="text-sm mt-2">
+            Need to make changes? Contact{" "}
+            <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
+          </p>
+        </FormMessage>
+      </div>
     </FormShell>
   );
 }

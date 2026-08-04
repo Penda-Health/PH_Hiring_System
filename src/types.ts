@@ -73,9 +73,13 @@ export interface Branch {
   city: string;
   region: string;
   branchManager: string;
+  bmEmail: string;
+  bmPhone: string;
   regionalManager: string;
   capacity: number;
   active: boolean;
+  address: string;
+  mapPinUrl: string;
 }
 
 export type RequisitionLevel =
