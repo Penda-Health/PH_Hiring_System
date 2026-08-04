@@ -148,6 +148,7 @@ export const F = {
     FORM_SUBMITTED_AT: "Form Submitted At",
     SUBMITTED_BY_ROLE: "Submitted By Role",
     BM_APPROVED_AT: "BM Approved At",
+    BM_SCORING_LINK: "BM Scoring Link",
     REMINDER_12H_SENT: "Reminder 12h Sent",
     ESCALATION_24H_SENT: "Escalation 24h Sent",
   },

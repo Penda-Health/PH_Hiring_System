@@ -3,7 +3,7 @@
 // Safe to embed in ATS auto-messages — no candidate-specific data in the URL.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { signWorkTrialRequestToken, verifyWorkTrialRequestToken } from "@/lib/forms/tokens";
+import { signWorkTrialRequestToken, verifyWorkTrialRequestToken, signBmFeedbackToken } from "@/lib/forms/tokens";
 import { listRecords, listRecordsFiltered, createRecord, updateRecord } from "@/lib/airtable/client";
 import { TABLE_NAMES, F } from "@/lib/airtable/field-names";
 import {
@@ -11,10 +11,6 @@ import {
   workTrialFromAirtable,
   branchFromAirtable,
 } from "@/lib/airtable/mappers";
-import {
-  sendBmWorkTrialNotification,
-  sendCandidateWorkTrialConfirmation,
-} from "@/lib/email";
 
 // ── Phone helpers ─────────────────────────────────────────────────────────────
 
@@ -23,6 +19,10 @@ function normalizePhone(raw: string): string {
   if (digits.startsWith("254")) return digits;
   if (digits.startsWith("0")) return `254${digits.slice(1)}`;
   return `254${digits}`;
+}
+
+function appUrl() {
+  return (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
 }
 
 // ── Sequential ID helpers ─────────────────────────────────────────────────────
@@ -201,48 +201,17 @@ export async function POST(request: NextRequest) {
     const branch = branchRecords.map(branchFromAirtable).find((b) => b.id === branchId);
     if (!branch) return NextResponse.json({ error: "invalid_branch" }, { status: 400 });
 
+    // Generate a long-lived BM scoring link (90 days) stored on the record.
+    // Airtable automations read {BM Scoring Link} directly — no code needed to send it.
+    const bmToken = await signBmFeedbackToken({ workTrialId: payload.workTrialId, candidateId: payload.candidateId }, "90d");
+    const bmScoringLink = appUrl() ? `${appUrl()}/bm-feedback?token=${bmToken}` : "";
+
     await updateRecord(TABLE_NAMES.WorkTrials, payload.workTrialId, {
       [F.WorkTrials.BRANCH]: [branchId],
       [F.WorkTrials.DATE]: date,
       [F.WorkTrials.SUPERVISOR]: branch.branchManager || undefined,
+      ...(bmScoringLink ? { [F.WorkTrials.BM_SCORING_LINK]: bmScoringLink } : {}),
     });
-
-    // Build scoring link for BM notification
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
-    const scoringLink = appUrl
-      ? `${appUrl}/api/forms/get-link?type=bm-feedback&workTrialId=${payload.workTrialId}&candidateId=${payload.candidateId}`
-      : "";
-
-    // Fire and forget — don't fail the schedule if emails fail
-    const candidateName = payload.candidateName ?? "";
-    const candidatePhone = payload.candidatePhone ?? "";
-    const candidateEmail = payload.candidateEmail ?? "";
-
-    if (branch.bmEmail) {
-      sendBmWorkTrialNotification({
-        bmEmail: branch.bmEmail,
-        bmName: branch.branchManager,
-        branchName: branch.name,
-        candidateName,
-        candidatePhone,
-        candidateEmail,
-        date,
-        scoringLink,
-      }).catch((e) => console.error("[email] BM notification failed:", e));
-    }
-
-    if (candidateEmail) {
-      sendCandidateWorkTrialConfirmation({
-        candidateEmail,
-        candidateName,
-        branchName: branch.name,
-        branchAddress: branch.address,
-        mapPinUrl: branch.mapPinUrl,
-        bmName: branch.branchManager,
-        bmPhone: branch.bmPhone,
-        date,
-      }).catch((e) => console.error("[email] Candidate confirmation failed:", e));
-    }
 
     return NextResponse.json({
       ok: true,

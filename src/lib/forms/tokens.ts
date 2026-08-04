@@ -51,11 +51,14 @@ export async function signWorkTrialToken(payload: Omit<WorkTrialTokenPayload, "t
     .sign(secret());
 }
 
-export async function signBmFeedbackToken(payload: Omit<BmFeedbackTokenPayload, "type">): Promise<string> {
+export async function signBmFeedbackToken(
+  payload: Omit<BmFeedbackTokenPayload, "type">,
+  expiresIn = "5d"
+): Promise<string> {
   return new SignJWT({ type: "bm-feedback", ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("5d")
+    .setExpirationTime(expiresIn)
     .sign(secret());
 }
 
