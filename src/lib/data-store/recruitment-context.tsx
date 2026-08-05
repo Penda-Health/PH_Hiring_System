@@ -34,7 +34,7 @@ function dedupWorkTrials(trials: WorkTrial[]): WorkTrial[] {
 import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
 import { listResource, createResource, updateResource, deleteResource } from "@/lib/airtable/browser-api";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canEditRecruitmentData } from "@/lib/permissions";
+import { canEditRecruitmentData, canDeleteRecords } from "@/lib/permissions";
 
 type RecruitmentDataContextValue = {
   loading: boolean;
@@ -43,6 +43,8 @@ type RecruitmentDataContextValue = {
   error: string | null;
   /** Recruitment User/Manager only — Branch Manager and Contributor are view-only. UI affordance; the real check is server-side in middleware. */
   canEdit: boolean;
+  /** Recruitment Manager only — can delete records such as work trials. */
+  canDelete: boolean;
   /** Manually trigger a core data refresh (open-roles + candidates). Also called automatically every 60 s and on tab focus. */
   refresh: () => Promise<void>;
 
@@ -121,6 +123,7 @@ function guardEdit(canEdit: boolean, action: string): boolean {
 export function RecruitmentDataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const canEdit = canEditRecruitmentData(user?.role);
+  const canDelete = canDeleteRecords(user?.role);
   const [loading, setLoading] = React.useState(true);
   const [extendedLoading, setExtendedLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -627,6 +630,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       extendedLoading,
       error,
       canEdit,
+      canDelete,
       refresh: refreshCoreData,
       branches,
       openRoles,

@@ -372,7 +372,7 @@ export function WorkTrialCard({
   onUpdate?: (id: string, patch: Partial<WorkTrial>) => void;
   onDelete?: (id: string) => void;
 }) {
-  const { candidates, branches, openRoles, canEdit } = useRecruitmentData();
+  const { candidates, branches, openRoles, canEdit, canDelete } = useRecruitmentData();
   const [scoreDialogOpen, setScoreDialogOpen] = React.useState(false);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = React.useState(false);
@@ -433,14 +433,14 @@ export function WorkTrialCard({
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             )}
-            {isOrphaned && canEdit && onDelete && (
+            {canDelete && onDelete && (
               <button
                 type="button"
                 onClick={handleDelete}
-                title="Delete orphaned record"
+                title="Delete work trial"
                 className="text-destructive/60 hover:text-destructive transition-colors"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
             )}
             <Badge className={STATUS_STYLES[status]}>{status}</Badge>

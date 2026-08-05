@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, ClipboardCheck, Copy, LayoutList, Columns3, RefreshCw } from "lucide-react";
+import { Check, ClipboardCheck, Copy, LayoutList, Columns3, RefreshCw, Trash2 } from "lucide-react";
 import { getDisplayStatus, getCandidateForTrial, getBranchForTrial } from "@/lib/work-trial-helpers";
 import { ManualReviewDialog } from "@/components/work-trials/work-trial-card";
 
@@ -41,7 +41,7 @@ async function getFormLink(body: Record<string, unknown>): Promise<string> {
 export default function WorkTrialsPage() {
   const {
     workTrials, candidates, branches, openRoles,
-    createWorkTrial, updateWorkTrial, deleteWorkTrial, submitWorkTrialScores, canEdit,
+    createWorkTrial, updateWorkTrial, deleteWorkTrial, submitWorkTrialScores, canEdit, canDelete,
   } = useRecruitmentData();
 
   const [view, setView] = React.useState<ViewMode>("kanban");
@@ -385,6 +385,21 @@ export default function WorkTrialsPage() {
                             {copiedLinkId === trial.id
                               ? <Check className="h-3.5 w-3.5 text-penda-teal" />
                               : <Copy className="h-3.5 w-3.5" />}
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
+                            title="Delete work trial"
+                            onClick={() => {
+                              if (window.confirm(`Delete ${candidate?.name ?? "this"}'s work trial? This cannot be undone.`)) {
+                                deleteWorkTrial(trial.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         )}
                       </div>

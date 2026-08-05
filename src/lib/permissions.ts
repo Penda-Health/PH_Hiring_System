@@ -45,6 +45,11 @@ export function canEditRecruitmentData(role: UserRoleName | undefined): boolean 
   return roleRank(role) >= ROLE_HIERARCHY.indexOf("recruitment_user");
 }
 
+/** Only Recruitment Managers can delete records (work trials, etc.). */
+export function canDeleteRecords(role: UserRoleName | undefined): boolean {
+  return roleRank(role) >= ROLE_HIERARCHY.indexOf("recruitment_manager");
+}
+
 // Airtable-backed resources whose mutating requests (anything but GET) are
 // restricted to canEditRecruitmentData() roles. Read access (GET) stays open
 // to every signed-in, domain-allowed user. Public form/automation routes
