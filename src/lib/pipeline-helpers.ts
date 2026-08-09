@@ -1,4 +1,4 @@
-import { Candidate, OpenRole } from "@/types";
+import { Candidate, OpenRole, Segment } from "@/types";
 
 // activeCandidateCountForRole() used to live here as its own separate
 // whitelist of stages — it happened to be exactly the complement of
@@ -10,6 +10,42 @@ import { Candidate, OpenRole } from "@/types";
 
 export function getRoleForCandidate(candidate: Candidate, openRoles: OpenRole[]): OpenRole | undefined {
   return openRoles.find((r) => r.id === candidate.roleId);
+}
+
+// Locums fill in wherever needed rather than against one specific open role,
+// so they're commonly saved with a segment/department but no roleId. Rather
+// than show a bare "Unknown role" for them, stand in with the short job-title
+// stub the business already uses for that department (matching the naming
+// real Locum open roles use, e.g. "Labtech - Locum") — falling back to the
+// department name itself for departments without an established stub.
+const IPS_LOCUM_ROLE_STUBS: Partial<Record<string, string>> = {
+  Pharmacy: "Pharmtech",
+  Laboratory: "Labtech",
+  "Clinical Services": "Clinical Officer",
+  Nursing: "Nurse",
+  Sonography: "Sonographer",
+};
+
+export interface CandidateRoleDisplay {
+  title: string;
+  segment?: Segment;
+  /** True when this wasn't a real linked OpenRole — synthesized for an unassigned Locum. */
+  isFiller?: boolean;
+}
+
+export function getCandidateRoleDisplay(candidate: Candidate, openRoles: OpenRole[]): CandidateRoleDisplay {
+  const role = getRoleForCandidate(candidate, openRoles);
+  if (role) return { title: role.title, segment: role.segment };
+
+  if (candidate.employmentType === "Locum" && candidate.department) {
+    const stub =
+      candidate.segment === "IPS"
+        ? IPS_LOCUM_ROLE_STUBS[candidate.department] ?? candidate.department
+        : candidate.department;
+    return { title: `${stub} - Locum`, segment: candidate.segment, isFiller: true };
+  }
+
+  return { title: "Unknown role" };
 }
 
 export function daysInStage(stageEnteredAt: string): number {

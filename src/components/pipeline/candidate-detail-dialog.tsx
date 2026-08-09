@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { getRoleForCandidate, daysInStage } from "@/lib/pipeline-helpers";
+import { getRoleForCandidate, getCandidateRoleDisplay, daysInStage } from "@/lib/pipeline-helpers";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 
 export function CandidateDetailDialog({
@@ -22,6 +22,7 @@ export function CandidateDetailDialog({
 }) {
   const { openRoles } = useRecruitmentData();
   const role = candidate ? getRoleForCandidate(candidate, openRoles) : undefined;
+  const roleDisplay = candidate ? getCandidateRoleDisplay(candidate, openRoles) : undefined;
 
   return (
     <Dialog open={!!candidate} onOpenChange={onOpenChange}>
@@ -31,12 +32,14 @@ export function CandidateDetailDialog({
             <DialogHeader>
               <DialogTitle>{candidate.name}</DialogTitle>
               <DialogDescription>
-                {role?.title ?? "Unknown role"} · {candidate.stage}
+                {roleDisplay?.title ?? "Unknown role"} · {candidate.stage}
               </DialogDescription>
             </DialogHeader>
 
             <div className="flex flex-wrap gap-2">
-              {role && <Badge variant={role.segment === "IPS" ? "ips" : "so"}>{role.segment}</Badge>}
+              {roleDisplay?.segment && (
+                <Badge variant={roleDisplay.segment === "IPS" ? "ips" : "so"}>{roleDisplay.segment}</Badge>
+              )}
               {role && (
                 <Badge variant={role.priority === "Critical" ? "critical" : role.priority === "High" ? "high" : "outline"}>
                   {role.priority}

@@ -3,7 +3,7 @@
 import { Candidate } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { getRoleForCandidate, daysInStage } from "@/lib/pipeline-helpers";
+import { getRoleForCandidate, getCandidateRoleDisplay, daysInStage } from "@/lib/pipeline-helpers";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 
 export function CandidateCard({
@@ -15,6 +15,7 @@ export function CandidateCard({
 }) {
   const { openRoles } = useRecruitmentData();
   const role = getRoleForCandidate(candidate, openRoles);
+  const roleDisplay = getCandidateRoleDisplay(candidate, openRoles);
   const days = daysInStage(candidate.stageEnteredAt);
 
   return (
@@ -26,9 +27,11 @@ export function CandidateCard({
         <CardContent className="p-3 space-y-2">
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm font-medium leading-tight">{candidate.name}</p>
-            {role && <Badge variant={role.segment === "IPS" ? "ips" : "so"}>{role.segment}</Badge>}
+            {roleDisplay.segment && (
+              <Badge variant={roleDisplay.segment === "IPS" ? "ips" : "so"}>{roleDisplay.segment}</Badge>
+            )}
           </div>
-          <p className="text-xs text-muted-foreground">{role?.title ?? "Unknown role"}</p>
+          <p className="text-xs text-muted-foreground">{roleDisplay.title}</p>
           <div className="flex items-center justify-between">
             {role && (
               <Badge variant={role.priority === "Critical" ? "critical" : role.priority === "High" ? "high" : "outline"}>

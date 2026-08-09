@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getRoleForCandidate } from "@/lib/pipeline-helpers";
+import { getCandidateRoleDisplay } from "@/lib/pipeline-helpers";
 
 function safeDate(iso: string | undefined | null): string {
   if (!iso) return "—";
@@ -66,7 +66,7 @@ export function CandidatesTable({
       </TableHeader>
       <TableBody>
         {candidates.map((candidate) => {
-          const role = getRoleForCandidate(candidate, openRoles);
+          const roleDisplay = getCandidateRoleDisplay(candidate, openRoles);
           const displayName = candidate.name || "(no name)";
           return (
             <TableRow
@@ -80,11 +80,13 @@ export function CandidatesTable({
                   <p className="text-xs text-muted-foreground">{candidate.email}</p>
                 )}
               </TableCell>
-              <TableCell className={role ? "text-muted-foreground" : "text-muted-foreground/50 italic"}>
-                {role?.title ?? "Unknown role"}
+              <TableCell className={roleDisplay.segment ? "text-muted-foreground" : "text-muted-foreground/50 italic"}>
+                {roleDisplay.title}
               </TableCell>
               <TableCell>
-                {role && <Badge variant={role.segment === "IPS" ? "ips" : "so"}>{role.segment}</Badge>}
+                {roleDisplay.segment && (
+                  <Badge variant={roleDisplay.segment === "IPS" ? "ips" : "so"}>{roleDisplay.segment}</Badge>
+                )}
               </TableCell>
               <TableCell>
                 <Badge variant="secondary">{candidate.stage}</Badge>
