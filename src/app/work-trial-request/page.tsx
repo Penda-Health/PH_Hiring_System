@@ -75,6 +75,8 @@ function formatDateDisplay(dateStr: string) {
   });
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function WorkTrialRequestForm() {
   const [branches, setBranches] = React.useState<Branch[]>([]);
   const [specialtyConfigs, setSpecialtyConfigs] = React.useState<SpecialtyConfig[]>([]);
@@ -133,17 +135,21 @@ function WorkTrialRequestForm() {
   }, []);
 
   function handlePhoneChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value.replace(/\D/g, "");
-    if (raw.length === 0) { setPhoneLocal(""); return; }
-    if (raw[0] !== "7") return;
-    setPhoneLocal(raw.slice(0, 9));
+    setPhoneLocal(e.target.value.replace(/\D/g, "").slice(0, 9));
   }
+
+  const phoneValid = phoneLocal.length === 9 && phoneLocal[0] === "7";
+  const emailValid = EMAIL_RE.test(email.trim());
 
   async function handleIdentify(e: React.FormEvent) {
     e.preventDefault();
     setIdentifyError(null);
-    if (phoneLocal.length !== 9) {
+    if (!phoneValid) {
       setIdentifyError("Enter your 9-digit number starting with 7 (e.g. 712 345 678).");
+      return;
+    }
+    if (!emailValid) {
+      setIdentifyError("Enter a valid email address.");
       return;
     }
     setIdentifying(true);
@@ -305,13 +311,20 @@ function WorkTrialRequestForm() {
                 value={phoneLocal}
                 onChange={handlePhoneChange}
                 placeholder="712 345 678"
-                className="rounded-l-none"
+                className={`rounded-l-none ${phoneLocal && !phoneValid ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 maxLength={9}
+                aria-invalid={phoneLocal ? !phoneValid : undefined}
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              Enter your 9-digit number starting with 7 — e.g. <strong>712 345 678</strong>
-            </p>
+            {phoneLocal && !phoneValid ? (
+              <p className="text-xs text-destructive">
+                Must be 9 digits and start with 7 — e.g. <strong>712 345 678</strong>
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Enter your 9-digit number starting with 7 — e.g. <strong>712 345 678</strong>
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -324,7 +337,12 @@ function WorkTrialRequestForm() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="jane@example.com"
               autoComplete="email"
+              className={email.trim() && !emailValid ? "border-destructive focus-visible:ring-destructive" : ""}
+              aria-invalid={email.trim() ? !emailValid : undefined}
             />
+            {email.trim() && !emailValid && (
+              <p className="text-xs text-destructive">Enter a valid email address, e.g. jane@example.com.</p>
+            )}
           </div>
 
           {identifyError && (
@@ -334,7 +352,7 @@ function WorkTrialRequestForm() {
           <Button
             type="submit"
             className="w-full bg-penda-blue hover:bg-penda-blue-dark"
-            disabled={identifying || !name.trim() || phoneLocal.length !== 9 || !email.trim()}
+            disabled={identifying || !name.trim() || !phoneValid || !emailValid}
           >
             {identifying ? "Looking up your record…" : "Continue"}
           </Button>

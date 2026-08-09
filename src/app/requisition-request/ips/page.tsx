@@ -149,7 +149,14 @@ export default function PublicIpsRequisitionRequestPage() {
           </div>
           <div className="space-y-1.5">
             <Label>Your work email</Label>
-            <Input type="email" value={submitterEmail} onChange={(e) => setSubmitterEmail(e.target.value)} required />
+            <Input
+              type="email"
+              value={submitterEmail}
+              onChange={(e) => setSubmitterEmail(e.target.value)}
+              required
+              className={submitterEmail.trim() && !emailValid ? "border-destructive focus-visible:ring-destructive" : ""}
+              aria-invalid={submitterEmail.trim() ? !emailValid : undefined}
+            />
             {submitterEmail.trim() && !emailValid && (
               <p className="text-xs text-destructive">Must be a {PENDA_EMAIL_DOMAIN} email address.</p>
             )}
