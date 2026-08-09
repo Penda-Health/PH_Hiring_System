@@ -7,7 +7,7 @@ import { Segment } from "@/types";
 // of truth for every requisition-creation form.
 export const IPS_FUNCTIONS = [
   "MCMT",
-  "Clinical",
+  "Clinical Services",
   "Nursing",
   "Pharmacy",
   "Laboratory",

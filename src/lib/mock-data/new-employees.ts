@@ -18,7 +18,7 @@ export const newEmployees: NewEmployee[] = [
     candidateId: "cand-22",
     name: "Collins Were",
     role: "Nurse",
-    department: "Clinical",
+    department: "Clinical Services",
     branchId: "br-7",
     startDate: "2026-05-28",
     employmentType: "Full-time",
