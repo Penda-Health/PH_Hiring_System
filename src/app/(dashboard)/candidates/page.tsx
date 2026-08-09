@@ -23,7 +23,6 @@ export default function CandidatesPage() {
   const {
     candidates,
     openRoles,
-    branches,
     canEdit,
     canDelete,
     createCandidate,
