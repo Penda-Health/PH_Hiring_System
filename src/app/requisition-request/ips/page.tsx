@@ -15,7 +15,7 @@ const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · IPS Requisition",
   headline: "Turn an approved gap into an open role.",
   lede: "Use this once the role's approval is complete — it enters the hiring pipeline as soon as you submit.",
-  footer: "Questions? ta@penda.co.ke",
+  footer: "Questions? careers@pendahealth.com",
 };
 
 const GAP_REASONS: { value: GapReason; label: string; description: string }[] = [

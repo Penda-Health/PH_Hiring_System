@@ -12,9 +12,9 @@ const BRAND: FormShellBrand = {
   lede: "It's usually just one day — enough for us to see your skills in action, and for you to get a feel for the team.",
   stats: [
     { value: "1 day", label: "Typical length" },
-    { value: "Paid", label: "Compensated trial" },
+    { value: "KES 1,000", label: "Reimbursed post-onboarding" },
   ],
-  footer: "Questions? ta@penda.co.ke",
+  footer: "Questions? careers@pendahealth.com",
 };
 
 type Branch = { id: string; name: string; city: string; branchManager: string };
@@ -75,7 +75,7 @@ function WorkTrialForm() {
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>
-            Email: <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>
+            Email: <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>
           </p>
         </FormMessage>
       </FormShell>
@@ -86,7 +86,7 @@ function WorkTrialForm() {
     return (
       <FormShell brand={BRAND} title="Something went wrong" subtitle="We couldn't load your work trial details.">
         <FormMessage>
-          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
+          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.</p>
         </FormMessage>
       </FormShell>
     );
@@ -108,7 +108,7 @@ function WorkTrialForm() {
             Your work trial is confirmed for <strong>{date}</strong> at{" "}
             <strong>{data.branches.find((b) => b.id === branchId)?.name}</strong>.
           </p>
-          <p>You&apos;ll receive a confirmation email shortly. If you need to make changes, contact ta@penda.co.ke.</p>
+          <p>You&apos;ll receive a confirmation email shortly. If you need to make changes, contact careers@pendahealth.com.</p>
         </FormMessage>
       </FormShell>
     );
@@ -124,7 +124,7 @@ function WorkTrialForm() {
           </p>
           <p>
             Check your email for confirmation. To make changes, contact{" "}
-            <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
+            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.
           </p>
         </FormMessage>
       </FormShell>
@@ -135,7 +135,7 @@ function WorkTrialForm() {
     return (
       <FormShell brand={BRAND} title="No branches available" subtitle={`Hi ${data.candidateName}`}>
         <FormMessage>
-          <p>Please contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> to arrange your work trial date.</p>
+          <p>Please contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a> to arrange your work trial date.</p>
         </FormMessage>
       </FormShell>
     );
@@ -177,9 +177,10 @@ function WorkTrialForm() {
     >
       <div className="space-y-6">
         <p className="text-sm text-foreground/80">
-          A work trial is a short, paid opportunity to work alongside our team at one of our branches so we can
-          see your skills in action — and so you can get a feel for life at Penda Health. It usually lasts a
-          single day. Please pick the branch and date that work best for you below.
+          A work trial is a short opportunity to work alongside our team at one of our branches so we can see
+          your skills in action — and so you can get a feel for life at Penda Health. It usually lasts a single
+          day, and we reimburse KES 1,000 post-onboarding for transport, lunch, and other costs on the day.
+          Please pick the branch and date that work best for you below.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">

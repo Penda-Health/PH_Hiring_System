@@ -9,7 +9,7 @@ const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · 6-Month Check-in",
   headline: "A quick confirmation, six months in.",
   lede: "We check in with every new hire's manager around the 6-month mark to keep our records accurate.",
-  footer: "Questions? ta@penda.co.ke",
+  footer: "Questions? careers@pendahealth.com",
 };
 
 type FormData = {
@@ -51,7 +51,7 @@ function ConfirmEmploymentForm() {
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>
-            Email: <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>
+            Email: <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>
           </p>
         </FormMessage>
       </FormShell>
@@ -62,7 +62,7 @@ function ConfirmEmploymentForm() {
     return (
       <FormShell brand={BRAND} title="Something went wrong" subtitle="We couldn't load this confirmation request.">
         <FormMessage>
-          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
+          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.</p>
         </FormMessage>
       </FormShell>
     );
@@ -90,7 +90,7 @@ function ConfirmEmploymentForm() {
     return (
       <FormShell brand={BRAND} title="Already responded" subtitle={`Confirmation for ${data.employeeName}`}>
         <FormMessage>
-          <p>This confirmation has already been recorded. Contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> with any questions.</p>
+          <p>This confirmation has already been recorded. Contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a> with any questions.</p>
         </FormMessage>
       </FormShell>
     );

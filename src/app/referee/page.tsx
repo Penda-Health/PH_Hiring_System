@@ -12,7 +12,7 @@ const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · Reference Check",
   headline: "A few honest minutes from you helps us get this hire right.",
   lede: "You were listed as a reference — your perspective on their work is one of the most valuable inputs we get.",
-  footer: "Questions? ta@penda.co.ke",
+  footer: "Questions? careers@pendahealth.com",
 };
 
 type FormData = {
@@ -99,7 +99,7 @@ function RefereeForm() {
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>
-            Email: <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>
+            Email: <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>
           </p>
         </FormMessage>
       </FormShell>
@@ -110,7 +110,7 @@ function RefereeForm() {
     return (
       <FormShell brand={BRAND} title="Something went wrong">
         <FormMessage>
-          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
+          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.</p>
         </FormMessage>
       </FormShell>
     );
@@ -140,7 +140,7 @@ function RefereeForm() {
         <FormMessage>
           <p>
             You&apos;ve already submitted a reference for {data.candidateName}. Contact{" "}
-            <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> if you need to make a
+            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a> if you need to make a
             correction.
           </p>
         </FormMessage>

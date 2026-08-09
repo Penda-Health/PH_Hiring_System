@@ -23,7 +23,7 @@ const BRAND: FormShellBrand = {
     { value: "40/40/20", label: "Culture · Patient · Technical" },
     { value: "≤6/10", label: "Auto-fail threshold" },
   ],
-  footer: "Questions? ta@penda.co.ke",
+  footer: "Questions? careers@pendahealth.com",
 };
 
 type FormData = {
@@ -162,7 +162,7 @@ function BmFeedbackForm() {
       <FormShell brand={BRAND} title="Link expired" subtitle="This feedback link is no longer valid.">
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
-          <p>Email: <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a></p>
+          <p>Email: <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a></p>
         </FormMessage>
       </FormShell>
     );
@@ -172,7 +172,7 @@ function BmFeedbackForm() {
     return (
       <FormShell brand={BRAND} title="Something went wrong">
         <FormMessage>
-          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
+          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.</p>
         </FormMessage>
       </FormShell>
     );
@@ -782,7 +782,7 @@ function BmFeedbackForm() {
           </div>
 
           <p className="text-xs text-muted-foreground text-center">
-            If scores need correction, contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
+            If scores need correction, contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.
           </p>
         </div>
       </FormShell>
@@ -821,7 +821,7 @@ function BmFeedbackForm() {
       return (
         <FormShell brand={BRAND} title="Already submitted" subtitle={header}>
           <FormMessage>
-            <p>This assessment has already been submitted. Contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> if you need to make a correction.</p>
+            <p>This assessment has already been submitted. Contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a> if you need to make a correction.</p>
           </FormMessage>
         </FormShell>
       );

@@ -12,10 +12,10 @@ const BRAND: FormShellBrand = {
   headline: "You're one step from your work trial.",
   lede: "Pick a branch and a day that works — we'll have your supervisor and paperwork ready when you arrive.",
   stats: [
-    { value: "9–5", label: "Paid, full day" },
-    { value: "60", label: "Days out to pick from" },
+    { value: "9–5", label: "Full day, on-site" },
+    { value: "2 wks", label: "Days out to pick from" },
   ],
-  footer: "Questions? ta@penda.co.ke",
+  footer: "Questions? careers@pendahealth.com",
 };
 
 type Branch = {
@@ -114,10 +114,10 @@ function WorkTrialRequestForm() {
     return d;
   }, []);
 
-  // Latest: 60 days out
+  // Latest: 2 weeks out
   const maxDate = React.useMemo(() => {
     const d = new Date();
-    d.setDate(d.getDate() + 60);
+    d.setDate(d.getDate() + 14);
     return d;
   }, []);
 
@@ -174,7 +174,7 @@ function WorkTrialRequestForm() {
     } catch (err) {
       setIdentifyError(
         err instanceof Error && err.message === "server_error"
-          ? "Something went wrong. Please try again or contact ta@penda.co.ke."
+          ? "Something went wrong. Please try again or contact careers@pendahealth.com."
           : (err instanceof Error ? err.message : "Something went wrong.")
       );
     } finally {
@@ -266,9 +266,23 @@ function WorkTrialRequestForm() {
         subtitle="Enter your details below to confirm your work trial at Penda Health."
       >
         <form onSubmit={handleIdentify} className="space-y-5">
-          <div className="rounded-lg border border-penda-blue-light/50 bg-penda-blue/5 p-3 text-sm text-foreground/80 space-y-1">
-            <p>A work trial is a paid, full-day opportunity to work alongside our team at one of our branches.</p>
-            <p className="font-medium">Hours: 9:00 AM – 5:00 PM. Please ensure you are available for the entire day.</p>
+          <div className="rounded-lg border border-penda-blue-light/50 bg-penda-blue/5 p-4 text-sm text-foreground/80 space-y-2.5">
+            <p className="font-medium text-foreground">Congratulations on making it to the work trial stage!</p>
+            <p>
+              A work trial is a full-day opportunity to work alongside our team at one of our branches, from
+              9:00 AM – 5:00 PM. Please ensure you&apos;re available for the entire day.
+            </p>
+            <p>
+              As part of our benefits, we reimburse <span className="font-medium text-foreground">KES 1,000</span>{" "}
+              post-onboarding for any work trial attended, to cover transport, lunch, and other costs associated
+              with the day.
+            </p>
+            <p className="border-t border-penda-blue-light/40 pt-2.5">
+              <span className="font-medium text-foreground">What to expect: </span>
+              It runs much like a normal working day, but with added exposure to the Penda Way, our systems, our
+              patients, and interactions with other teams and departments. The Branch Manager/Incharge will be
+              with you throughout the day to guide you.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -384,8 +398,8 @@ function WorkTrialRequestForm() {
               {specialtyConfigs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No specialist work trials are currently available. Contact{" "}
-                  <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">
-                    ta@penda.co.ke
+                  <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
+                    careers@pendahealth.com
                   </a>{" "}
                   for assistance.
                 </p>
@@ -472,7 +486,7 @@ function WorkTrialRequestForm() {
             {filteredBranches.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No branches available right now. Contact{" "}
-                <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
+                <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.
               </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -521,8 +535,8 @@ function WorkTrialRequestForm() {
             />
             <p className="text-xs text-muted-foreground">
               {allowedDayNumbers
-                ? `Available: ${activeSpecialtyConfig?.availableDays.join(", ") ?? "selected days"} · up to 60 days ahead`
-                : "Available from tomorrow · Monday – Saturday · up to 60 days ahead"}
+                ? `Available: ${activeSpecialtyConfig?.availableDays.join(", ") ?? "selected days"} · up to 2 weeks ahead`
+                : "Available from tomorrow · Monday – Saturday · up to 2 weeks ahead"}
             </p>
           </div>
 
@@ -616,7 +630,7 @@ function WorkTrialRequestForm() {
           </ul>
           <p className="text-sm mt-2">
             Need to make changes? Contact{" "}
-            <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
+            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.
           </p>
         </FormMessage>
       </div>

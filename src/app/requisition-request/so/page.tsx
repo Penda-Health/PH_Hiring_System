@@ -15,7 +15,7 @@ const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · Support Office Requisition",
   headline: "Turn an approved role into an open requisition.",
   lede: "Use this once budget evaluation and approval are complete — it enters the hiring pipeline as soon as you submit.",
-  footer: "Questions? ta@penda.co.ke",
+  footer: "Questions? careers@pendahealth.com",
 };
 
 const SO_TYPES: { value: RequisitionType; label: string; description: string }[] = [

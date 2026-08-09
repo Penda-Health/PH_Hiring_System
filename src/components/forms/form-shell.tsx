@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 export interface FormShellStat {
   value: string;
   label: string;
@@ -12,7 +10,7 @@ export interface FormShellBrand {
   headline: string;
   /** One supporting sentence under the headline. */
   lede?: string;
-  /** Up to 2 short stats (e.g. "9–5" / "Paid, full day"). Hidden on narrow screens. */
+  /** Up to 2 short stats (e.g. "9–5" / "Full day"). Hidden on narrow screens. */
   stats?: FormShellStat[];
   /** Small closing line under the stats, e.g. branch cities or a contact address. */
   footer?: string;
@@ -23,6 +21,26 @@ const DEFAULT_BRAND: FormShellBrand = {
   headline: "Thank you for being part of how we hire.",
   lede: "This link is part of Penda Health's hiring process — we appreciate the time.",
 };
+
+/** The hands + heart mark, in the brand's blue-panel-safe colors — no background. */
+function PendaMark() {
+  return (
+    <svg width="30" height="30" viewBox="0 0 64 64" fill="none" aria-hidden="true" className="shrink-0">
+      <path
+        d="M30 56 C18 54, 6 42, 8 20 C9 13, 14 10, 18 15 C23 21, 25 32, 28 40 C29 44, 30 50, 30 56 Z"
+        fill="#FFFFFF"
+      />
+      <path
+        d="M34 56 C46 54, 58 42, 56 20 C55 13, 50 10, 46 15 C41 21, 39 32, 36 40 C35 44, 34 50, 34 56 Z"
+        fill="#FFFFFF"
+      />
+      <path
+        d="M32 38 C26 33, 19 28, 19 21 C19 15, 24 12, 28 16 C30 18, 31 19, 32 21 C33 19, 34 18, 36 16 C40 12, 45 15, 45 21 C45 28, 38 33, 32 38 Z"
+        fill="#F15BA6"
+      />
+    </svg>
+  );
+}
 
 /**
  * Shared wrapper for every public, no-login form (work-trial, work-trial-request,
@@ -51,43 +69,39 @@ export function FormShell({
 
   return (
     <div className="light min-h-screen grid grid-cols-1 md:grid-cols-[minmax(0,0.86fr)_minmax(0,1fr)] bg-background">
-      <div className="relative overflow-hidden bg-gradient-to-br from-penda-blue via-[#1442D6] to-penda-blue-dark px-6 py-8 sm:px-10 md:py-14 lg:py-16 flex flex-col justify-between text-white">
+      <div className="relative overflow-hidden bg-gradient-to-br from-penda-blue via-[#1442D6] to-penda-blue-dark px-6 py-8 sm:px-10 md:py-14 lg:py-16 flex flex-col text-white">
         <div className="pointer-events-none absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-penda-pink/30 blur-3xl" />
         <div className="pointer-events-none absolute -top-20 -left-10 h-56 w-56 rounded-full bg-white/5 blur-3xl" />
 
-        <div className="relative">
-          <div className="inline-flex rounded-xl bg-white/95 px-4 py-2.5 shadow-sm">
-            <Image
-              src="/assets/logo.webp"
-              alt="Penda Health"
-              width={140}
-              height={56}
-              className="h-8 w-auto sm:h-9"
-              priority
-            />
+        <div className="relative flex flex-1 flex-col">
+          <div className="inline-flex items-center gap-2.5">
+            <PendaMark />
+            <span className="text-lg font-extrabold tracking-tight">Penda Health</span>
           </div>
 
-          <div className="mt-8 max-w-sm md:mt-10">
-            {b.eyebrow && (
-              <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-penda-blue-light/90">
-                {b.eyebrow}
+          <div className="flex flex-1 flex-col justify-center">
+            <div className="max-w-sm py-8 md:py-10">
+              {b.eyebrow && (
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-penda-blue-light/90">
+                  {b.eyebrow}
+                </p>
+              )}
+              <p className="text-2xl font-bold leading-tight tracking-tight text-balance sm:text-[28px]">
+                {b.headline}
               </p>
-            )}
-            <p className="text-2xl font-bold leading-tight tracking-tight text-balance sm:text-[28px]">
-              {b.headline}
-            </p>
-            {b.lede && <p className="mt-3 text-sm leading-relaxed text-white/80">{b.lede}</p>}
+              {b.lede && <p className="mt-3 text-sm leading-relaxed text-white/80">{b.lede}</p>}
 
-            {b.stats && b.stats.length > 0 && (
-              <div className="mt-8 hidden gap-6 md:flex">
-                {b.stats.map((s) => (
-                  <div key={s.label}>
-                    <div className="text-xl font-extrabold tabular-nums">{s.value}</div>
-                    <div className="mt-0.5 text-xs text-white/70">{s.label}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+              {b.stats && b.stats.length > 0 && (
+                <div className="mt-8 hidden gap-6 md:flex">
+                  {b.stats.map((s) => (
+                    <div key={s.label}>
+                      <div className="text-xl font-extrabold tabular-nums">{s.value}</div>
+                      <div className="mt-0.5 text-xs text-white/70">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
