@@ -121,34 +121,36 @@ export function MoveStageDialog({
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label>
-                      Assign to Role
-                      <span className="ml-1 text-xs text-muted-foreground">(optional)</span>
-                    </Label>
-                    <Select
-                      value={roleId || "__none"}
-                      onValueChange={(v) => setRoleId(v === "__none" ? "" : v)}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none">No role yet</SelectItem>
-                        {rolesForCandidate.map((r) => (
-                          <SelectItem key={r.id} value={r.id}>
-                            {r.title} · {r.location}
-                          </SelectItem>
-                        ))}
-                        {rolesForCandidate.length === 0 && (
-                          <SelectItem value="__empty" disabled>
-                            No open roles for this segment / department
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Assigning a role will update its headcount filled count.
-                    </p>
-                  </div>
+                  {employmentType !== "Locum" && (
+                    <div className="space-y-1.5">
+                      <Label>
+                        Assign to Role
+                        <span className="ml-1 text-xs text-muted-foreground">(optional)</span>
+                      </Label>
+                      <Select
+                        value={roleId || "__none"}
+                        onValueChange={(v) => setRoleId(v === "__none" ? "" : v)}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none">No role yet</SelectItem>
+                          {rolesForCandidate.map((r) => (
+                            <SelectItem key={r.id} value={r.id}>
+                              {r.title} · {r.location}
+                            </SelectItem>
+                          ))}
+                          {rolesForCandidate.length === 0 && (
+                            <SelectItem value="__empty" disabled>
+                              No open roles for this segment / department
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Assigning a role will update its headcount filled count.
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
