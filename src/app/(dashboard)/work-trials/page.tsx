@@ -21,7 +21,7 @@ type ViewMode = "kanban" | "list";
 const STATUS_BADGE: Record<string, string> = {
   "Awaiting Arrival": "bg-muted text-muted-foreground border-transparent",
   "Awaiting Score":   "bg-high-bg text-high-fg border-transparent",
-  "Complete":         "bg-penda-teal-light text-penda-teal-dark border-transparent",
+  "Complete":         "bg-penda-blue-light text-penda-blue-dark border-transparent",
 };
 
 async function getFormLink(body: Record<string, unknown>): Promise<string> {
@@ -42,6 +42,7 @@ export default function WorkTrialsPage() {
   const {
     workTrials, candidates, branches, openRoles,
     createWorkTrial, updateWorkTrial, deleteWorkTrial, submitWorkTrialScores, canEdit, canDelete,
+    extendedLoading,
   } = useRecruitmentData();
 
   const [view, setView] = React.useState<ViewMode>("kanban");
@@ -103,11 +104,17 @@ export default function WorkTrialsPage() {
 
   const syncedRef = React.useRef(false);
   React.useEffect(() => {
+    // workTrials is phase-2 data — it's still an empty array for a moment
+    // after candidates (phase 1) have already arrived. Computing `unsynced`
+    // off that transient empty array would wrongly flag every "Work Trial"
+    // stage candidate as unsynced and auto-create a duplicate WorkTrial
+    // record for ones that already have one. Wait for phase 2 to finish.
+    if (extendedLoading) return;
     if (syncedRef.current || unsynced.length === 0 || !canEdit) return;
     syncedRef.current = true;
     runSync();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unsynced, canEdit]);
+  }, [unsynced, canEdit, extendedLoading]);
 
   function copySchedulingLink() {
     navigator.clipboard.writeText(`${window.location.origin}/work-trial-request`).then(() => {
@@ -162,13 +169,20 @@ export default function WorkTrialsPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-semibold">Work Trials</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Work Trials</h1>
+          {extendedLoading && (
+            <span className="text-xs text-muted-foreground animate-pulse">Loading…</span>
+          )}
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={copySchedulingLink} className="gap-1.5">
-            {linkCopied ? <Check className="h-3.5 w-3.5 text-penda-teal" /> : <Copy className="h-3.5 w-3.5" />}
+            {linkCopied ? <Check className="h-3.5 w-3.5 text-penda-blue" /> : <Copy className="h-3.5 w-3.5" />}
             {linkCopied ? "Copied!" : "Candidate scheduling link"}
           </Button>
-          {canEdit && unsynced.length > 0 && (
+          {/* unsynced is only trustworthy once phase-2 data (workTrials) has
+              loaded — see the effect above. */}
+          {canEdit && !extendedLoading && unsynced.length > 0 && (
             <Button variant="outline" size="sm" onClick={runSync} disabled={syncing} className="gap-1.5">
               <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
               {syncing ? "Syncing…" : `Sync ${unsynced.length}`}
@@ -188,7 +202,7 @@ export default function WorkTrialsPage() {
             onClick={() => setStatusFilter(s)}
             className={`px-3 py-1.5 text-sm font-medium rounded-t-md border-b-2 transition-colors ${
               statusFilter === s
-                ? "border-penda-teal text-penda-teal"
+                ? "border-penda-blue text-penda-blue"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -236,14 +250,14 @@ export default function WorkTrialsPage() {
           <button
             onClick={() => setView("kanban")}
             title="Kanban"
-            className={`p-1.5 rounded transition-colors ${view === "kanban" ? "bg-penda-teal text-white" : "text-muted-foreground hover:text-foreground"}`}
+            className={`p-1.5 rounded transition-colors ${view === "kanban" ? "bg-penda-blue text-white" : "text-muted-foreground hover:text-foreground"}`}
           >
             <Columns3 className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setView("list")}
             title="List"
-            className={`p-1.5 rounded transition-colors ${view === "list" ? "bg-penda-teal text-white" : "text-muted-foreground hover:text-foreground"}`}
+            className={`p-1.5 rounded transition-colors ${view === "list" ? "bg-penda-blue text-white" : "text-muted-foreground hover:text-foreground"}`}
           >
             <LayoutList className="h-3.5 w-3.5" />
           </button>
@@ -255,7 +269,9 @@ export default function WorkTrialsPage() {
       )}
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No work trials match these filters.</p>
+        <p className="text-sm text-muted-foreground">
+          {extendedLoading ? "Loading work trials…" : "No work trials match these filters."}
+        </p>
       ) : view === "kanban" ? (
         /* ── Kanban view ──────────────────────────────────────────────────── */
         statusFilter === "all" ? (
@@ -346,7 +362,7 @@ export default function WorkTrialsPage() {
                         )}
                         {status === "Complete" && trial.total !== null && (
                           <p className="text-xs text-muted-foreground">
-                            {trial.total} — <span className={trial.passFail === "Pass" ? "text-penda-teal font-medium" : "text-destructive font-medium"}>{trial.passFail}</span>
+                            {trial.total} — <span className={trial.passFail === "Pass" ? "text-penda-blue font-medium" : "text-destructive font-medium"}>{trial.passFail}</span>
                           </p>
                         )}
                       </div>
@@ -383,7 +399,7 @@ export default function WorkTrialsPage() {
                             onClick={() => copyBmLink(trial)}
                           >
                             {copiedLinkId === trial.id
-                              ? <Check className="h-3.5 w-3.5 text-penda-teal" />
+                              ? <Check className="h-3.5 w-3.5 text-penda-blue" />
                               : <Copy className="h-3.5 w-3.5" />}
                           </Button>
                         )}

@@ -24,14 +24,14 @@ export function RoleListItem({
       className={cn(
         "cursor-pointer transition-all",
         role.segment === "IPS" ? "bg-ips-bg/50" : "bg-so-bg/50",
-        selected && "ring-2 ring-penda-teal border-penda-teal/60"
+        selected && "ring-2 ring-penda-blue border-penda-blue/60"
       )}
     >
       <CardContent className="p-3 flex items-center gap-4">
         <ChevronDown
           className={cn(
             "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-            selected && "rotate-180 text-penda-teal"
+            selected && "rotate-180 text-penda-blue"
           )}
         />
         <p className="text-sm font-semibold flex-1 min-w-0 truncate">{role.title}</p>

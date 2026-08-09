@@ -18,12 +18,16 @@ export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2)
   const refCheck = referenceCheckFromAirtable(record);
 
   const candidateRecord = await getRecord(TABLE_NAMES.Candidates, refCheck.candidateId);
+  // A reference check's linked candidate should always exist — if it 404s,
+  // the data itself is broken, which is a real server error, not a routine
+  // not-found the caller should treat as "form not found".
+  if (!candidateRecord) throw new Error(`Candidate ${refCheck.candidateId} not found for reference check ${refCheckId}`);
   const candidate = candidateFromAirtable(candidateRecord);
 
   let roleTitle = "";
   if (candidate.roleId) {
     const roleRecord = await getRecord(TABLE_NAMES.OpenRoles, candidate.roleId);
-    roleTitle = openRoleFromAirtable(roleRecord).title;
+    roleTitle = roleRecord ? openRoleFromAirtable(roleRecord).title : "";
   }
 
   const referee = refereeNum === 1 ? refCheck.referee1 : refCheck.referee2;

@@ -92,8 +92,17 @@ export async function listRecordsFiltered(
   return records;
 }
 
-export async function getRecord(tableName: string, recordId: string): Promise<AirtableRecord> {
-  return airtableRequest(`${encodeURIComponent(tableName)}/${recordId}`, tableName);
+export async function getRecord(tableName: string, recordId: string): Promise<AirtableRecord | null> {
+  try {
+    return await airtableRequest(`${encodeURIComponent(tableName)}/${recordId}`, tableName);
+  } catch (err) {
+    // A record that's been deleted, or an ID from a stale/forged link, 404s
+    // rather than erroring — every call site already has a `not_found`
+    // branch that checks for a falsy result, so surface that instead of
+    // throwing and forcing a 500 for what's really a routine "not found".
+    if (err instanceof Error && /Airtable API error 404/.test(err.message)) return null;
+    throw err;
+  }
 }
 
 export async function createRecord(
@@ -128,6 +137,53 @@ export async function deleteRecord(tableName: string, recordId: string): Promise
   revalidateTag(`airtable:${tableName}`);
 }
 
+// Attachments go through a dedicated Airtable endpoint (content.airtable.com,
+// not api.airtable.com) that takes the file inline as base64 rather than a
+// publicly-fetchable URL — this app has no file host of its own, and this
+// avoids needing one. recordId must already exist; this only appends to an
+// attachment field on it, same as any other single-record update.
+export async function uploadAttachment(
+  tableName: string,
+  recordId: string,
+  fieldName: string,
+  file: { filename: string; contentType: string; base64: string }
+): Promise<AirtableRecord> {
+  const { apiKey, baseId } = getAirtableConfig();
+  const url = `https://content.airtable.com/v0/${baseId}/${recordId}/${encodeURIComponent(fieldName)}/uploadAttachment`;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contentType: file.contentType,
+        file: file.base64,
+        filename: file.filename,
+      }),
+    });
+
+    if (res.ok) {
+      const json = await res.json().catch(() => ({}));
+      revalidateTag(`airtable:${tableName}`);
+      return json as AirtableRecord;
+    }
+
+    const isRetryable = res.status === 429 || res.status >= 500;
+    if (isRetryable && attempt < MAX_RETRIES) {
+      await sleep(2 ** attempt * 300);
+      continue;
+    }
+
+    const json = await res.json().catch(() => ({}));
+    throw new Error(`Airtable attachment upload error ${res.status}: ${JSON.stringify(json)}`);
+  }
+
+  throw new Error("Airtable attachment upload error: exhausted retries");
+}
+
 // Drops undefined values and unwraps `undefined` link arrays so Airtable
 // doesn't choke on empty fields. Keeps `false`/`0`/`""` (those are real values).
 export function cleanFields(fields: Record<string, unknown>): Record<string, unknown> {
@@ -145,4 +201,15 @@ export function link(recordId?: string | null): string[] | undefined {
 
 export function firstLink(value: unknown): string | undefined {
   return Array.isArray(value) && value.length > 0 ? String(value[0]) : undefined;
+}
+
+// Escapes a value for interpolation into an Airtable filterByFormula string
+// literal ('...'). Airtable formulas use backslash as the escape character,
+// so backslashes must be escaped first — escaping the quote alone (as a
+// naive `replace(/'/g, "\\'")` does) leaves a trailing unescaped backslash
+// reachable by ending user input in a backslash, which can break out of the
+// quoted literal. Centralized here so every formula built from user input
+// (public form lookups, etc.) escapes the same way.
+export function escapeFormulaValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }

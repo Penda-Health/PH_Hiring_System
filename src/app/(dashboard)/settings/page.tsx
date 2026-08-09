@@ -80,7 +80,7 @@ function UserRow({ target, branches, onSaved }: { target: User; branches: { id: 
           </SelectContent>
         </Select>
       )}
-      <Button size="sm" disabled={!dirty || saving} onClick={handleSave} className="bg-penda-teal hover:bg-penda-teal-dark">
+      <Button size="sm" disabled={!dirty || saving} onClick={handleSave} className="bg-penda-blue hover:bg-penda-blue-dark">
         {saving ? "Saving…" : "Save"}
       </Button>
       {error && <p className="text-xs text-destructive">{error}</p>}

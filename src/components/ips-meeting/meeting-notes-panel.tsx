@@ -110,7 +110,7 @@ export function MeetingNotesPanel({
               onChange={(e) => setBody(e.target.value)}
               className="flex-1 min-h-10"
             />
-            <Button size="sm" onClick={handleAdd} className="shrink-0 bg-penda-teal hover:bg-penda-teal-dark">
+            <Button size="sm" onClick={handleAdd} className="shrink-0 bg-penda-blue hover:bg-penda-blue-dark">
               Add
             </Button>
           </div>

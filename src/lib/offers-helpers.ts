@@ -1,4 +1,5 @@
 import { Candidate, Offer, OfferOutcome, OpenRole } from "@/types";
+import { daysUntil } from "@/lib/date-utils";
 
 export const OFFER_OUTCOMES: OfferOutcome[] = ["Pending", "Negotiating", "Accepted", "Declined", "Withdrawn"];
 
@@ -13,12 +14,12 @@ export function getRoleForOffer(offer: Offer, candidates: Candidate[], openRoles
 }
 
 export function daysUntilDeadline(deadline: string): number {
-  const ms = new Date(deadline).getTime() - Date.now();
-  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+  // A partial day left shouldn't read as "0d to deadline" — round up.
+  return Math.ceil(daysUntil(deadline));
 }
 
 export const JOIN_STATUS_STYLES: Record<string, string> = {
   Pending: "bg-muted text-muted-foreground border-transparent",
-  Joined: "bg-penda-teal-light text-penda-teal-dark border-transparent",
+  Joined: "bg-penda-blue-light text-penda-blue-dark border-transparent",
   "Did Not Join": "bg-critical-bg text-critical-fg border-transparent",
 };

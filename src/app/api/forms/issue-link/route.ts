@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
   try {
     if (result.data.type === "referee") {
       const record = await getRecord(TABLE_NAMES.ReferenceChecks, result.data.refCheckId);
+      if (!record) return NextResponse.json({ error: "not_found" }, { status: 404 });
       const refCheck = referenceCheckFromAirtable(record);
       const token = await signRefereeToken({
         refCheckId: refCheck.id,
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     const record = await getRecord(TABLE_NAMES.WorkTrials, result.data.workTrialId);
+    if (!record) return NextResponse.json({ error: "not_found" }, { status: 404 });
     const trial = workTrialFromAirtable(record);
 
     const token =

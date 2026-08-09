@@ -4,6 +4,7 @@
 // a heuristic, case-insensitive name/email match, not a precise join. Good
 // enough for a v1 "things that might need you" nudge, not a guarantee.
 import { Candidate, Interview, Offer, OpenRole, ReferenceCheck, User, WorkTrial } from "@/types";
+import { daysSince, daysUntil } from "@/lib/date-utils";
 
 export type TaskSeverity = "overdue" | "due-soon" | "upcoming";
 
@@ -28,14 +29,6 @@ function matchesUser(text: string | string[] | undefined, user: User): boolean {
   const email = user.email.toLowerCase();
   const firstName = user.name.split(" ")[0]?.toLowerCase();
   return haystack.includes(email) || (!!firstName && firstName.length > 1 && haystack.includes(firstName));
-}
-
-function daysSince(iso: string): number {
-  return (Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
-}
-
-function daysUntil(iso: string): number {
-  return (new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
 }
 
 interface PendingTasksInput {

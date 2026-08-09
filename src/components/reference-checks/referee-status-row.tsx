@@ -9,10 +9,10 @@ export function RefereeStatusRow({ referee }: { referee: RefereeStatus }) {
         <p className="text-xs text-muted-foreground">{referee.phone}</p>
       </div>
       <div className="flex items-center gap-3 text-muted-foreground">
-        <Mail className={`h-4 w-4 ${referee.emailSent ? "text-penda-teal" : ""}`} />
-        <MessageSquare className={`h-4 w-4 ${referee.smsSent ? "text-penda-teal" : ""}`} />
+        <Mail className={`h-4 w-4 ${referee.emailSent ? "text-penda-blue" : ""}`} />
+        <MessageSquare className={`h-4 w-4 ${referee.smsSent ? "text-penda-blue" : ""}`} />
         {referee.responded ? (
-          <CheckCircle2 className="h-4 w-4 text-penda-teal" />
+          <CheckCircle2 className="h-4 w-4 text-penda-blue" />
         ) : (
           <Circle className="h-4 w-4" />
         )}

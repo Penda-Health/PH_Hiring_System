@@ -27,7 +27,7 @@ export function ClusterCoverage({ relievers, locums }: { relievers: Reliever[]; 
               <Badge
                 className={
                   zone.covered
-                    ? "bg-penda-teal-light text-penda-teal-dark border-transparent"
+                    ? "bg-penda-blue-light text-penda-blue-dark border-transparent"
                     : "bg-critical-bg text-critical-fg border-transparent"
                 }
               >

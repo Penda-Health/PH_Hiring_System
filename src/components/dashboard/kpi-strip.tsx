@@ -2,10 +2,10 @@ import type { LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-type Accent = "teal" | "blue" | "amber" | "rose";
+type Accent = "brand" | "blue" | "amber" | "rose";
 
 const ACCENT_STYLES: Record<Accent, { bg: string; fg: string }> = {
-  teal: { bg: "bg-penda-teal-light/60", fg: "text-penda-teal-dark" },
+  brand: { bg: "bg-penda-blue-light/60", fg: "text-penda-blue-dark" },
   blue: { bg: "bg-so-bg", fg: "text-so-fg" },
   amber: { bg: "bg-high-bg", fg: "text-high-fg" },
   rose: { bg: "bg-critical-bg", fg: "text-critical-fg" },
@@ -24,7 +24,7 @@ export interface KpiTileData {
   accent?: Accent;
 }
 
-function KpiTile({ label, value, sublabel, icon: Icon, accent = "teal" }: KpiTileData) {
+function KpiTile({ label, value, sublabel, icon: Icon, accent = "brand" }: KpiTileData) {
   const style = ACCENT_STYLES[accent];
   return (
     <Card title={sublabel}>

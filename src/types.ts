@@ -229,6 +229,13 @@ export interface WorkTrial {
   strengths?: string;
   areasOfDevelopment?: string;
   overallRecommendation?: string;
+  // "Online" = the six detailed 250-char fields above were filled in through
+  // the digital scoring flow. "Uploaded" = a paper/PDF form was uploaded
+  // instead — scores are still real, but commentCulture/commentPatient/
+  // commentTechnical/strengths/areasOfDevelopment are skipped in favor of a
+  // single (shorter) overallRecommendation. null = not yet submitted either way.
+  submissionMethod: "Online" | "Uploaded" | null;
+  uploadedFormFiles?: { url: string; filename: string }[];
 }
 
 export type RehireAnswer = "Yes, without hesitation" | "Yes, with some reservations" | "No, I would not recommend them";

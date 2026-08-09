@@ -42,6 +42,12 @@ export const TECHNICAL_AUTO_FAIL_BELOW = 61;
 // (strengths, areasOfDevelopment, overallRecommendation).
 export const WRITTEN_ASSESSMENT_MIN_LENGTH = 250;
 
+// When a physical/PDF form was uploaded instead of filled out online, the
+// six detailed WRITTEN_ASSESSMENT_MIN_LENGTH fields are skipped in favor of
+// a single, shorter Overall Recommendation — still required, just not held
+// to the same bar as a full digital write-up.
+export const UPLOADED_RECOMMENDATION_MIN_LENGTH = 100;
+
 export function isCultureAutoFail(cultureScore: number): boolean {
   return cultureScore < CULTURE_AUTO_FAIL_BELOW;
 }

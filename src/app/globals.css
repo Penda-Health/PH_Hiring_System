@@ -3,49 +3,59 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * Brand palette pulled from pendahealth.com/careers (see tailwind.config.ts
+   * `penda` colors): primary blue #1E55FF, accent pink #F15BA6. Every token
+   * below is that same palette hue-shifted onto the previous teal theme's
+   * saturation/lightness values, so contrast ratios are unchanged — only the
+   * hue moved from teal (~165-192°) to blue (225°) and, for secondary/accent
+   * surfaces, to pink (330°). --primary/--ring are set to the exact brand
+   * blue rather than a hue-shift, since those need to match the real button
+   * color, not just its family.
+   */
   :root {
-    --background: 165 100% 99%;
-    --foreground: 192 60% 13%;
+    --background: 225 100% 99%;
+    --foreground: 225 60% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 192 60% 13%;
+    --card-foreground: 225 60% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 192 60% 13%;
-    --primary: 182 100% 18%;
+    --popover-foreground: 225 60% 13%;
+    --primary: 225 100% 56%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 162 50% 84%;
-    --secondary-foreground: 192 60% 13%;
-    --muted: 165 40% 96%;
-    --muted-foreground: 192 15% 40%;
-    --accent: 162 50% 90%;
-    --accent-foreground: 192 60% 13%;
+    --secondary: 330 50% 90%;
+    --secondary-foreground: 225 60% 13%;
+    --muted: 225 40% 96%;
+    --muted-foreground: 225 15% 40%;
+    --accent: 330 50% 92%;
+    --accent-foreground: 225 60% 13%;
     --destructive: 0 65% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 165 25% 88%;
-    --input: 165 25% 88%;
-    --ring: 182 100% 18%;
+    --border: 225 25% 88%;
+    --input: 225 25% 88%;
+    --ring: 225 100% 56%;
     --radius: 0.625rem;
   }
 
   .dark {
-    --background: 200 35% 7%;
-    --foreground: 165 30% 94%;
-    --card: 200 30% 11%;
-    --card-foreground: 165 30% 94%;
-    --popover: 200 32% 10%;
-    --popover-foreground: 165 30% 94%;
-    --primary: 162 65% 55%;
-    --primary-foreground: 200 35% 7%;
-    --secondary: 200 22% 18%;
-    --secondary-foreground: 165 30% 94%;
-    --muted: 200 22% 15%;
-    --muted-foreground: 165 15% 65%;
-    --accent: 200 22% 18%;
-    --accent-foreground: 165 30% 94%;
+    --background: 225 35% 7%;
+    --foreground: 225 30% 94%;
+    --card: 225 30% 11%;
+    --card-foreground: 225 30% 94%;
+    --popover: 225 32% 10%;
+    --popover-foreground: 225 30% 94%;
+    --primary: 225 100% 68%;
+    --primary-foreground: 225 35% 7%;
+    --secondary: 225 22% 18%;
+    --secondary-foreground: 225 30% 94%;
+    --muted: 225 22% 15%;
+    --muted-foreground: 225 15% 65%;
+    --accent: 225 22% 18%;
+    --accent-foreground: 225 30% 94%;
     --destructive: 0 62% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 200 20% 22%;
-    --input: 200 20% 22%;
-    --ring: 162 65% 55%;
+    --border: 225 20% 22%;
+    --input: 225 20% 22%;
+    --ring: 225 100% 68%;
   }
 
   /*
@@ -56,25 +66,25 @@
    * light-on-light text and near-black inputs.
    */
   .light {
-    --background: 165 100% 99%;
-    --foreground: 192 60% 13%;
+    --background: 225 100% 99%;
+    --foreground: 225 60% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 192 60% 13%;
+    --card-foreground: 225 60% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 192 60% 13%;
-    --primary: 182 100% 18%;
+    --popover-foreground: 225 60% 13%;
+    --primary: 225 100% 56%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 162 50% 84%;
-    --secondary-foreground: 192 60% 13%;
-    --muted: 165 40% 96%;
-    --muted-foreground: 192 15% 40%;
-    --accent: 162 50% 90%;
-    --accent-foreground: 192 60% 13%;
+    --secondary: 330 50% 90%;
+    --secondary-foreground: 225 60% 13%;
+    --muted: 225 40% 96%;
+    --muted-foreground: 225 15% 40%;
+    --accent: 330 50% 92%;
+    --accent-foreground: 225 60% 13%;
     --destructive: 0 65% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 165 25% 88%;
-    --input: 165 25% 88%;
-    --ring: 182 100% 18%;
+    --border: 225 25% 88%;
+    --input: 225 25% 88%;
+    --ring: 225 100% 56%;
   }
 }
 
@@ -89,13 +99,13 @@
 
 @layer utilities {
   .glass-card {
-    @apply relative rounded-2xl border border-white/50 bg-white/65 backdrop-blur-xl backdrop-saturate-150 shadow-[0_8px_30px_rgb(0,91,94,0.08),inset_0_1px_0_rgb(255,255,255,0.6)] transition-all duration-300;
+    @apply relative rounded-2xl border border-white/50 bg-white/65 backdrop-blur-xl backdrop-saturate-150 shadow-[0_8px_30px_rgb(30,85,255,0.08),inset_0_1px_0_rgb(255,255,255,0.6)] transition-all duration-300;
   }
   .dark .glass-card {
     @apply border-white/10 bg-white/[0.06] shadow-[0_8px_30px_rgb(0,0,0,0.5),inset_0_1px_0_rgb(255,255,255,0.08)];
   }
   .glass-card:hover {
-    @apply -translate-y-0.5 shadow-[0_16px_40px_rgb(0,91,94,0.14),inset_0_1px_0_rgb(255,255,255,0.7)];
+    @apply -translate-y-0.5 shadow-[0_16px_40px_rgb(30,85,255,0.14),inset_0_1px_0_rgb(255,255,255,0.7)];
   }
   .dark .glass-card:hover {
     @apply shadow-[0_16px_40px_rgb(0,0,0,0.6),inset_0_1px_0_rgb(255,255,255,0.1)];

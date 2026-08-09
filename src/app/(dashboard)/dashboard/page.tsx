@@ -18,11 +18,17 @@ export default function DashboardPage() {
   const [filters, setFilters] = React.useState<DashboardFilterState>(DEFAULT_DASHBOARD_FILTERS);
   const { candidates, openRoles, offers, workTrials, interviews, relievers, locums, newEmployees, extendedLoading } =
     useRecruitmentData();
-  const filtered = filterDashboardData(
-    { candidates, openRoles, offers, workTrials, interviews, relievers, locums },
-    filters
+  // Both steps re-scan every list in the dataset; without memoizing, they'd
+  // rerun on every render this page gets (e.g. the 60s background refresh
+  // touching an unrelated resource), not just when filters/data change.
+  const filtered = React.useMemo(
+    () => filterDashboardData({ candidates, openRoles, offers, workTrials, interviews, relievers, locums }, filters),
+    [candidates, openRoles, offers, workTrials, interviews, relievers, locums, filters]
   );
-  const metrics = getAllMetrics({ ...filtered, newEmployees }, filters.period);
+  const metrics = React.useMemo(
+    () => getAllMetrics({ ...filtered, newEmployees }, filters.period),
+    [filtered, newEmployees, filters.period]
+  );
 
   return (
     <div className="space-y-6">
@@ -62,7 +68,7 @@ export default function DashboardPage() {
                 title="Offer Acceptance Rate"
                 value={getMetricValue(metrics, "Offer Acceptance Rate")}
                 target="≥80%"
-                color="#005B5E"
+                color="#1E55FF"
               />
             </ErrorBoundary>
             <ErrorBoundary inline>

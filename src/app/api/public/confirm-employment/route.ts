@@ -4,8 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyConfirmEmploymentToken } from "@/lib/forms/tokens";
 import { loadConfirmEmploymentFormData, submitEmploymentConfirmation } from "@/lib/forms/confirm-employment-form";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, "public:confirm-employment:get", { limit: 60, windowMs: 10 * 60 * 1000 });
+  if (limited) return limited;
+
   const token = request.nextUrl.searchParams.get("token");
   if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
 
@@ -23,11 +27,14 @@ export async function GET(request: NextRequest) {
 }
 
 const submitSchema = z.object({
-  token: z.string(),
+  token: z.string().min(1).max(4000),
   confirmed: z.boolean(),
 });
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(request, "public:confirm-employment:post", { limit: 10, windowMs: 10 * 60 * 1000 });
+  if (limited) return limited;
+
   const json = await request.json().catch(() => null);
   const result = submitSchema.safeParse(json);
   if (!result.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });

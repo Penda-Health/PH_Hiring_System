@@ -71,7 +71,7 @@ export function NewOfferDialog({ candidates, onCreate }: Props) {
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-penda-teal hover:bg-penda-teal-dark text-white">
+        <Button size="sm" className="bg-penda-blue hover:bg-penda-blue-dark text-white">
           <Plus className="h-4 w-4 mr-1.5" />
           New Offer
         </Button>
@@ -143,7 +143,7 @@ export function NewOfferDialog({ candidates, onCreate }: Props) {
             <Button
               type="submit"
               disabled={saving || !valid}
-              className="bg-penda-teal hover:bg-penda-teal-dark text-white"
+              className="bg-penda-blue hover:bg-penda-blue-dark text-white"
             >
               {saving ? "Creating…" : "Create"}
             </Button>

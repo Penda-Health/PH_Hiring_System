@@ -108,7 +108,7 @@ export default function NewIpsGapRequisitionPage() {
                 type="button"
                 onClick={() => setGapReason(r.value)}
                 className={`text-left rounded-lg border p-3 transition-colors ${
-                  gapReason === r.value ? "border-penda-teal bg-penda-teal/5" : "border-border hover:border-penda-teal/50"
+                  gapReason === r.value ? "border-penda-blue bg-penda-blue/5" : "border-border hover:border-penda-blue/50"
                 }`}
               >
                 <p className="font-medium">{r.label}</p>
@@ -198,7 +198,7 @@ export default function NewIpsGapRequisitionPage() {
                     type="button"
                     onClick={() => setUrgency(u)}
                     className={`rounded-md border px-3 py-2 text-sm transition-colors ${
-                      urgency === u ? "border-penda-teal bg-penda-teal/5" : "border-border hover:border-penda-teal/50"
+                      urgency === u ? "border-penda-blue bg-penda-blue/5" : "border-border hover:border-penda-blue/50"
                     }`}
                   >
                     {u}
@@ -222,7 +222,7 @@ export default function NewIpsGapRequisitionPage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex gap-3">
-        <Button onClick={handleSubmit} disabled={!canSubmit || submitting} className="bg-penda-teal hover:bg-penda-teal-dark">
+        <Button onClick={handleSubmit} disabled={!canSubmit || submitting} className="bg-penda-blue hover:bg-penda-blue-dark">
           {submitting ? "Submitting…" : "Submit for approval"}
         </Button>
         <Button variant="outline" onClick={() => router.push("/requisitions")}>

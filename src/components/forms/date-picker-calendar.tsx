@@ -152,7 +152,7 @@ export function DatePickerCalendar({
         onClick={handleToggle}
         disabled={disabled}
         className={`flex h-10 w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors
-          ${error ? "border-destructive" : open ? "border-penda-teal ring-1 ring-penda-teal/30" : "border-input hover:border-penda-teal/50"}
+          ${error ? "border-destructive" : open ? "border-penda-blue ring-1 ring-penda-blue/30" : "border-input hover:border-penda-blue/50"}
           ${disabled ? "opacity-50 cursor-not-allowed bg-muted" : "bg-background cursor-pointer"}
           ${!displayValue ? "text-muted-foreground" : "text-foreground"}`}
       >
@@ -241,13 +241,13 @@ export function DatePickerCalendar({
                   className={`
                     h-8 w-full rounded-md text-sm transition-colors relative
                     ${selected
-                      ? "bg-penda-teal text-white font-semibold"
+                      ? "bg-penda-blue text-white font-semibold"
                       : disabled
                       ? "text-muted-foreground/30 cursor-not-allowed"
                       : isSunday
                       ? "text-muted-foreground/40 cursor-not-allowed"
-                      : "hover:bg-penda-teal/10 hover:text-penda-teal"}
-                    ${isToday && !selected ? "ring-1 ring-penda-teal/40" : ""}
+                      : "hover:bg-penda-blue/10 hover:text-penda-blue"}
+                    ${isToday && !selected ? "ring-1 ring-penda-blue/40" : ""}
                   `}
                 >
                   {day}

@@ -31,6 +31,7 @@ export function CandidatesTable({
   candidates,
   openRoles,
   canEdit,
+  canDelete,
   onViewProfile,
   onEdit,
   onMoveStage,
@@ -41,6 +42,8 @@ export function CandidatesTable({
   candidates: Candidate[];
   openRoles: OpenRole[];
   canEdit: boolean;
+  /** Manager-only tier — see canDeleteRecords() in permissions.ts. */
+  canDelete: boolean;
   onViewProfile: (candidate: Candidate) => void;
   onEdit: (candidate: Candidate) => void;
   onMoveStage: (candidate: Candidate) => void;
@@ -112,13 +115,15 @@ export function CandidatesTable({
                         >
                           Reject
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => onDelete(candidate)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          Delete
-                        </DropdownMenuItem>
                       </>
+                    )}
+                    {canDelete && (
+                      <DropdownMenuItem
+                        onClick={() => onDelete(candidate)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        Delete
+                      </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>

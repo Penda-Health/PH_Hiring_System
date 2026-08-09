@@ -6,7 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FormShell, FormMessage } from "@/components/forms/form-shell";
 import { FormattableTextarea } from "@/components/forms/formattable-textarea";
-import { CULTURE_AUTO_FAIL_BELOW, TECHNICAL_AUTO_FAIL_BELOW, WRITTEN_ASSESSMENT_MIN_LENGTH } from "@/lib/work-trial-helpers";
+import {
+  WRITTEN_ASSESSMENT_MIN_LENGTH,
+  UPLOADED_RECOMMENDATION_MIN_LENGTH,
+  computeWeightedTotal,
+  isCultureAutoFail,
+  isTechnicalAutoFail,
+  PASS_THRESHOLD,
+} from "@/lib/work-trial-helpers";
 
 type FormData = {
   candidateName: string;
@@ -65,8 +72,8 @@ function RatingInput({
           onClick={() => onChange(n * 10)}
           className={`w-9 h-9 rounded-md text-sm font-medium border transition-colors ${
             value === n * 10
-              ? "bg-penda-teal text-white border-penda-teal"
-              : "border-border hover:border-penda-teal/60 text-foreground"
+              ? "bg-penda-blue text-white border-penda-blue"
+              : "border-border hover:border-penda-blue/60 text-foreground"
           }`}
         >
           {n}
@@ -82,7 +89,9 @@ function BmFeedbackForm() {
   const [loadError, setLoadError] = React.useState<string | null>(null);
 
   // Step tracking
-  const [step, setStep] = React.useState<"arrival" | "role-select" | "scoring" | "feedback" | "done" | "pending-approval" | "approving" | "approved">("arrival");
+  const [step, setStep] = React.useState<
+    "arrival" | "role-select" | "method" | "scoring" | "feedback" | "upload" | "done" | "pending-approval" | "approving" | "approved"
+  >("arrival");
   const [arrivalSubmitting, setArrivalSubmitting] = React.useState(false);
   const [selectedRole, setSelectedRole] = React.useState<"BM" | "Incharge" | null>(null);
   const [scores, setScores] = React.useState<Record<ScoreKey, number>>({
@@ -103,6 +112,14 @@ function BmFeedbackForm() {
   const [approvalSubmitting, setApprovalSubmitting] = React.useState(false);
   const [approvalResult, setApprovalResult] = React.useState<{ total: number; passFail: "Pass" | "Fail" } | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+
+  // Upload-a-form path: same scores, but a single overall recommendation
+  // (uploadRecommendation, separate state from comments.overallRecommendation
+  // so the online path's longer draft isn't lost if someone switches methods)
+  // plus the uploaded file itself, in place of the six detailed fields.
+  const [uploadFile, setUploadFile] = React.useState<File | null>(null);
+  const [uploadRecommendation, setUploadRecommendation] = React.useState("");
+  const [uploadSubmitting, setUploadSubmitting] = React.useState(false);
 
   React.useEffect(() => {
     if (!token) { setLoadError("missing_token"); return; }
@@ -134,7 +151,7 @@ function BmFeedbackForm() {
       <FormShell title="Link expired" subtitle="This feedback link is no longer valid.">
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
-          <p>Email: <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a></p>
+          <p>Email: <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a></p>
         </FormMessage>
       </FormShell>
     );
@@ -144,7 +161,7 @@ function BmFeedbackForm() {
     return (
       <FormShell title="Something went wrong">
         <FormMessage>
-          <p>Please try again later, or contact <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
+          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
         </FormMessage>
       </FormShell>
     );
@@ -227,6 +244,47 @@ function BmFeedbackForm() {
     }
   }
 
+  async function handleUploadSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedRole || !uploadFile) return;
+    setSubmitError(null);
+    setUploadSubmitting(true);
+    try {
+      const form = new FormData();
+      form.set("token", token ?? "");
+      form.set("step", "scoring-upload");
+      form.set("submittedByRole", selectedRole);
+      form.set("scoreTechnical", String(scores.technical));
+      form.set("scorePatient", String(scores.patient));
+      form.set("scoreCulture", String(scores.culture));
+      form.set("overallRecommendation", uploadRecommendation);
+      form.set("file", uploadFile);
+
+      // No Content-Type header here — the browser sets multipart/form-data
+      // with the correct boundary itself when the body is a FormData.
+      const res = await fetch("/api/public/bm-feedback", { method: "POST", body: form });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          body.error === "already_submitted"
+            ? "This assessment has already been submitted."
+            : body.error === "file_too_large"
+            ? "That file is too large (max 10MB)."
+            : body.error === "unsupported_file_type"
+            ? "Unsupported file type. Please upload a PDF, JPG, or PNG."
+            : "Something went wrong. Please try again."
+        );
+      }
+      const body = await res.json();
+      setScoreResult({ total: body.total, passFail: body.passFail, submittedByRole: body.submittedByRole });
+      setStep("done");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setUploadSubmitting(false);
+    }
+  }
+
   async function handleApproval() {
     setSubmitError(null);
     setApprovalSubmitting(true);
@@ -247,13 +305,17 @@ function BmFeedbackForm() {
     }
   }
 
-  const weightedTotal = CATEGORIES.reduce(
-    (sum, c) => sum + (scores[c.key] / 100) * c.weight,
-    0
-  );
-  const cultureAutoFail = scores.culture > 0 && scores.culture < CULTURE_AUTO_FAIL_BELOW;
-  const technicalAutoFail = scores.technical > 0 && scores.technical < TECHNICAL_AUTO_FAIL_BELOW;
-  const willPass = !cultureAutoFail && !technicalAutoFail && weightedTotal >= 65;
+  // Reuse the same formula the server uses to compute the real score
+  // (src/lib/work-trial-helpers.ts) rather than reimplementing the
+  // weights/threshold here — this is a preview only, the server is
+  // authoritative, but a drifted copy here would show BMs/Incharges a
+  // pass/fail preview that disagrees with what actually gets saved.
+  const weightedTotal = computeWeightedTotal(scores);
+  // ">0" guards against flagging auto-fail before a score has been entered
+  // yet (0 is the "unset" sentinel for these sliders, not a real score).
+  const cultureAutoFail = scores.culture > 0 && isCultureAutoFail(scores.culture);
+  const technicalAutoFail = scores.technical > 0 && isTechnicalAutoFail(scores.technical);
+  const willPass = !cultureAutoFail && !technicalAutoFail && weightedTotal >= PASS_THRESHOLD;
 
   // ─── Arrival step ───────────────────────────────────────────────────────────
   if (step === "arrival" && data.arrivalMarked === null) {
@@ -269,11 +331,11 @@ function BmFeedbackForm() {
           </div>
 
           <div className="space-y-3">
-            <p className="text-sm font-medium">Step 1 of 4 — Did the candidate arrive?</p>
+            <p className="text-sm font-medium">Step 1 of 5 — Did the candidate arrive?</p>
             {submitError && <p className="text-sm text-destructive">{submitError}</p>}
             <div className="flex gap-3">
               <Button
-                className="flex-1 bg-penda-teal hover:bg-penda-teal-dark"
+                className="flex-1 bg-penda-blue hover:bg-penda-blue-dark"
                 onClick={() => handleArrival(true)}
                 disabled={arrivalSubmitting}
               >
@@ -299,14 +361,14 @@ function BmFeedbackForm() {
     return (
       <FormShell title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-5">
-          <p className="text-sm font-medium">Step 2 of 4 — I am the:</p>
+          <p className="text-sm font-medium">Step 2 of 5 — I am the:</p>
           <div className="grid grid-cols-2 gap-3">
             {(["BM", "Incharge"] as const).map((role) => (
               <button
                 key={role}
                 type="button"
-                onClick={() => { setSelectedRole(role); setStep("scoring"); }}
-                className="rounded-lg border p-4 text-left transition-colors hover:border-penda-teal/60 hover:bg-penda-teal/5 border-border"
+                onClick={() => { setSelectedRole(role); setStep("method"); }}
+                className="rounded-lg border p-4 text-left transition-colors hover:border-penda-blue/60 hover:bg-penda-blue/5 border-border"
               >
                 <p className="font-semibold">{role === "BM" ? "Branch Manager" : "In-Charge"}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -322,6 +384,39 @@ function BmFeedbackForm() {
     );
   }
 
+  // ─── Method select step ──────────────────────────────────────────────────────
+  if (step === "method") {
+    return (
+      <FormShell title="Work Trial Assessment" subtitle={header}>
+        <div className="space-y-5">
+          <p className="text-sm font-medium">Step 3 of 5 — How would you like to submit this assessment?</p>
+          <div className="grid grid-cols-1 gap-3">
+            <button
+              type="button"
+              onClick={() => setStep("scoring")}
+              className="rounded-lg border p-4 text-left transition-colors hover:border-penda-blue/60 hover:bg-penda-blue/5 border-border"
+            >
+              <p className="font-semibold">Fill out online</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Score each area and write out the full assessment on this page.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep("upload")}
+              className="rounded-lg border p-4 text-left transition-colors hover:border-penda-blue/60 hover:bg-penda-blue/5 border-border"
+            >
+              <p className="font-semibold">Upload a completed form</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Already filled out a paper or PDF form? Enter the scores, attach it, and add a brief overall recommendation.
+              </p>
+            </button>
+          </div>
+        </div>
+      </FormShell>
+    );
+  }
+
   // ─── Scoring step ────────────────────────────────────────────────────────────
   if (step === "scoring") {
     const commentKey = { culture: "commentCulture", patient: "commentPatient", technical: "commentTechnical" } as const;
@@ -329,7 +424,7 @@ function BmFeedbackForm() {
       <FormShell title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-6">
           <p className="text-sm font-medium text-muted-foreground">
-            Step 3 of 4 — Score each area (1 = Poor · 5 = Good · 10 = Excellent)
+            Step 4 of 5 — Score each area (1 = Poor · 5 = Good · 10 = Excellent)
           </p>
 
           {CATEGORIES.map((cat) => (
@@ -348,7 +443,7 @@ function BmFeedbackForm() {
                 onChange={(v) => setScores((s) => ({ ...s, [cat.key]: v }))}
               />
               {scores[cat.key] > 0 && (
-                <p className="text-xs text-penda-teal font-medium">
+                <p className="text-xs text-penda-blue font-medium">
                   Rating: {scores[cat.key] / 10} / 10
                   {((cat.key === "culture" && cultureAutoFail) || (cat.key === "technical" && technicalAutoFail)) && (
                     <span className="ml-2 text-destructive">— automatic fail</span>
@@ -393,7 +488,7 @@ function BmFeedbackForm() {
 
           <Button
             type="button"
-            className="w-full bg-penda-teal hover:bg-penda-teal-dark"
+            className="w-full bg-penda-blue hover:bg-penda-blue-dark"
             onClick={() => setStep("feedback")}
             disabled={
               Object.values(scores).some((v) => v === 0) ||
@@ -413,7 +508,7 @@ function BmFeedbackForm() {
       <FormShell title="Work Trial Assessment" subtitle={header}>
         <form onSubmit={handleScoreSubmit} className="space-y-6">
           <p className="text-sm font-medium text-muted-foreground">
-            Step 4 of 4 — Qualitative feedback
+            Step 5 of 5 — Qualitative feedback
           </p>
 
           <div className="rounded-lg border border-border bg-muted/40 p-3 flex items-center justify-between text-sm">
@@ -494,7 +589,7 @@ function BmFeedbackForm() {
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-penda-teal hover:bg-penda-teal-dark"
+              className="flex-1 bg-penda-blue hover:bg-penda-blue-dark"
               disabled={
                 comments.strengths.trim().length < WRITTEN_ASSESSMENT_MIN_LENGTH ||
                 comments.areasOfDevelopment.trim().length < WRITTEN_ASSESSMENT_MIN_LENGTH ||
@@ -503,6 +598,129 @@ function BmFeedbackForm() {
               }
             >
               {scoreSubmitting
+                ? "Submitting…"
+                : selectedRole === "Incharge"
+                ? "Submit for BM approval"
+                : "Submit assessment"}
+            </Button>
+          </div>
+        </form>
+      </FormShell>
+    );
+  }
+
+  // ─── Upload-a-completed-form step ─────────────────────────────────────────────
+  if (step === "upload") {
+    return (
+      <FormShell title="Work Trial Assessment" subtitle={header}>
+        <form onSubmit={handleUploadSubmit} className="space-y-6">
+          <p className="text-sm font-medium text-muted-foreground">
+            Step 4 of 4 — Scores, uploaded form, and overall recommendation
+          </p>
+
+          {CATEGORIES.map((cat) => (
+            <div key={cat.key} className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">{cat.label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{cat.description}</p>
+                </div>
+                <Badge variant="outline" className="shrink-0 text-xs mt-0.5">
+                  {cat.weight}%
+                </Badge>
+              </div>
+              <RatingInput
+                value={scores[cat.key]}
+                onChange={(v) => setScores((s) => ({ ...s, [cat.key]: v }))}
+              />
+              {scores[cat.key] > 0 && (
+                <p className="text-xs text-penda-blue font-medium">
+                  Rating: {scores[cat.key] / 10} / 10
+                  {((cat.key === "culture" && cultureAutoFail) || (cat.key === "technical" && technicalAutoFail)) && (
+                    <span className="ml-2 text-destructive">— automatic fail</span>
+                  )}
+                </p>
+              )}
+            </div>
+          ))}
+
+          {/* ─── Weighted score summary ─── */}
+          <div className="rounded-lg border border-border bg-muted/40 p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Weighted score</p>
+              <p className="text-2xl font-bold">{weightedTotal.toFixed(1)} / 100</p>
+            </div>
+            <Badge
+              variant={weightedTotal === 0 ? "outline" : willPass ? "ips" : "so"}
+              className="text-sm px-3 py-1"
+            >
+              {weightedTotal === 0 ? "—" : willPass ? "PASS" : "FAIL"}
+            </Badge>
+          </div>
+
+          {cultureAutoFail && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+              Culture Fit score is 6/10 or below — this is an automatic fail regardless of other scores.
+            </div>
+          )}
+          {technicalAutoFail && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+              Technical Fit score is 6/10 or below — this is an automatic fail regardless of other scores.
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Completed form</label>
+            <p className="text-xs text-muted-foreground">Upload the paper/PDF form you filled out (PDF, JPG, or PNG — max 10MB).</p>
+            <input
+              type="file"
+              accept="application/pdf,image/jpeg,image/png,image/jpg"
+              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-penda-blue file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-penda-blue-dark"
+            />
+            {uploadFile && (
+              <p className="text-xs text-muted-foreground">Selected: {uploadFile.name} ({(uploadFile.size / 1024 / 1024).toFixed(1)}MB)</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Overall Recommendation</label>
+            <p className="text-xs text-muted-foreground">
+              Since the detailed write-up is on the uploaded form, just give your overall recommendation here (at least {UPLOADED_RECOMMENDATION_MIN_LENGTH} characters).
+            </p>
+            <FormattableTextarea
+              placeholder="e.g. Strong candidate — recommend for hire. Full notes are on the attached form."
+              value={uploadRecommendation}
+              onChange={setUploadRecommendation}
+              rows={4}
+              required
+              minLength={UPLOADED_RECOMMENDATION_MIN_LENGTH}
+            />
+          </div>
+
+          {selectedRole === "Incharge" && (
+            <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
+              These scores will be sent to the Branch Manager for approval before being finalised.
+            </div>
+          )}
+
+          {submitError && <p className="text-sm text-destructive">{submitError}</p>}
+
+          <div className="flex gap-3">
+            <Button type="button" variant="outline" onClick={() => setStep("method")} disabled={uploadSubmitting}>
+              Back
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 bg-penda-blue hover:bg-penda-blue-dark"
+              disabled={
+                Object.values(scores).some((v) => v === 0) ||
+                !uploadFile ||
+                uploadRecommendation.trim().length < UPLOADED_RECOMMENDATION_MIN_LENGTH ||
+                uploadSubmitting
+              }
+            >
+              {uploadSubmitting
                 ? "Submitting…"
                 : selectedRole === "Incharge"
                 ? "Submit for BM approval"
@@ -544,7 +762,7 @@ function BmFeedbackForm() {
 
           <div className="flex gap-3">
             <Button
-              className="flex-1 bg-penda-teal hover:bg-penda-teal-dark"
+              className="flex-1 bg-penda-blue hover:bg-penda-blue-dark"
               onClick={handleApproval}
               disabled={approvalSubmitting}
             >
@@ -553,7 +771,7 @@ function BmFeedbackForm() {
           </div>
 
           <p className="text-xs text-muted-foreground text-center">
-            If scores need correction, contact <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
+            If scores need correction, contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
           </p>
         </div>
       </FormShell>
@@ -592,7 +810,7 @@ function BmFeedbackForm() {
       return (
         <FormShell title="Already submitted" subtitle={header}>
           <FormMessage>
-            <p>This assessment has already been submitted. Contact <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> if you need to make a correction.</p>
+            <p>This assessment has already been submitted. Contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> if you need to make a correction.</p>
           </FormMessage>
         </FormShell>
       );

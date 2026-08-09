@@ -94,7 +94,7 @@ export function RolesFilters({
             <Button
               variant="outline"
               size="sm"
-              className={`h-9 gap-1.5 text-sm font-normal ${filters.branches.length > 0 ? "border-penda-teal text-penda-teal" : ""}`}
+              className={`h-9 gap-1.5 text-sm font-normal ${filters.branches.length > 0 ? "border-penda-blue text-penda-blue" : ""}`}
             >
               {branchLabel}
               <ChevronDown className="h-3.5 w-3.5 opacity-60" />
@@ -104,7 +104,7 @@ export function RolesFilters({
             {filters.branches.length > 0 && (
               <>
                 <button
-                  className="w-full px-2 py-1.5 text-left text-xs text-penda-teal hover:underline"
+                  className="w-full px-2 py-1.5 text-left text-xs text-penda-blue hover:underline"
                   onClick={() => onChange({ ...filters, branches: [] })}
                 >
                   Clear selection

@@ -6,7 +6,7 @@ export function getCandidateForRefCheck(refCheck: ReferenceCheck, candidates: Ca
 
 export const OUTCOME_STYLES: Record<string, string> = {
   Pending: "bg-high-bg text-high-fg border-transparent",
-  Positive: "bg-penda-teal-light text-penda-teal-dark border-transparent",
+  Positive: "bg-penda-blue-light text-penda-blue-dark border-transparent",
   Negative: "bg-critical-bg text-critical-fg border-transparent",
   Mixed: "bg-muted text-muted-foreground border-transparent",
 };

@@ -25,7 +25,7 @@ export function CadrePoolDepth({ relievers }: { relievers: Reliever[] }) {
                 <Badge
                   className={
                     row.met
-                      ? "bg-penda-teal-light text-penda-teal-dark border-transparent"
+                      ? "bg-penda-blue-light text-penda-blue-dark border-transparent"
                       : "bg-critical-bg text-critical-fg border-transparent"
                   }
                 >

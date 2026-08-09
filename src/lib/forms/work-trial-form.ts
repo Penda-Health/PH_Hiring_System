@@ -26,12 +26,16 @@ export async function loadWorkTrialFormData(workTrialId: string): Promise<WorkTr
     getRecord(TABLE_NAMES.Candidates, trial.candidateId),
     listRecords(TABLE_NAMES.Branches),
   ]);
+  // A work trial's linked candidate should always exist — if it 404s, the
+  // data itself is broken, which is a real server error, not a routine
+  // not-found the caller should treat as "form not found".
+  if (!candidateRecord) throw new Error(`Candidate ${trial.candidateId} not found for work trial ${workTrialId}`);
   const candidate = candidateFromAirtable(candidateRecord);
 
   let roleTitle = "";
   if (candidate.roleId) {
     const roleRecord = await getRecord(TABLE_NAMES.OpenRoles, candidate.roleId);
-    roleTitle = openRoleFromAirtable(roleRecord).title;
+    roleTitle = roleRecord ? openRoleFromAirtable(roleRecord).title : "";
   }
 
   const branches = branchRecords

@@ -641,6 +641,28 @@ Per the original forms spec, these are intentionally not built yet: actual
 Gmail/SMS sending (Airtable's native "Send email" action covers this for
 now), and a `/forms/test` dev harness.
 
+### 4.5.4 Work-trial form: online vs. uploaded
+
+On `/bm-feedback`, after picking BM/In-Charge, the submitter chooses **Fill
+out online** (the original flow — six detailed 250-char write-ups) or
+**Upload a completed form** (paper/PDF form already filled out). The upload
+path still requires the three numeric scores (scored identically — same
+weighted formula, same auto-fail rule, same Pass/Fail), but replaces the six
+detailed fields with one shorter "Overall Recommendation" (100+ characters)
+plus the uploaded file itself.
+
+Two new fields on the `Work Trials` table back this — added automatically by
+`npm run airtable:schema` (see 1.3), no manual Airtable setup needed:
+
+- **Submission Method** (single select: `Online` / `Uploaded`)
+- **Uploaded Form** (attachment)
+
+The uploaded file is sent straight to Airtable's attachment-upload endpoint
+(`content.airtable.com`, see `uploadAttachment()` in
+`src/lib/airtable/client.ts`) as base64 — no separate file host is needed,
+and the existing `data.records:write` PAT scope from 1.2 already covers it.
+Max file size is 10MB; PDF/JPG/PNG only.
+
 ---
 
 ## 4.5.3 Public requisition-request links + 6-month employment confirmation

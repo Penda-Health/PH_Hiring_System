@@ -29,7 +29,7 @@ function DataLoadingGate({ children }: { children: React.ReactNode }) {
   return (
     <>
       {!canEdit && (
-        <div className="mb-4 rounded-md border border-penda-teal/30 bg-penda-teal-light/40 px-4 py-2 text-sm text-penda-teal-dark">
+        <div className="mb-4 rounded-md border border-penda-blue/30 bg-penda-blue-light/40 px-4 py-2 text-sm text-penda-blue-dark">
           View only — you can browse recruitment data, but only Recruitment Users and Managers can create or edit it.
         </div>
       )}
@@ -56,7 +56,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <RecruitmentDataProvider>
-      <div className="flex min-h-screen bg-gradient-to-br from-penda-bg via-[#EAFBF6] to-[#DCF3EC] dark:from-[#0A1F1F] dark:via-[#0C1818] dark:to-[#091414]">
+      <div className="flex min-h-screen bg-gradient-to-br from-penda-bg via-[#EAEEFB] to-[#DCE2F3] dark:from-[#0A0F1F] dark:via-[#0C0F18] dark:to-[#090C14]">
         <Sidebar />
         <div className="flex-1 flex flex-col">
           <Topbar />

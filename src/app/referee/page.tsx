@@ -38,7 +38,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
           key={n}
           type="button"
           onClick={() => onChange(n)}
-          className={`text-2xl leading-none transition-colors ${n <= value ? "text-penda-teal" : "text-muted-foreground/30"}`}
+          className={`text-2xl leading-none transition-colors ${n <= value ? "text-penda-blue" : "text-muted-foreground/30"}`}
           aria-label={`${n} star${n === 1 ? "" : "s"}`}
         >
           ★
@@ -92,7 +92,7 @@ function RefereeForm() {
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>
-            Email: <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>
+            Email: <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>
           </p>
         </FormMessage>
       </FormShell>
@@ -103,7 +103,7 @@ function RefereeForm() {
     return (
       <FormShell title="Something went wrong">
         <FormMessage>
-          <p>Please try again later, or contact <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
+          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
         </FormMessage>
       </FormShell>
     );
@@ -133,7 +133,7 @@ function RefereeForm() {
         <FormMessage>
           <p>
             You&apos;ve already submitted a reference for {data.candidateName}. Contact{" "}
-            <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> if you need to make a
+            <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> if you need to make a
             correction.
           </p>
         </FormMessage>
@@ -234,7 +234,7 @@ function RefereeForm() {
                 type="button"
                 onClick={() => setWouldRehire(opt.value)}
                 className={`w-full text-left rounded-lg border p-3 transition-colors ${
-                  wouldRehire === opt.value ? "border-penda-teal bg-penda-teal/5" : "border-border hover:border-penda-teal/50"
+                  wouldRehire === opt.value ? "border-penda-blue bg-penda-blue/5" : "border-border hover:border-penda-blue/50"
                 }`}
               >
                 {opt.label}
@@ -269,7 +269,7 @@ function RefereeForm() {
 
         {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 
-        <Button type="submit" className="w-full bg-penda-teal hover:bg-penda-teal-dark" disabled={!canSubmit || submitting}>
+        <Button type="submit" className="w-full bg-penda-blue hover:bg-penda-blue-dark" disabled={!canSubmit || submitting}>
           {submitting ? "Submitting…" : "Submit reference"}
         </Button>
       </form>

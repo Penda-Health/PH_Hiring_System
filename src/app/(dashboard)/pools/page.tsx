@@ -15,7 +15,7 @@ import { NewLocumDialog } from "@/components/pools/new-locum-dialog";
 import { ViewMode, ViewToggle } from "@/components/ui/view-toggle";
 
 export default function PoolsPage() {
-  const { branches, relievers, createReliever, locums, createLocum } = useRecruitmentData();
+  const { branches, relievers, createReliever, locums, createLocum, canEdit, extendedLoading } = useRecruitmentData();
   const [branchFilter, setBranchFilter] = React.useState("All");
   const [view, setView] = React.useState<ViewMode>("cards");
 
@@ -32,7 +32,12 @@ export default function PoolsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Relievers & Locum Pools</h1>
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-semibold">Relievers & Locum Pools</h1>
+        {extendedLoading && (
+          <span className="text-xs text-muted-foreground animate-pulse">Loading…</span>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <CadrePoolDepth relievers={relievers} />
@@ -48,8 +53,8 @@ export default function PoolsPage() {
           <div className="flex items-center gap-2">
             <BranchFilter branches={branchNames} value={branchFilter} onChange={setBranchFilter} />
             <ViewToggle view={view} onChange={setView} />
-            <NewRelieverDialog branches={branches} onCreate={createReliever} />
-            <NewLocumDialog branches={branches} onCreate={createLocum} />
+            {canEdit && <NewRelieverDialog branches={branches} onCreate={createReliever} />}
+            {canEdit && <NewLocumDialog branches={branches} onCreate={createLocum} />}
           </div>
         </div>
 
@@ -60,7 +65,9 @@ export default function PoolsPage() {
                 <RelieverListItem key={reliever.id} reliever={reliever} />
               ))}
               {filteredRelievers.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">No relievers cover this zone</p>
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  {extendedLoading ? "Loading relievers…" : "No relievers cover this zone"}
+                </p>
               )}
             </div>
           ) : (
@@ -70,7 +77,7 @@ export default function PoolsPage() {
               ))}
               {filteredRelievers.length === 0 && (
                 <p className="text-sm text-muted-foreground col-span-full text-center py-8">
-                  No relievers cover this zone
+                  {extendedLoading ? "Loading relievers…" : "No relievers cover this zone"}
                 </p>
               )}
             </div>
@@ -84,7 +91,9 @@ export default function PoolsPage() {
                 <LocumListItem key={locum.id} locum={locum} />
               ))}
               {filteredLocums.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">No locums cover this zone</p>
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  {extendedLoading ? "Loading locums…" : "No locums cover this zone"}
+                </p>
               )}
             </div>
           ) : (
@@ -94,7 +103,7 @@ export default function PoolsPage() {
               ))}
               {filteredLocums.length === 0 && (
                 <p className="text-sm text-muted-foreground col-span-full text-center py-8">
-                  No locums cover this zone
+                  {extendedLoading ? "Loading locums…" : "No locums cover this zone"}
                 </p>
               )}
             </div>

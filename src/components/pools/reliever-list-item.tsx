@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
 const STATUS_STYLES: Record<Reliever["status"], string> = {
-  Active: "bg-penda-teal-light text-penda-teal-dark border-transparent",
+  Active: "bg-penda-blue-light text-penda-blue-dark border-transparent",
   Inactive: "bg-muted text-muted-foreground border-transparent",
 };
 
@@ -23,7 +23,7 @@ export function RelieverListItem({ reliever }: { reliever: Reliever }) {
         </div>
         <p className="text-xs text-muted-foreground w-40 shrink-0 truncate">{reliever.availabilityDates}</p>
         <Badge className={STATUS_STYLES[reliever.status]}>{reliever.status}</Badge>
-        <a href={`tel:${reliever.phone}`} className="flex items-center gap-1.5 text-xs text-penda-teal hover:underline shrink-0">
+        <a href={`tel:${reliever.phone}`} className="flex items-center gap-1.5 text-xs text-penda-blue hover:underline shrink-0">
           <Phone className="h-3.5 w-3.5" /> {reliever.phone}
         </a>
       </CardContent>

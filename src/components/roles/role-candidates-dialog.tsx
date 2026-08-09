@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Minus, Plus } from "lucide-react";
 import { daysInStage } from "@/lib/pipeline-helpers";
 import { candidatesForRole } from "@/lib/roles-helpers";
-import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
+import { useRoleEditState } from "@/hooks/use-role-edit-state";
 
 const ALL_STAGES: CandidateStage[] = [
   "First Interview",
@@ -42,65 +42,23 @@ export function RoleCandidatesDialog({
   onOpenChange: (open: boolean) => void;
   onSelectCandidate: (candidate: Candidate) => void;
 }) {
-  const { updateOpenRole, canEdit } = useRecruitmentData();
   const roleCandidates = role ? candidatesForRole(role.id, candidates) : [];
 
-  const [notes, setNotes] = React.useState(role?.notes ?? "");
-  const [internalFill, setInternalFill] = React.useState(role?.internalFill ?? false);
-  const [internalFillName, setInternalFillName] = React.useState(role?.internalFillName ?? "");
-  const [localHcFilled, setLocalHcFilled] = React.useState(role?.hcFilled ?? 0);
-  const [localHcApproved, setLocalHcApproved] = React.useState(role?.hcApproved ?? 1);
-
-  // Reset text/checkbox fields when a different role is opened
-  React.useEffect(() => {
-    setNotes(role?.notes ?? "");
-    setInternalFill(role?.internalFill ?? false);
-    setInternalFillName(role?.internalFillName ?? "");
-  }, [role?.id]);
-
-  // Sync HC counts whenever Airtable pushes back an update (via polling/focus refresh)
-  React.useEffect(() => { setLocalHcFilled(role?.hcFilled ?? 0); }, [role?.hcFilled]);
-  React.useEffect(() => { setLocalHcApproved(role?.hcApproved ?? 1); }, [role?.hcApproved]);
-
-  function applyHcChange(newFilled: number, newApproved: number) {
-    if (!role || !canEdit) return;
-    const approved = Math.max(1, newApproved);
-    const filled = Math.max(0, Math.min(newFilled, approved));
-    setLocalHcFilled(filled);
-    setLocalHcApproved(approved);
-    const newStatus: OpenRole["status"] =
-      filled >= approved ? "Filled" : role.status === "Filled" ? "Open" : role.status;
-    updateOpenRole(role.id, {
-      hcFilled: filled,
-      hcApproved: approved,
-      status: newStatus,
-      ...(newStatus === "Filled" ? { dateClosed: new Date().toISOString() } : {}),
-      ...(newStatus !== "Filled" && role.status === "Filled" ? { dateClosed: null } : {}),
-    });
-  }
-
-  function setHcFilled(n: number) { applyHcChange(n, localHcApproved); }
-  function setHcApproved(n: number) { applyHcChange(localHcFilled, n); }
-
-  function saveNotes() {
-    if (!role || !canEdit) return;
-    const trimmed = notes.trim();
-    if (trimmed === (role.notes ?? "")) return;
-    updateOpenRole(role.id, { notes: trimmed || undefined });
-  }
-
-  function saveInternalFill(checked: boolean) {
-    if (!role || !canEdit) return;
-    setInternalFill(checked);
-    updateOpenRole(role.id, { internalFill: checked, internalFillName: checked ? internalFillName : undefined });
-  }
-
-  function saveInternalFillName() {
-    if (!role || !canEdit || !internalFill) return;
-    const trimmed = internalFillName.trim();
-    if (trimmed === (role.internalFillName ?? "")) return;
-    updateOpenRole(role.id, { internalFillName: trimmed || undefined });
-  }
+  const {
+    canEdit,
+    notes,
+    setNotes,
+    saveNotes,
+    internalFill,
+    internalFillName,
+    setInternalFillName,
+    handleInternalFillToggle: saveInternalFill,
+    saveInternalFillName,
+    localHcFilled,
+    localHcApproved,
+    setHcFilled,
+    setHcApproved,
+  } = useRoleEditState(role);
 
   return (
     <Dialog open={!!role} onOpenChange={onOpenChange}>
@@ -163,7 +121,7 @@ export function RoleCandidatesDialog({
                   checked={internalFill}
                   onChange={(e) => saveInternalFill(e.target.checked)}
                   disabled={!canEdit}
-                  className="h-4 w-4 cursor-pointer accent-penda-teal"
+                  className="h-4 w-4 cursor-pointer accent-penda-blue"
                 />
                 <Label htmlFor={`internal-fill-${role.id}`} className="text-sm cursor-pointer select-none">
                   Internally filled

@@ -99,7 +99,7 @@ export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-penda-teal hover:bg-penda-teal-dark text-white">
+        <Button size="sm" className="bg-penda-blue hover:bg-penda-blue-dark text-white">
           <Plus className="h-4 w-4 mr-1.5" />
           New Reference Check
         </Button>
@@ -129,7 +129,7 @@ export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
             <Button
               type="submit"
               disabled={saving || !candidateId || !ref1.name || !ref2.name}
-              className="bg-penda-teal hover:bg-penda-teal-dark text-white"
+              className="bg-penda-blue hover:bg-penda-blue-dark text-white"
             >
               {saving ? "Creating…" : "Create"}
             </Button>

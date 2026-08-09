@@ -11,8 +11,8 @@ export function FormShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="light min-h-screen flex items-start sm:items-center justify-center bg-gradient-to-br from-penda-bg via-[#EAFBF6] to-[#DCF3EC] py-10 px-4">
-      <Card className="w-full max-w-xl shadow-lg border-penda-teal-light/40">
+    <div className="light min-h-screen flex items-start sm:items-center justify-center bg-gradient-to-br from-penda-bg via-[#EAEEFB] to-[#DCE2F3] py-10 px-4">
+      <Card className="w-full max-w-xl shadow-lg border-penda-blue-light/40">
         <CardHeader>
           <Image
             src="/assets/logo.webp"

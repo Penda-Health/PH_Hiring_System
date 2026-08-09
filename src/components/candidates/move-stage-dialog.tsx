@@ -124,7 +124,7 @@ export function MoveStageDialog({
               )}
             </div>
             <DialogFooter>
-              <Button onClick={handleSave} className="bg-penda-teal hover:bg-penda-teal-dark">
+              <Button onClick={handleSave} className="bg-penda-blue hover:bg-penda-blue-dark">
                 Save
               </Button>
             </DialogFooter>

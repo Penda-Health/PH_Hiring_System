@@ -90,7 +90,7 @@ export function FormattableTextarea({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={rows}
-        className="w-full rounded-b-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-penda-teal/40 resize-none"
+        className="w-full rounded-b-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-penda-blue/40 resize-none"
       />
       {minLength !== undefined && (
         <p className={cn("text-xs", meetsMin ? "text-muted-foreground" : "text-destructive")}>

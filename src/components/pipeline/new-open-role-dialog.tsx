@@ -166,7 +166,7 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
                   className={cn(
                     "flex flex-col items-center gap-0.5 rounded-lg border px-4 py-3 text-sm font-medium transition-colors",
                     segment === seg
-                      ? "border-penda-teal bg-penda-teal/10 text-penda-teal"
+                      ? "border-penda-blue bg-penda-blue/10 text-penda-blue"
                       : "border-border text-muted-foreground hover:bg-muted"
                   )}
                 >
@@ -349,7 +349,7 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
             <Button
               type="submit"
               disabled={saving || !valid}
-              className="bg-penda-teal hover:bg-penda-teal-dark text-white"
+              className="bg-penda-blue hover:bg-penda-blue-dark text-white"
             >
               {saving ? "Creating…" : "Create Role"}
             </Button>

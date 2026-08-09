@@ -6,4 +6,6 @@ import { offerSchema } from "@/lib/airtable/schemas";
 export const { GET, POST } = makeCollectionHandlers(TABLE_NAMES.Offers, offerFromAirtable, offerToAirtable, {
   schema: offerSchema,
   genId: { airtableField: F.Offers.OFFER_ID, prefix: "OFF", pad: 3 },
+  // Contributor/Branch Manager never see real figures — see canSeeSalary().
+  maskFields: ["offeredSalary", "budgetedSalary", "counterOfferAmount", "finalAcceptedSalary"],
 });

@@ -1,20 +1,15 @@
 import { Candidate, OpenRole } from "@/types";
 
+// activeCandidateCountForRole() used to live here as its own separate
+// whitelist of stages — it happened to be exactly the complement of
+// ACTIVE_CANDIDATE_STAGE_EXCLUSIONS (the Roles page's definition of
+// "active"), a duplication that could have silently drifted. Callers now
+// use roles-helpers.ts's ACTIVE_CANDIDATE_STAGE_EXCLUSIONS directly (see
+// pipeline-role-explorer.tsx), so this wrapper was removed rather than kept
+// as a redundant pass-through.
+
 export function getRoleForCandidate(candidate: Candidate, openRoles: OpenRole[]): OpenRole | undefined {
   return openRoles.find((r) => r.id === candidate.roleId);
-}
-
-const ACTIVE_STAGES = new Set<Candidate["stage"]>([
-  "First Interview",
-  "Second Interview",
-  "Panel Interview",
-  "Work Trial",
-  "Reference Check",
-  "Offer",
-]);
-
-export function activeCandidateCountForRole(roleId: string, candidates: Candidate[]): number {
-  return candidates.filter((c) => c.roleId === roleId && ACTIVE_STAGES.has(c.stage)).length;
 }
 
 export function daysInStage(stageEnteredAt: string): number {

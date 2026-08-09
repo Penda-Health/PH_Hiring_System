@@ -9,7 +9,7 @@ import { CandidateDetailDialog } from "@/components/pipeline/candidate-detail-di
 import { ScheduleInterviewDialog } from "@/components/interviews/schedule-interview-dialog";
 
 export default function InterviewsPage() {
-  const { interviews, updateInterview, createInterview, candidates } = useRecruitmentData();
+  const { interviews, updateInterview, createInterview, candidates, extendedLoading } = useRecruitmentData();
   const [filters, setFilters] = React.useState<InterviewFilterState>({ stage: "All" });
   const [selectedCandidateId, setSelectedCandidateId] = React.useState<string | null>(null);
 
@@ -20,7 +20,12 @@ export default function InterviewsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Interview Schedule</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Interview Schedule</h1>
+          {extendedLoading && (
+            <span className="text-xs text-muted-foreground animate-pulse">Loading…</span>
+          )}
+        </div>
         <ScheduleInterviewDialog candidates={candidates} onCreate={createInterview} />
       </div>
       <InterviewFilters filters={filters} onChange={setFilters} />
@@ -35,7 +40,9 @@ export default function InterviewsPage() {
           />
         ))}
         {weeks.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-8">No interviews scheduled</p>
+          <p className="text-sm text-muted-foreground text-center py-8">
+            {extendedLoading ? "Loading interviews…" : "No interviews scheduled"}
+          </p>
         )}
       </div>
       <CandidateDetailDialog

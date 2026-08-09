@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
+import { useRoleEditState } from "@/hooks/use-role-edit-state";
 import { daysOpen } from "@/lib/pipeline-helpers";
 import { CalendarDays, User, Briefcase, StickyNote, Minus, Plus } from "lucide-react";
 
@@ -44,65 +45,25 @@ export function RoleBreakdown({
   candidates: Candidate[];
   onSelectCandidate: (candidate: Candidate) => void;
 }) {
-  const { updateOpenRoleStatus, updateOpenRole, canEdit } = useRecruitmentData();
+  const { updateOpenRoleStatus } = useRecruitmentData();
   const roleCandidates = candidates.filter((c) => c.roleId === role.id);
 
-  const [notes, setNotes] = React.useState(role.notes ?? "");
-  const [internalFill, setInternalFill] = React.useState(role.internalFill ?? false);
-  const [internalFillName, setInternalFillName] = React.useState(role.internalFillName ?? "");
-  const [localHcFilled, setLocalHcFilled] = React.useState(role.hcFilled ?? 0);
-  const [localHcApproved, setLocalHcApproved] = React.useState(role.hcApproved ?? 1);
+  const {
+    canEdit,
+    notes,
+    setNotes,
+    saveNotes,
+    internalFill,
+    internalFillName,
+    setInternalFillName,
+    handleInternalFillToggle,
+    saveInternalFillName,
+    localHcFilled,
+    localHcApproved,
+    setHcFilled,
+    setHcApproved,
+  } = useRoleEditState(role);
 
-  // Reset text/checkbox fields when a different role is selected
-  React.useEffect(() => {
-    setNotes(role.notes ?? "");
-    setInternalFill(role.internalFill ?? false);
-    setInternalFillName(role.internalFillName ?? "");
-  }, [role.id]);
-
-  // Sync HC counts whenever Airtable pushes back an update (via polling/focus refresh)
-  React.useEffect(() => { setLocalHcFilled(role.hcFilled ?? 0); }, [role.hcFilled]);
-  React.useEffect(() => { setLocalHcApproved(role.hcApproved ?? 1); }, [role.hcApproved]);
-
-  function applyHcChange(newFilled: number, newApproved: number) {
-    if (!canEdit) return;
-    const approved = Math.max(1, newApproved);
-    const filled = Math.max(0, Math.min(newFilled, approved));
-    setLocalHcFilled(filled);
-    setLocalHcApproved(approved);
-    const newStatus: OpenRole["status"] =
-      filled >= approved ? "Filled" : role.status === "Filled" ? "Open" : role.status;
-    updateOpenRole(role.id, {
-      hcFilled: filled,
-      hcApproved: approved,
-      status: newStatus,
-      ...(newStatus === "Filled" ? { dateClosed: new Date().toISOString() } : {}),
-      ...(newStatus !== "Filled" && role.status === "Filled" ? { dateClosed: null } : {}),
-    });
-  }
-
-  function setHcFilled(n: number) { applyHcChange(n, localHcApproved); }
-  function setHcApproved(n: number) { applyHcChange(localHcFilled, n); }
-
-  function saveNotes() {
-    if (!canEdit) return;
-    const trimmed = notes.trim();
-    if (trimmed === (role.notes ?? "")) return;
-    updateOpenRole(role.id, { notes: trimmed || undefined });
-  }
-
-  function handleInternalFillToggle(checked: boolean) {
-    if (!canEdit) return;
-    setInternalFill(checked);
-    updateOpenRole(role.id, { internalFill: checked, internalFillName: checked ? internalFillName : undefined });
-  }
-
-  function saveInternalFillName() {
-    if (!canEdit || !internalFill) return;
-    const trimmed = internalFillName.trim();
-    if (trimmed === (role.internalFillName ?? "")) return;
-    updateOpenRole(role.id, { internalFillName: trimmed || undefined });
-  }
   const hasCandidates = roleCandidates.length > 0;
   const byStage = (stage: CandidateStage) => roleCandidates.filter((c) => c.stage === stage);
   const days = daysOpen(role.datePosted);
@@ -116,7 +77,7 @@ export function RoleBreakdown({
     : null;
 
   return (
-    <div className="space-y-3 rounded-lg border border-penda-teal/30 bg-muted/30 p-4">
+    <div className="space-y-3 rounded-lg border border-penda-blue/30 bg-muted/30 p-4">
       <div className="flex items-center gap-2 flex-wrap">
         <h2 className="text-lg font-semibold">{role.title}</h2>
         <span className="text-sm text-muted-foreground">{role.location}</span>
@@ -194,7 +155,7 @@ export function RoleBreakdown({
               checked={internalFill}
               onChange={(e) => handleInternalFillToggle(e.target.checked)}
               disabled={!canEdit}
-              className="h-4 w-4 cursor-pointer accent-penda-teal"
+              className="h-4 w-4 cursor-pointer accent-penda-blue"
             />
             <Label htmlFor={`internal-fill-breakdown-${role.id}`} className="text-sm cursor-pointer select-none">
               Internally filled

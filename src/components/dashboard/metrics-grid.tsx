@@ -40,17 +40,17 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 const ACCENTS: Record<string, KpiTileData["accent"]> = {
-  "Open Roles": "teal",
+  "Open Roles": "brand",
   "HC Remaining": "amber",
   "Active Candidates": "blue",
   "Offers Out": "blue",
-  "Hired MTD": "teal",
+  "Hired MTD": "brand",
   "Avg Time to Hire": "amber",
   "No-Show Rate": "rose",
-  "Offer Acceptance Rate": "teal",
+  "Offer Acceptance Rate": "brand",
   "Post-Offer Drop Rate": "rose",
-  "Work Trial Pass Rate": "teal",
-  "6-Month Confirm Rate": "teal",
+  "Work Trial Pass Rate": "brand",
+  "6-Month Confirm Rate": "brand",
   "Hard-to-Fill Watch": "rose",
   "Recruiter Role Ratio": "blue",
   "Referral Hire Rate": "blue",
@@ -69,7 +69,7 @@ export function buildKpiTiles(metrics: MetricRow[], names: string[]): KpiTileDat
       value: m.value,
       sublabel: `Target: ${m.target}`,
       icon: ICONS[m.metric] ?? Briefcase,
-      accent: ACCENTS[m.metric] ?? "teal",
+      accent: ACCENTS[m.metric] ?? "brand",
     }));
 }
 

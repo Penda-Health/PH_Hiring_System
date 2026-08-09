@@ -48,12 +48,23 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Penda brand
+        // Penda brand — pulled from pendahealth.com/careers's CSS bundle
+        // (:root{--blue:#1e55ff;--pink:#f15ba6;--sand:#fbf4e4;...}), not
+        // invented in-house. Blue is the primary/CTA color there; pink is
+        // used as a secondary accent; sand/ivory are the site's warm page
+        // backgrounds (its <body> is literally background: var(--sand)).
         penda: {
-          teal: "#005B5E",
-          "teal-dark": "#003F42",
-          "teal-light": "#9FE1CB",
-          bg: "#F8FFFE",
+          blue: "#1E55FF",
+          "blue-dark": "#1135B8",
+          // Solid equivalent of the site's `#1e55ff1f` (12%-opacity blue
+          // over white) tint, used there for light icon/badge backgrounds.
+          "blue-light": "#E4EAFF",
+          pink: "#F15BA6",
+          "pink-dark": "#D94791",
+          sand: "#FBF4E4",
+          ivory: "#FFFAF0",
+          charcoal: "#343539",
+          bg: "#F7F9FF",
         },
         // Segment + status badges
         ips: { bg: "#E1F5EE", fg: "#085041" },
