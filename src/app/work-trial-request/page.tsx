@@ -268,7 +268,7 @@ function WorkTrialRequestForm() {
       >
         <form onSubmit={handleIdentify} className="space-y-5">
           <div className="rounded-lg border border-penda-blue-light/50 bg-penda-blue/5 p-4 text-sm text-foreground/80 space-y-2.5">
-            <p className="font-medium text-foreground">Congratulations on making it to the work trial stage!</p>
+            <p className="font-semibold text-penda-blue-dark">Congratulations on making it to the work trial stage!</p>
             <p>
               A work trial is a full-day opportunity to work alongside our team at one of our branches, from
               9:00 AM – 5:00 PM. Please ensure you&apos;re available for the entire day.
