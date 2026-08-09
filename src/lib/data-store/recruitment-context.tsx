@@ -657,9 +657,13 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         } as Reliever).catch((err) => console.error("Failed to auto-create reliever:", err));
       }
 
-      // Update linked role headcount
-      if (candidate.roleId) {
-        const role = openRoles.find((r) => r.id === candidate.roleId);
+      // Update linked role headcount.
+      // Prefer the roleId just passed in (newly assigned in the dialog) over the
+      // stale candidate.roleId — React state from setCandidates hasn't flushed yet
+      // when this line runs, so candidate.roleId is still the pre-update value.
+      const effectiveRoleId = roleId ?? candidate.roleId;
+      if (effectiveRoleId) {
+        const role = openRoles.find((r) => r.id === effectiveRoleId);
         if (role) {
           const newHcFilled = (role.hcFilled ?? 0) + 1;
           const newStatus: OpenRole["status"] =
@@ -670,7 +674,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
             ...(newStatus === "Filled" ? { dateClosed: new Date().toISOString() } : {}),
           };
           setOpenRoles((prev) =>
-            prev.map((r) => (r.id === candidate.roleId ? { ...r, ...rolePatch } : r))
+            prev.map((r) => (r.id === effectiveRoleId ? { ...r, ...rolePatch } : r))
           );
           persist<OpenRole>("open-roles", role.id, rolePatch);
         }
