@@ -85,7 +85,6 @@ export default function CandidatesPage() {
         <h1 className="text-2xl font-semibold">Candidates</h1>
         <NewCandidateDialog
           onCreate={createCandidate}
-          onCreateReliever={createReliever}
           onCreateLocum={createLocum}
         />
       </div>

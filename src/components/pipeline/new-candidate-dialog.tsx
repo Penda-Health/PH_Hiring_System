@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Candidate, CandidateStage, EmploymentType, Locum, Reliever, Segment } from "@/types";
+import { Candidate, CandidateStage, EmploymentType, Locum, Segment } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -35,14 +35,11 @@ const STAGES: CandidateStage[] = [
   "Withdrawn",
 ];
 
-
 export function NewCandidateDialog({
   onCreate,
-  onCreateReliever,
   onCreateLocum,
 }: {
   onCreate: (candidate: Candidate) => Promise<void>;
-  onCreateReliever?: (reliever: Reliever) => Promise<void>;
   onCreateLocum?: (locum: Locum) => Promise<void>;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -60,11 +57,15 @@ export function NewCandidateDialog({
     employmentType: "Full-time" as EmploymentType,
   }));
 
+  // Reliever candidates go through the pipeline as Candidates (employmentType=Reliever)
+  // so they appear in the Candidates section and can be hired into a reliever role.
   const [relieverForm, setRelieverForm] = React.useState({
     name: "",
     phone: "",
     email: "",
     role: RELIEVER_CADRES[0],
+    stage: "First Interview" as CandidateStage,
+    source: "",
     startDate: "",
   });
 
@@ -101,18 +102,26 @@ export function NewCandidateDialog({
     setSubmitError(null);
     setSubmitting(true);
     try {
-      if (addType === "Reliever" && onCreateReliever) {
-        await onCreateReliever({
-          id: `rel-${Date.now()}`,
+      if (addType === "Reliever") {
+        // Creates a Candidate with employmentType=Reliever so they appear in the
+        // pipeline. When marked Hired, they auto-flow to the Reliever Pool.
+        const now = new Date().toISOString();
+        await onCreate({
+          id: `cand-${Date.now()}`,
+          candId: "",
           name: relieverForm.name,
-          role: relieverForm.role,
           phone: relieverForm.phone,
-          email: relieverForm.email || undefined,
-          branchesCovered: [],
-          startDate: relieverForm.startDate || undefined,
-          status: "Active",
+          email: relieverForm.email || "",
+          segment: "IPS",
+          department: relieverForm.role,
+          stage: relieverForm.stage,
+          source: relieverForm.source,
+          gender: "Female",
+          employmentType: "Reliever",
+          stageEnteredAt: now,
+          createdAt: now,
         });
-        setRelieverForm({ name: "", phone: "", email: "", role: RELIEVER_CADRES[0], startDate: "" });
+        setRelieverForm({ name: "", phone: "", email: "", role: RELIEVER_CADRES[0], stage: "First Interview", source: "", startDate: "" });
       } else if (addType === "Locum" && onCreateLocum) {
         await onCreateLocum({
           id: `loc-${Date.now()}`,
@@ -155,7 +164,6 @@ export function NewCandidateDialog({
 
   const submitLabel =
     submitting ? "Adding…"
-    : addType === "Reliever" ? "Add to Reliever Pool"
     : addType === "Locum" ? "Add to Locum Pool"
     : "Add to Pipeline";
 
@@ -271,6 +279,10 @@ export function NewCandidateDialog({
           {/* ── RELIEVER ── */}
           {addType === "Reliever" && (
             <>
+              <p className="text-xs text-penda-blue rounded-md border border-penda-blue/30 bg-penda-blue/5 px-3 py-2">
+                Reliever candidates are added to the pipeline. Assign them as <strong>Hired</strong> to a role and they will automatically appear in the Reliever Pool.
+              </p>
+
               <Field label="Name">
                 <Input value={relieverForm.name} onChange={(e) => updateReliever("name", e.target.value)} required placeholder="Full name" />
               </Field>
@@ -288,27 +300,29 @@ export function NewCandidateDialog({
                 <Field label="Phone">
                   <Input value={relieverForm.phone} onChange={(e) => updateReliever("phone", e.target.value)} required placeholder="+2547…" />
                 </Field>
-                <Field label="Start Date">
-                  <Input
-                    type="date"
-                    value={relieverForm.startDate}
-                    onChange={(e) => updateReliever("startDate", e.target.value)}
-                  />
+                <Field label="Email">
+                  <Input type="email" value={relieverForm.email} onChange={(e) => updateReliever("email", e.target.value)} placeholder="email address" />
                 </Field>
               </div>
 
-              <Field label="Email">
-                <Input
-                  type="email"
-                  value={relieverForm.email}
-                  onChange={(e) => updateReliever("email", e.target.value)}
-                  placeholder="work or personal email"
-                />
-              </Field>
-
-              <p className="text-xs text-muted-foreground rounded-md border border-border bg-muted/40 px-3 py-2">
-                Branch assignment can be done later from the Reliever Pool once a deployment is confirmed.
-              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Starting Stage">
+                  <Select value={relieverForm.stage} onValueChange={(v) => updateReliever("stage", v as CandidateStage)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Source">
+                  <Select value={relieverForm.source} onValueChange={(v) => updateReliever("source", v)} required>
+                    <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+                    <SelectContent>
+                      {CANDIDATE_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
             </>
           )}
 

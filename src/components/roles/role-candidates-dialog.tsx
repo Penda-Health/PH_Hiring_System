@@ -31,6 +31,9 @@ const ALL_STAGES: CandidateStage[] = [
   "Withdrawn",
 ];
 
+// Stages that mean a candidate is no longer actively available
+const INACTIVE_STAGES = new Set<CandidateStage>(["Hired", "Rejected", "Withdrawn"]);
+
 export function RoleCandidatesDialog({
   role,
   candidates,
@@ -43,6 +46,16 @@ export function RoleCandidatesDialog({
   onSelectCandidate: (candidate: Candidate) => void;
 }) {
   const roleCandidates = role ? candidatesForRole(role.id, candidates) : [];
+
+  // Candidates with no role assigned, in the same department, still active in pipeline
+  const unassignedCandidates = role
+    ? candidates.filter(
+        (c) =>
+          !c.roleId &&
+          !INACTIVE_STAGES.has(c.stage) &&
+          c.department === role.department
+      )
+    : [];
 
   const {
     canEdit,
@@ -217,7 +230,7 @@ export function RoleCandidatesDialog({
               )}
             </div>
 
-            {/* Candidates by stage */}
+            {/* Candidates linked to this role, grouped by stage */}
             <div className="space-y-4">
               {ALL_STAGES.map((stage) => {
                 const inStage = roleCandidates.filter((c) => c.stage === stage);
@@ -243,11 +256,38 @@ export function RoleCandidatesDialog({
                 );
               })}
               {roleCandidates.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No candidates in the pipeline for this role
+                <p className="text-sm text-muted-foreground text-center py-2">
+                  No candidates assigned to this role yet.
                 </p>
               )}
             </div>
+
+            {/* Unassigned candidates in the same department */}
+            {unassignedCandidates.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Unassigned · {unassignedCandidates.length}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Pipeline candidates in <span className="font-medium">{role?.department}</span> not yet assigned to a role.
+                </p>
+                <div className="space-y-1.5">
+                  {unassignedCandidates.map((candidate) => (
+                    <button
+                      key={candidate.id}
+                      onClick={() => onSelectCandidate(candidate)}
+                      className="w-full flex items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
+                    >
+                      <span className="font-medium">{candidate.name}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge variant="outline" className="text-xs">{candidate.stage}</Badge>
+                        <Badge variant="outline" className="text-xs">{daysInStage(candidate.stageEnteredAt)}d</Badge>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </DialogContent>
