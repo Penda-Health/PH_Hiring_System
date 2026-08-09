@@ -14,8 +14,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertTriangle } from "lucide-react";
 import { CANDIDATE_SOURCES } from "@/lib/candidate-sources";
 import { departmentOptionsFor } from "@/lib/department-options";
+import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
+
+/** Strip everything except digits and a leading + for phone comparison */
+function normalizePhone(p: string) {
+  return p.replace(/[^\d+]/g, "").replace(/^\+/, "");
+}
 
 const EMPLOYMENT_TYPES: EmploymentType[] = ["Full-time", "Part-time", "Contract", "Reliever", "Locum"];
 const SEGMENTS: Segment[] = ["IPS", "SO"];
@@ -32,11 +39,22 @@ const STAGES: CandidateStage[] = [
   "Withdrawn",
 ];
 
+type DuplicateMatch = { candidate: Candidate; reason: string };
+
+/** Returns true if two names share ≥2 words (case-insensitive) */
+function namesSimilar(a: string, b: string): boolean {
+  const wordsA = a.toLowerCase().split(/\s+/).filter(Boolean);
+  const wordsB = new Set(b.toLowerCase().split(/\s+/).filter(Boolean));
+  const shared = wordsA.filter((w) => w.length > 2 && wordsB.has(w));
+  return shared.length >= 2;
+}
+
 export function NewCandidateDialog({
   onCreate,
 }: {
   onCreate: (candidate: Candidate) => Promise<void>;
 }) {
+  const { candidates } = useRecruitmentData();
   const [open, setOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -59,6 +77,38 @@ export function NewCandidateDialog({
   }
 
   const departments = departmentOptionsFor(form.segment);
+
+  // Real-time duplicate detection across phone, email, and name similarity
+  const duplicates = React.useMemo<DuplicateMatch[]>(() => {
+    if (!open) return [];
+    const results: DuplicateMatch[] = [];
+    const seen = new Set<string>();
+
+    const phoneInput = normalizePhone(form.phone);
+    const emailInput = form.email.trim().toLowerCase();
+    const nameInput = form.name.trim();
+
+    for (const c of candidates) {
+      if (seen.has(c.id)) continue;
+      const reasons: string[] = [];
+
+      if (phoneInput.length >= 7 && normalizePhone(c.phone) === phoneInput) {
+        reasons.push("same phone number");
+      }
+      if (emailInput.length > 3 && c.email && c.email.toLowerCase() === emailInput) {
+        reasons.push("same email address");
+      }
+      if (nameInput.length >= 4 && namesSimilar(nameInput, c.name)) {
+        reasons.push("similar name");
+      }
+
+      if (reasons.length > 0) {
+        seen.add(c.id);
+        results.push({ candidate: c, reason: reasons.join(" · ") });
+      }
+    }
+    return results;
+  }, [open, form.phone, form.email, form.name, candidates]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -179,6 +229,29 @@ export function NewCandidateDialog({
               When this candidate is moved to <strong>Hired</strong>, they will automatically be added to the{" "}
               {form.employmentType === "Reliever" ? "Reliever Pool" : "Locum Pool"}.
             </p>
+          )}
+
+          {/* Duplicate warning — shown as soon as a match is detected */}
+          {duplicates.length > 0 && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 space-y-1.5">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span className="text-sm font-medium">
+                  {duplicates.length === 1 ? "Possible duplicate" : `${duplicates.length} possible duplicates`} found
+                </span>
+              </div>
+              <ul className="space-y-1">
+                {duplicates.map(({ candidate, reason }) => (
+                  <li key={candidate.id} className="text-xs text-muted-foreground pl-6">
+                    <span className="font-medium text-foreground">{candidate.name}</span>
+                    {" — "}{candidate.stage}
+                    {candidate.department ? ` · ${candidate.department}` : ""}
+                    <span className="ml-1 text-amber-600 dark:text-amber-400">({reason})</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-muted-foreground pl-6">You can still add this candidate if they are a different person.</p>
+            </div>
           )}
 
           {submitError && (
