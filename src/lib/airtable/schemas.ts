@@ -250,8 +250,10 @@ export const relieverSchema = z.object({
   relieverId: z.string().max(30).optional(),
   name: z.string().trim().min(1).max(150),
   role: z.string().trim().min(1).max(150),
-  branchesCovered: z.array(z.string().max(100)).max(50),
-  availabilityDates: z.string().trim().min(1).max(300),
+  // Branches can be assigned later from the pool view
+  branchesCovered: z.array(z.string().max(100)).max(50).optional(),
+  startDate: z.string().max(40).optional(),
+  email: z.string().email().max(200).optional(),
   status: z.enum(["Active", "Inactive"]),
   phone: z.string().trim().min(1).max(30),
   notes: z.string().trim().max(2000).optional(),

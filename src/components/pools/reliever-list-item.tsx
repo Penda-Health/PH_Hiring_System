@@ -21,7 +21,9 @@ export function RelieverListItem({ reliever }: { reliever: Reliever }) {
             </Badge>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground w-40 shrink-0 truncate">{reliever.availabilityDates}</p>
+        <p className="text-xs text-muted-foreground w-32 shrink-0 truncate">
+          {reliever.startDate ? `From ${reliever.startDate}` : "—"}
+        </p>
         <Badge className={STATUS_STYLES[reliever.status]}>{reliever.status}</Badge>
         <a href={`tel:${reliever.phone}`} className="flex items-center gap-1.5 text-xs text-penda-blue hover:underline shrink-0">
           <Phone className="h-3.5 w-3.5" /> {reliever.phone}

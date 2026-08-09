@@ -2,27 +2,27 @@ import { Reliever, Locum } from "@/types";
 
 export const relievers: Reliever[] = [
   // Clinical Coordinator — 2 of 3 target (gap)
-  { id: "rel-1", name: "Patricia Nduta", role: "Clinical Coordinator", branchesCovered: ["Umoja 1", "Tassia"], availabilityDates: "Jun 22 - Jul 5, 2026", status: "Active", phone: "+254733100001" },
-  { id: "rel-2", name: "George Mutiso", role: "Clinical Coordinator", branchesCovered: ["Kangemi"], availabilityDates: "Jun 25 - Jul 10, 2026", status: "Active", phone: "+254733100002" },
+  { id: "rel-1", name: "Patricia Nduta", role: "Clinical Coordinator", branchesCovered: ["Umoja 1", "Tassia"], startDate: "2026-06-22", status: "Active", phone: "+254733100001" },
+  { id: "rel-2", name: "George Mutiso", role: "Clinical Coordinator", branchesCovered: ["Kangemi"], startDate: "2026-06-25", status: "Active", phone: "+254733100002" },
 
   // Clinical Officer — 3 of 3 target (met)
-  { id: "rel-3", name: "Diana Cherono", role: "Clinical Officer", branchesCovered: ["Shooters", "Benedicata"], availabilityDates: "Jul 1 - Jul 15, 2026", status: "Active", phone: "+254733100003" },
-  { id: "rel-4", name: "Hassan Juma", role: "Clinical Officer", branchesCovered: ["Zimmerman"], availabilityDates: "Currently deployed", status: "Inactive", phone: "+254733100004", notes: "Deployed at Zimmerman through end of June" },
-  { id: "rel-5", name: "Winnie Achieng", role: "Clinical Officer", branchesCovered: ["Langata", "Kitengela"], availabilityDates: "Jun 20 - Aug 1, 2026", status: "Active", phone: "+254733100005" },
+  { id: "rel-3", name: "Diana Cherono", role: "Clinical Officer", branchesCovered: ["Shooters", "Benedicata"], startDate: "2026-07-01", status: "Active", phone: "+254733100003" },
+  { id: "rel-4", name: "Hassan Juma", role: "Clinical Officer", branchesCovered: ["Zimmerman"], status: "Inactive", phone: "+254733100004", notes: "Deployed at Zimmerman through end of June" },
+  { id: "rel-5", name: "Winnie Achieng", role: "Clinical Officer", branchesCovered: ["Langata", "Kitengela"], startDate: "2026-06-20", status: "Active", phone: "+254733100005" },
 
   // Pharm Tech — 1 of 3 target (critical gap)
-  { id: "rel-6", name: "Brian Otieno", role: "Pharm Tech", branchesCovered: ["Pipeline"], availabilityDates: "Jun 18 - Jul 2, 2026", status: "Active", phone: "+254733100006" },
+  { id: "rel-6", name: "Brian Otieno", role: "Pharm Tech", branchesCovered: ["Pipeline"], startDate: "2026-06-18", status: "Active", phone: "+254733100006" },
 
   // Lab Technician — 3 of 3 target (met)
-  { id: "rel-7", name: "Faith Wambui", role: "Lab Technician", branchesCovered: ["Kawangware", "Kariobangi South"], availabilityDates: "Jun 15 - Jun 30, 2026", status: "Active", phone: "+254733100007" },
-  { id: "rel-8", name: "Kevin Macharia", role: "Lab Technician", branchesCovered: ["Githurai 45"], availabilityDates: "Jul 3 - Jul 18, 2026", status: "Active", phone: "+254733100008" },
-  { id: "rel-9", name: "Mercy Wairimu", role: "Lab Technician", branchesCovered: ["Langata"], availabilityDates: "Jun 22 - Jul 6, 2026", status: "Active", phone: "+254733100009" },
+  { id: "rel-7", name: "Faith Wambui", role: "Lab Technician", branchesCovered: ["Kawangware", "Kariobangi South"], startDate: "2026-06-15", status: "Active", phone: "+254733100007" },
+  { id: "rel-8", name: "Kevin Macharia", role: "Lab Technician", branchesCovered: ["Githurai 45"], startDate: "2026-07-03", status: "Active", phone: "+254733100008" },
+  { id: "rel-9", name: "Mercy Wairimu", role: "Lab Technician", branchesCovered: ["Langata"], startDate: "2026-06-22", status: "Active", phone: "+254733100009" },
 
   // Nurse — 4 of 3 target (surplus)
-  { id: "rel-10", name: "Janet Akinyi", role: "Nurse", branchesCovered: ["Umoja 2", "Kimathi"], availabilityDates: "Jun 20 - Jul 5, 2026", status: "Active", phone: "+254733100010" },
-  { id: "rel-11", name: "Peter Njoroge", role: "Nurse", branchesCovered: ["Shooters"], availabilityDates: "Jun 25 - Jul 10, 2026", status: "Active", phone: "+254733100011" },
-  { id: "rel-12", name: "Lucy Chebet", role: "Nurse", branchesCovered: ["Sunton", "Luckysummer"], availabilityDates: "Jul 1 - Jul 14, 2026", status: "Active", phone: "+254733100012" },
-  { id: "rel-13", name: "Dennis Mwangi", role: "Nurse", branchesCovered: ["Kitengela"], availabilityDates: "Jun 19 - Jul 3, 2026", status: "Inactive", phone: "+254733100013", notes: "On leave, back Jul 3" },
+  { id: "rel-10", name: "Janet Akinyi", role: "Nurse", branchesCovered: ["Umoja 2", "Kimathi"], startDate: "2026-06-20", status: "Active", phone: "+254733100010" },
+  { id: "rel-11", name: "Peter Njoroge", role: "Nurse", branchesCovered: ["Shooters"], startDate: "2026-06-25", status: "Active", phone: "+254733100011" },
+  { id: "rel-12", name: "Lucy Chebet", role: "Nurse", branchesCovered: ["Sunton", "Luckysummer"], startDate: "2026-07-01", status: "Active", phone: "+254733100012" },
+  { id: "rel-13", name: "Dennis Mwangi", role: "Nurse", branchesCovered: ["Kitengela"], status: "Inactive", phone: "+254733100013", notes: "On leave, back Jul 3" },
 
   // Sonographer — 0 of 3 target (no coverage at all)
 ];

@@ -591,7 +591,8 @@ export function relieverFromAirtable(r: AirtableRecord): Reliever {
     branchesCovered: Array.isArray(f[F.Relievers.BRANCHES_COVERED])
       ? (f[F.Relievers.BRANCHES_COVERED] as string[])
       : [],
-    availabilityDates: str(f[F.Relievers.AVAILABILITY_DATES]),
+    startDate: opt<string>(f[F.Relievers.START_DATE]),
+    email: opt<string>(f[F.Relievers.EMAIL]),
     status: f[F.Relievers.STATUS] as Reliever["status"],
     phone: str(f[F.Relievers.PHONE]),
     notes: opt(f[F.Relievers.NOTES]),
@@ -602,8 +603,9 @@ export function relieverToAirtable(r: Partial<Reliever>) {
     [F.Relievers.RELIEVER_ID]: r.relieverId,
     [F.Relievers.NAME]: r.name,
     [F.Relievers.ROLE]: r.role,
-    [F.Relievers.BRANCHES_COVERED]: r.branchesCovered,
-    [F.Relievers.AVAILABILITY_DATES]: r.availabilityDates,
+    [F.Relievers.BRANCHES_COVERED]: r.branchesCovered?.length ? r.branchesCovered : undefined,
+    [F.Relievers.START_DATE]: r.startDate,
+    [F.Relievers.EMAIL]: r.email,
     [F.Relievers.STATUS]: r.status,
     [F.Relievers.PHONE]: r.phone,
     [F.Relievers.NOTES]: r.notes,

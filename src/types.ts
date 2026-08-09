@@ -338,7 +338,9 @@ export interface Reliever {
   name: string;
   role: string;
   branchesCovered: string[];
-  availabilityDates: string;
+  /** YYYY-MM-DD start date for permanent relievers (replaces availability window) */
+  startDate?: string;
+  email?: string;
   status: "Active" | "Inactive";
   phone: string;
   notes?: string;

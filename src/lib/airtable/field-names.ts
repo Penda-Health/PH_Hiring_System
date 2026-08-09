@@ -241,7 +241,10 @@ export const F = {
     NAME: "Name",
     ROLE: "Role",
     BRANCHES_COVERED: "Branches Covered",
+    /** Legacy field — no longer written; kept for backward-compat reads */
     AVAILABILITY_DATES: "Availability Dates",
+    START_DATE: "Start Date",
+    EMAIL: "Email",
     STATUS: "Status",
     PHONE: "Phone",
     NOTES: "Notes",

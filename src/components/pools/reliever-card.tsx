@@ -1,4 +1,4 @@
-import { Phone } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
 import { Reliever } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,11 +24,20 @@ export function RelieverCard({ reliever }: { reliever: Reliever }) {
             </Badge>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">Available: {reliever.availabilityDates}</p>
+        {reliever.startDate && (
+          <p className="text-xs text-muted-foreground">Start date: {reliever.startDate}</p>
+        )}
         {reliever.notes && <p className="text-xs text-muted-foreground italic">{reliever.notes}</p>}
-        <a href={`tel:${reliever.phone}`} className="flex items-center gap-1.5 text-xs text-penda-blue hover:underline">
-          <Phone className="h-3.5 w-3.5" /> {reliever.phone}
-        </a>
+        <div className="flex flex-col gap-1">
+          <a href={`tel:${reliever.phone}`} className="flex items-center gap-1.5 text-xs text-penda-blue hover:underline">
+            <Phone className="h-3.5 w-3.5" /> {reliever.phone}
+          </a>
+          {reliever.email && (
+            <a href={`mailto:${reliever.email}`} className="flex items-center gap-1.5 text-xs text-penda-blue hover:underline">
+              <Mail className="h-3.5 w-3.5" /> {reliever.email}
+            </a>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

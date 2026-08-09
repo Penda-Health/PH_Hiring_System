@@ -53,7 +53,7 @@ export default function PoolsPage() {
           <div className="flex items-center gap-2">
             <BranchFilter branches={branchNames} value={branchFilter} onChange={setBranchFilter} />
             <ViewToggle view={view} onChange={setView} />
-            {canEdit && <NewRelieverDialog branches={branches} onCreate={createReliever} />}
+            {canEdit && <NewRelieverDialog onCreate={createReliever} />}
             {canEdit && <NewLocumDialog branches={branches} onCreate={createLocum} />}
           </div>
         </div>

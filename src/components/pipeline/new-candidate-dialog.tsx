@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Branch, Candidate, CandidateStage, EmploymentType, Locum, Reliever, Segment } from "@/types";
+import { Candidate, CandidateStage, EmploymentType, Locum, Reliever, Segment } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -36,78 +36,11 @@ const STAGES: CandidateStage[] = [
 ];
 
 
-function groupByRegion(branches: Branch[]): { region: string; branches: Branch[] }[] {
-  const map = new Map<string, Branch[]>();
-  for (const b of branches.filter((b) => b.active)) {
-    const region = b.region || "Other";
-    if (!map.has(region)) map.set(region, []);
-    map.get(region)!.push(b);
-  }
-  return Array.from(map.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([region, branches]) => ({ region, branches }));
-}
-
-function BranchPicker({
-  branches,
-  selected,
-  onToggleBranch,
-  onToggleRegion,
-}: {
-  branches: Branch[];
-  selected: string[];
-  onToggleBranch: (name: string) => void;
-  onToggleRegion: (region: string, regionBranches: Branch[]) => void;
-}) {
-  const grouped = React.useMemo(() => groupByRegion(branches), [branches]);
-  return (
-    <div className="space-y-3 max-h-52 overflow-y-auto pr-1 rounded-md border border-border p-2">
-      {grouped.map(({ region, branches: rb }) => {
-        const names = rb.map((b) => b.name);
-        const allSel = names.every((n) => selected.includes(n));
-        const someSel = names.some((n) => selected.includes(n));
-        return (
-          <div key={region}>
-            <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allSel}
-                ref={(el) => { if (el) el.indeterminate = someSel && !allSel; }}
-                onChange={() => onToggleRegion(region, rb)}
-                className="h-3.5 w-3.5 rounded border-border accent-penda-blue"
-              />
-              {region}
-            </label>
-            <div className="grid grid-cols-2 gap-1.5 pl-5">
-              {rb.map((branch) => (
-                <label key={branch.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(branch.name)}
-                    onChange={() => onToggleBranch(branch.name)}
-                    className="h-4 w-4 rounded border-border accent-penda-blue"
-                  />
-                  {branch.name}
-                </label>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-      {grouped.length === 0 && (
-        <p className="text-xs text-muted-foreground text-center py-3">No branches available</p>
-      )}
-    </div>
-  );
-}
-
 export function NewCandidateDialog({
-  branches = [],
   onCreate,
   onCreateReliever,
   onCreateLocum,
 }: {
-  branches?: Branch[];
   onCreate: (candidate: Candidate) => Promise<void>;
   onCreateReliever?: (reliever: Reliever) => Promise<void>;
   onCreateLocum?: (locum: Locum) => Promise<void>;
@@ -128,10 +61,11 @@ export function NewCandidateDialog({
   }));
 
   const [relieverForm, setRelieverForm] = React.useState({
-    name: "", phone: "",
+    name: "",
+    phone: "",
+    email: "",
     role: RELIEVER_CADRES[0],
-    availabilityDates: "",
-    selectedBranches: [] as string[],
+    startDate: "",
   });
 
   const [locumForm, setLocumForm] = React.useState({
@@ -155,24 +89,6 @@ export function NewCandidateDialog({
   function updateReliever<K extends keyof typeof relieverForm>(key: K, value: (typeof relieverForm)[K]) {
     setRelieverForm((prev) => ({ ...prev, [key]: value }));
   }
-  function toggleRelieverBranch(name: string) {
-    setRelieverForm((prev) => ({
-      ...prev,
-      selectedBranches: prev.selectedBranches.includes(name)
-        ? prev.selectedBranches.filter((b) => b !== name)
-        : [...prev.selectedBranches, name],
-    }));
-  }
-  function toggleRelieverRegion(region: string, rb: Branch[]) {
-    const names = rb.map((b) => b.name);
-    const allSel = names.every((n) => relieverForm.selectedBranches.includes(n));
-    setRelieverForm((prev) => ({
-      ...prev,
-      selectedBranches: allSel
-        ? prev.selectedBranches.filter((b) => !names.includes(b))
-        : Array.from(new Set([...prev.selectedBranches, ...names])),
-    }));
-  }
 
   function updateLocum<K extends keyof typeof locumForm>(key: K, value: (typeof locumForm)[K]) {
     setLocumForm((prev) => ({ ...prev, [key]: value }));
@@ -191,11 +107,12 @@ export function NewCandidateDialog({
           name: relieverForm.name,
           role: relieverForm.role,
           phone: relieverForm.phone,
-          branchesCovered: relieverForm.selectedBranches,
-          availabilityDates: relieverForm.availabilityDates,
+          email: relieverForm.email || undefined,
+          branchesCovered: [],
+          startDate: relieverForm.startDate || undefined,
           status: "Active",
         });
-        setRelieverForm({ name: "", phone: "", role: RELIEVER_CADRES[0], availabilityDates: "", selectedBranches: [] });
+        setRelieverForm({ name: "", phone: "", email: "", role: RELIEVER_CADRES[0], startDate: "" });
       } else if (addType === "Locum" && onCreateLocum) {
         await onCreateLocum({
           id: `loc-${Date.now()}`,
@@ -355,40 +272,43 @@ export function NewCandidateDialog({
           {addType === "Reliever" && (
             <>
               <Field label="Name">
-                <Input value={relieverForm.name} onChange={(e) => updateReliever("name", e.target.value)} required />
+                <Input value={relieverForm.name} onChange={(e) => updateReliever("name", e.target.value)} required placeholder="Full name" />
+              </Field>
+
+              <Field label="Role Function">
+                <Select value={relieverForm.role} onValueChange={(v) => updateReliever("role", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {RELIEVER_CADRES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </Field>
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Role Function">
-                  <Select value={relieverForm.role} onValueChange={(v) => updateReliever("role", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {RELIEVER_CADRES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
                 <Field label="Phone">
-                  <Input value={relieverForm.phone} onChange={(e) => updateReliever("phone", e.target.value)} required />
+                  <Input value={relieverForm.phone} onChange={(e) => updateReliever("phone", e.target.value)} required placeholder="+2547…" />
+                </Field>
+                <Field label="Start Date">
+                  <Input
+                    type="date"
+                    value={relieverForm.startDate}
+                    onChange={(e) => updateReliever("startDate", e.target.value)}
+                  />
                 </Field>
               </div>
 
-              <Field label="Availability">
+              <Field label="Email">
                 <Input
-                  value={relieverForm.availabilityDates}
-                  onChange={(e) => updateReliever("availabilityDates", e.target.value)}
-                  placeholder="Jun 22 – Jul 5, 2026"
-                  required
+                  type="email"
+                  value={relieverForm.email}
+                  onChange={(e) => updateReliever("email", e.target.value)}
+                  placeholder="work or personal email"
                 />
               </Field>
 
-              <Field label={`Branches Covered${relieverForm.selectedBranches.length > 0 ? ` (${relieverForm.selectedBranches.length} selected)` : ""}`}>
-                <BranchPicker
-                  branches={branches}
-                  selected={relieverForm.selectedBranches}
-                  onToggleBranch={toggleRelieverBranch}
-                  onToggleRegion={toggleRelieverRegion}
-                />
-              </Field>
+              <p className="text-xs text-muted-foreground rounded-md border border-border bg-muted/40 px-3 py-2">
+                Branch assignment can be done later from the Reliever Pool once a deployment is confirmed.
+              </p>
             </>
           )}
 

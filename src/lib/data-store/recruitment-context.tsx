@@ -601,9 +601,9 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
           name: candidate.name,
           role: linkedRole?.department ?? linkedRole?.title ?? "General",
           branchesCovered: linkedRole?.location ? [linkedRole.location] : [],
-          availabilityDates: "TBD",
           status: "Active",
           phone: candidate.phone || "",
+          email: candidate.email || undefined,
         } as Reliever).catch((err) => console.error("Failed to auto-create reliever:", err));
       }
 
