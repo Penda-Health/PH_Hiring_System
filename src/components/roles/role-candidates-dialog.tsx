@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Pencil, Check, X } from "lucide-react";
 import { daysInStage } from "@/lib/pipeline-helpers";
 import { candidatesForRole } from "@/lib/roles-helpers";
 import { useRoleEditState } from "@/hooks/use-role-edit-state";
@@ -46,6 +46,10 @@ export function RoleCandidatesDialog({
 
   const {
     canEdit,
+    canManageRoles,
+    title,
+    setTitle,
+    saveTitle,
     notes,
     setNotes,
     saveNotes,
@@ -60,13 +64,83 @@ export function RoleCandidatesDialog({
     setHcApproved,
   } = useRoleEditState(role);
 
+  // Inline title editing state (manager only)
+  const [editingTitle, setEditingTitle] = React.useState(false);
+  const titleInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (editingTitle) titleInputRef.current?.focus();
+  }, [editingTitle]);
+
+  // Reset editing state when role changes
+  React.useEffect(() => { setEditingTitle(false); }, [role?.id]);
+
+  function handleTitleSave() {
+    saveTitle();
+    setEditingTitle(false);
+  }
+
+  function handleTitleCancel() {
+    setTitle(role?.title ?? "");
+    setEditingTitle(false);
+  }
+
   return (
     <Dialog open={!!role} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" allowOutsideClose>
         {role && (
           <>
             <DialogHeader>
-              <DialogTitle>{role.title}</DialogTitle>
+              <DialogTitle asChild>
+                <div className="flex items-start gap-2">
+                  {editingTitle ? (
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <input
+                        ref={titleInputRef}
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleTitleSave();
+                          if (e.key === "Escape") handleTitleCancel();
+                        }}
+                        className="flex-1 min-w-0 rounded-md border border-penda-blue bg-background px-2 py-0.5 text-base font-semibold leading-tight focus:outline-none focus:ring-1 focus:ring-penda-blue"
+                        placeholder="Role title…"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleTitleSave}
+                        disabled={!title.trim()}
+                        className="shrink-0 rounded-md p-1 text-penda-blue hover:bg-penda-blue/10 disabled:opacity-40"
+                        title="Save title"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleTitleCancel}
+                        className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted"
+                        title="Cancel"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="flex-1 min-w-0 break-words">{role.title}</span>
+                      {canManageRoles && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingTitle(true)}
+                          className="shrink-0 mt-0.5 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          title="Edit role title"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </DialogTitle>
               <DialogDescription className="flex items-center gap-3 flex-wrap">
                 <span>{role.location} · {roleCandidates.length} candidate{roleCandidates.length === 1 ? "" : "s"}</span>
                 {/* HC filled / approved steppers */}

@@ -13,8 +13,9 @@ import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
  * no-ops until a role is present.
  */
 export function useRoleEditState(role: OpenRole | null) {
-  const { updateOpenRole, canEdit } = useRecruitmentData();
+  const { updateOpenRole, canEdit, canManageRoles } = useRecruitmentData();
 
+  const [title, setTitle] = React.useState(role?.title ?? "");
   const [notes, setNotes] = React.useState(role?.notes ?? "");
   const [internalFill, setInternalFill] = React.useState(role?.internalFill ?? false);
   const [internalFillName, setInternalFillName] = React.useState(role?.internalFillName ?? "");
@@ -23,6 +24,7 @@ export function useRoleEditState(role: OpenRole | null) {
 
   // Reset text/checkbox fields when a different role is selected/opened
   React.useEffect(() => {
+    setTitle(role?.title ?? "");
     setNotes(role?.notes ?? "");
     setInternalFill(role?.internalFill ?? false);
     setInternalFillName(role?.internalFillName ?? "");
@@ -52,6 +54,13 @@ export function useRoleEditState(role: OpenRole | null) {
   function setHcFilled(n: number) { applyHcChange(n, localHcApproved); }
   function setHcApproved(n: number) { applyHcChange(localHcFilled, n); }
 
+  function saveTitle() {
+    if (!role || !canManageRoles) return;
+    const trimmed = title.trim();
+    if (!trimmed || trimmed === role.title) return;
+    updateOpenRole(role.id, { title: trimmed });
+  }
+
   function saveNotes() {
     if (!role || !canEdit) return;
     const trimmed = notes.trim();
@@ -74,6 +83,10 @@ export function useRoleEditState(role: OpenRole | null) {
 
   return {
     canEdit,
+    canManageRoles,
+    title,
+    setTitle,
+    saveTitle,
     notes,
     setNotes,
     saveNotes,

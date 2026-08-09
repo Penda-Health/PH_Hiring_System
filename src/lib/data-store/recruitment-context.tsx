@@ -34,7 +34,7 @@ function dedupWorkTrials(trials: WorkTrial[]): WorkTrial[] {
 import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
 import { listResource, createResource, updateResource, deleteResource } from "@/lib/airtable/browser-api";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canEditRecruitmentData, canDeleteRecords, canSeeSalary } from "@/lib/permissions";
+import { canEditRecruitmentData, canDeleteRecords, canManageRoles, canSeeSalary } from "@/lib/permissions";
 
 type RecruitmentDataContextValue = {
   loading: boolean;
@@ -45,6 +45,8 @@ type RecruitmentDataContextValue = {
   canEdit: boolean;
   /** Recruitment Manager only — can delete records such as work trials. */
   canDelete: boolean;
+  /** Recruitment Manager only — can edit role metadata (title, status, etc.). */
+  canManageRoles: boolean;
   /** Contributor/Branch Manager don't see real salary/rate figures. UI affordance; the real check is server-side (route-handlers.ts maskFields). */
   canSeeSalary: boolean;
   /** Manually trigger a core data refresh (open-roles + candidates). Also called automatically every 60 s and on tab focus. */
@@ -126,6 +128,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   const { user } = useAuth();
   const canEdit = canEditRecruitmentData(user?.role);
   const canDelete = canDeleteRecords(user?.role);
+  const canManageRolesValue = canManageRoles(user?.role);
   const canSeeSalaryValue = canSeeSalary(user?.role);
   const [loading, setLoading] = React.useState(true);
   const [extendedLoading, setExtendedLoading] = React.useState(true);
@@ -645,6 +648,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       error,
       canEdit,
       canDelete,
+      canManageRoles: canManageRolesValue,
       canSeeSalary: canSeeSalaryValue,
       refresh: refreshCoreData,
       branches,
@@ -691,6 +695,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       error,
       canEdit,
       canDelete,
+      canManageRolesValue,
       canSeeSalaryValue,
       refreshCoreData,
       branches,
