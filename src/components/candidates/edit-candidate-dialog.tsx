@@ -99,16 +99,29 @@ export function EditCandidateDialog({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  // Locums fill in as needed across branches — they aren't tied to one
+  // specific open role, so don't auto-attach one when segment/department
+  // changes (or when switching a candidate to Locum with a role already set).
   function updateSegment(segment: Segment) {
     const depts = departmentOptionsFor(segment);
     const department = depts[0] ?? "";
-    const roleId = rolesScopedTo(openRoles, segment, department)[0]?.id ?? "";
+    const roleId =
+      form.employmentType === "Locum" ? "" : rolesScopedTo(openRoles, segment, department)[0]?.id ?? "";
     setForm((prev) => ({ ...prev, segment, department, roleId }));
   }
 
   function updateDepartment(department: string) {
-    const roleId = rolesScopedTo(openRoles, form.segment, department)[0]?.id ?? "";
+    const roleId =
+      form.employmentType === "Locum" ? "" : rolesScopedTo(openRoles, form.segment, department)[0]?.id ?? "";
     setForm((prev) => ({ ...prev, department, roleId }));
+  }
+
+  function updateEmploymentType(employmentType: EmploymentType) {
+    setForm((prev) => ({
+      ...prev,
+      employmentType,
+      roleId: employmentType === "Locum" ? "" : prev.roleId,
+    }));
   }
 
   const departments = departmentOptionsFor(form.segment);
@@ -183,7 +196,7 @@ export function EditCandidateDialog({
                   </Select>
                 </Field>
                 <Field label="Employment Type">
-                  <Select value={form.employmentType} onValueChange={(v) => update("employmentType", v as EmploymentType)}>
+                  <Select value={form.employmentType} onValueChange={(v) => updateEmploymentType(v as EmploymentType)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {EMPLOYMENT_TYPES.map((t) => (
@@ -248,7 +261,9 @@ export function EditCandidateDialog({
                 </div>
                 <Field label="Role">
                   <Select value={form.roleId} onValueChange={(v) => update("roleId", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder={form.employmentType === "Locum" ? "Not tied to a role (optional)" : "Select a role"} />
+                    </SelectTrigger>
                     <SelectContent>
                       {rolesInScope.map((role) => (
                         <SelectItem key={role.id} value={role.id}>
@@ -262,6 +277,11 @@ export function EditCandidateDialog({
                       )}
                     </SelectContent>
                   </Select>
+                  {form.employmentType === "Locum" && (
+                    <p className="text-xs text-muted-foreground">
+                      Locums fill in as needed across branches — leave blank unless this one is tied to a specific role.
+                    </p>
+                  )}
                 </Field>
               </div>
 
