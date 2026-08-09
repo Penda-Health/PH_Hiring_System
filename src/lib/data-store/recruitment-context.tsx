@@ -97,9 +97,13 @@ type RecruitmentDataContextValue = {
 
   relievers: Reliever[];
   createReliever: (reliever: Reliever) => Promise<void>;
+  updateReliever: (id: string, patch: Partial<Reliever>) => void;
+  deleteReliever: (id: string) => void;
 
   locums: Locum[];
   createLocum: (locum: Locum) => Promise<void>;
+  updateLocum: (id: string, patch: Partial<Locum>) => void;
+  deleteLocum: (id: string) => void;
 };
 
 const RecruitmentDataContext = React.createContext<RecruitmentDataContextValue | null>(null);
@@ -527,6 +531,46 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit]
   );
 
+  const updateReliever = React.useCallback(
+    (id: string, patch: Partial<Reliever>) => {
+      if (!guardEdit(canEdit, "updateReliever")) return;
+      setRelievers((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+      persist<Reliever>("relievers", id, patch);
+    },
+    [canEdit]
+  );
+
+  const deleteReliever = React.useCallback(
+    (id: string) => {
+      if (!guardEdit(canDelete, "deleteReliever")) return;
+      setRelievers((prev) => prev.filter((r) => r.id !== id));
+      deleteResource("relievers", id).catch((err) => {
+        console.error(`Failed to delete reliever ${id} from Airtable:`, err);
+      });
+    },
+    [canDelete]
+  );
+
+  const updateLocum = React.useCallback(
+    (id: string, patch: Partial<Locum>) => {
+      if (!guardEdit(canEdit, "updateLocum")) return;
+      setLocums((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+      persist<Locum>("locums", id, patch);
+    },
+    [canEdit]
+  );
+
+  const deleteLocum = React.useCallback(
+    (id: string) => {
+      if (!guardEdit(canDelete, "deleteLocum")) return;
+      setLocums((prev) => prev.filter((l) => l.id !== id));
+      deleteResource("locums", id).catch((err) => {
+        console.error(`Failed to delete locum ${id} from Airtable:`, err);
+      });
+    },
+    [canDelete]
+  );
+
   const updateCandidateStage = React.useCallback(
     (id: string, stage: Candidate["stage"], roleId?: string) => {
       if (!guardEdit(canEdit, "updateCandidateStage")) return;
@@ -686,8 +730,12 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       deleteCandidate,
       relievers,
       createReliever,
+      updateReliever,
+      deleteReliever,
       locums,
       createLocum,
+      updateLocum,
+      deleteLocum,
     }),
     [
       loading,
@@ -733,8 +781,12 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       deleteCandidate,
       relievers,
       createReliever,
+      updateReliever,
+      deleteReliever,
       locums,
       createLocum,
+      updateLocum,
+      deleteLocum,
     ]
   );
 

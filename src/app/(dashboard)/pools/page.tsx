@@ -15,7 +15,11 @@ import { NewLocumDialog } from "@/components/pools/new-locum-dialog";
 import { ViewMode, ViewToggle } from "@/components/ui/view-toggle";
 
 export default function PoolsPage() {
-  const { branches, relievers, createReliever, locums, createLocum, canEdit, extendedLoading } = useRecruitmentData();
+  const {
+    branches, relievers, createReliever, updateReliever, deleteReliever,
+    locums, createLocum, updateLocum, deleteLocum,
+    canEdit, canDelete, extendedLoading,
+  } = useRecruitmentData();
   const [branchFilter, setBranchFilter] = React.useState("All");
   const [view, setView] = React.useState<ViewMode>("cards");
 
@@ -62,7 +66,14 @@ export default function PoolsPage() {
           {view === "list" ? (
             <div className="space-y-2">
               {filteredRelievers.map((reliever) => (
-                <RelieverListItem key={reliever.id} reliever={reliever} />
+                <RelieverListItem
+                  key={reliever.id}
+                  reliever={reliever}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onUpdate={(patch) => updateReliever(reliever.id, patch)}
+                  onDelete={() => deleteReliever(reliever.id)}
+                />
               ))}
               {filteredRelievers.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">
@@ -73,7 +84,14 @@ export default function PoolsPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredRelievers.map((reliever) => (
-                <RelieverCard key={reliever.id} reliever={reliever} />
+                <RelieverCard
+                  key={reliever.id}
+                  reliever={reliever}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onUpdate={(patch) => updateReliever(reliever.id, patch)}
+                  onDelete={() => deleteReliever(reliever.id)}
+                />
               ))}
               {filteredRelievers.length === 0 && (
                 <p className="text-sm text-muted-foreground col-span-full text-center py-8">
@@ -88,7 +106,14 @@ export default function PoolsPage() {
           {view === "list" ? (
             <div className="space-y-2">
               {filteredLocums.map((locum) => (
-                <LocumListItem key={locum.id} locum={locum} />
+                <LocumListItem
+                  key={locum.id}
+                  locum={locum}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onUpdate={(patch) => updateLocum(locum.id, patch)}
+                  onDelete={() => deleteLocum(locum.id)}
+                />
               ))}
               {filteredLocums.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">
@@ -99,7 +124,14 @@ export default function PoolsPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredLocums.map((locum) => (
-                <LocumCard key={locum.id} locum={locum} />
+                <LocumCard
+                  key={locum.id}
+                  locum={locum}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onUpdate={(patch) => updateLocum(locum.id, patch)}
+                  onDelete={() => deleteLocum(locum.id)}
+                />
               ))}
               {filteredLocums.length === 0 && (
                 <p className="text-sm text-muted-foreground col-span-full text-center py-8">
