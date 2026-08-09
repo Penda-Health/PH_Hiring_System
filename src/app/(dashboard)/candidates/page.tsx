@@ -30,7 +30,6 @@ export default function CandidatesPage() {
     updateCandidateStage,
     deleteCandidate,
     createInterview,
-    createLocum,
   } = useRecruitmentData();
 
   const [filters, setFilters] = React.useState<CandidatesFilterState>({
@@ -82,10 +81,7 @@ export default function CandidatesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Candidates</h1>
-        <NewCandidateDialog
-          onCreate={createCandidate}
-          onCreateLocum={createLocum}
-        />
+        <NewCandidateDialog onCreate={createCandidate} />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">

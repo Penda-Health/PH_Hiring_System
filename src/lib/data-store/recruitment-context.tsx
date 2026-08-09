@@ -92,7 +92,7 @@ type RecruitmentDataContextValue = {
   candidates: Candidate[];
   createCandidate: (candidate: Candidate) => Promise<void>;
   updateCandidate: (id: string, patch: Partial<Candidate>) => void;
-  updateCandidateStage: (id: string, stage: Candidate["stage"], roleId?: string) => void;
+  updateCandidateStage: (id: string, stage: Candidate["stage"], roleId?: string, employmentType?: Candidate["employmentType"]) => void;
   deleteCandidate: (id: string) => void;
 
   relievers: Reliever[];
@@ -572,13 +572,15 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   );
 
   const updateCandidateStage = React.useCallback(
-    (id: string, stage: Candidate["stage"], roleId?: string) => {
+    (id: string, stage: Candidate["stage"], roleId?: string, employmentType?: Candidate["employmentType"]) => {
       if (!guardEdit(canEdit, "updateCandidateStage")) return;
       const now = new Date().toISOString();
       const patch: Partial<Candidate> = {
         stage,
         stageEnteredAt: now,
         ...(roleId ? { roleId } : {}),
+        // Update employment type at hire time if the recruiter changed it
+        ...(stage === "Hired" && employmentType ? { employmentType } : {}),
       };
       setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
       persist<Candidate>("candidates", id, patch);
@@ -623,11 +625,15 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       const candidate = candidates.find((c) => c.id === id);
       if (!candidate) return;
 
+      // Use the hire-time employment type if provided, otherwise fall back to
+      // whatever was already on the candidate record.
+      const hireType = employmentType ?? candidate.employmentType;
+
       // Auto-add to Locum or Reliever pool on hire.
       // Locums are NOT assigned branches at hire — they join the pool as available
       // across all branches until a permanent assignment is made.
       // Relievers DO get an initial branch from the role's location.
-      if (candidate.employmentType === "Locum") {
+      if (hireType === "Locum") {
         const linkedRole = openRoles.find((r) => r.id === candidate.roleId);
         createLocum({
           id: `loc-${Date.now()}`,
@@ -638,7 +644,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
           licenseNumber: "Pending",
           availability: "TBD",
         } as Locum).catch((err) => console.error("Failed to auto-create locum:", err));
-      } else if (candidate.employmentType === "Reliever") {
+      } else if (hireType === "Reliever") {
         const linkedRole = openRoles.find((r) => r.id === candidate.roleId);
         createReliever({
           id: `rel-${Date.now()}`,

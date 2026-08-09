@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Candidate, CandidateStage, EmploymentType, Locum, Segment } from "@/types";
+import { Candidate, CandidateStage, EmploymentType, Segment } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -15,10 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CANDIDATE_SOURCES } from "@/lib/candidate-sources";
-import { RELIEVER_CADRES } from "@/lib/mock-data/clusters";
 import { departmentOptionsFor } from "@/lib/department-options";
-
-type AddType = "Candidate" | "Reliever" | "Locum";
 
 const EMPLOYMENT_TYPES: EmploymentType[] = ["Full-time", "Part-time", "Contract", "Reliever", "Locum"];
 const SEGMENTS: Segment[] = ["IPS", "SO"];
@@ -37,17 +34,14 @@ const STAGES: CandidateStage[] = [
 
 export function NewCandidateDialog({
   onCreate,
-  onCreateLocum,
 }: {
   onCreate: (candidate: Candidate) => Promise<void>;
-  onCreateLocum?: (locum: Locum) => Promise<void>;
 }) {
   const [open, setOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
-  const [addType, setAddType] = React.useState<AddType>("Candidate");
 
-  const [candForm, setCandForm] = React.useState(() => ({
+  const [form, setForm] = React.useState(() => ({
     name: "", phone: "", email: "",
     gender: "Female" as "Male" | "Female",
     segment: "IPS" as Segment,
@@ -57,101 +51,37 @@ export function NewCandidateDialog({
     employmentType: "Full-time" as EmploymentType,
   }));
 
-  // Reliever candidates go through the pipeline as Candidates (employmentType=Reliever)
-  // so they appear in the Candidates section and can be hired into a reliever role.
-  const [relieverForm, setRelieverForm] = React.useState({
-    name: "",
-    phone: "",
-    email: "",
-    role: RELIEVER_CADRES[0],
-    stage: "First Interview" as CandidateStage,
-    source: "",
-    startDate: "",
-  });
-
-  const [locumForm, setLocumForm] = React.useState({
-    name: "", phone: "",
-    speciality: "",
-    licenseNumber: "",
-    dailyRate: "",
-    availability: "",
-  });
-
-  function updateCand<K extends keyof typeof candForm>(key: K, value: (typeof candForm)[K]) {
-    setCandForm((prev) => ({ ...prev, [key]: value }));
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
   }
-  function updateCandSegment(segment: Segment) {
-    setCandForm((prev) => ({ ...prev, segment, department: departmentOptionsFor(segment)[0] ?? "" }));
-  }
-  function updateCandDept(department: string) {
-    setCandForm((prev) => ({ ...prev, department }));
+  function updateSegment(segment: Segment) {
+    setForm((prev) => ({ ...prev, segment, department: departmentOptionsFor(segment)[0] ?? "" }));
   }
 
-  function updateReliever<K extends keyof typeof relieverForm>(key: K, value: (typeof relieverForm)[K]) {
-    setRelieverForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function updateLocum<K extends keyof typeof locumForm>(key: K, value: (typeof locumForm)[K]) {
-    setLocumForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  const departments = departmentOptionsFor(candForm.segment);
+  const departments = departmentOptionsFor(form.segment);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
     setSubmitting(true);
     try {
-      if (addType === "Reliever") {
-        // Creates a Candidate with employmentType=Reliever so they appear in the
-        // pipeline. When marked Hired, they auto-flow to the Reliever Pool.
-        const now = new Date().toISOString();
-        await onCreate({
-          id: `cand-${Date.now()}`,
-          candId: "",
-          name: relieverForm.name,
-          phone: relieverForm.phone,
-          email: relieverForm.email || "",
-          segment: "IPS",
-          department: relieverForm.role,
-          stage: relieverForm.stage,
-          source: relieverForm.source,
-          gender: "Female",
-          employmentType: "Reliever",
-          stageEnteredAt: now,
-          createdAt: now,
-        });
-        setRelieverForm({ name: "", phone: "", email: "", role: RELIEVER_CADRES[0], stage: "First Interview", source: "", startDate: "" });
-      } else if (addType === "Locum" && onCreateLocum) {
-        await onCreateLocum({
-          id: `loc-${Date.now()}`,
-          name: locumForm.name,
-          speciality: locumForm.speciality,
-          branchesCovered: [],
-          dailyRate: Number(locumForm.dailyRate),
-          licenseNumber: locumForm.licenseNumber,
-          availability: locumForm.availability,
-        });
-        setLocumForm({ name: "", phone: "", speciality: "", licenseNumber: "", dailyRate: "", availability: "" });
-      } else {
-        const now = new Date().toISOString();
-        await onCreate({
-          id: `cand-${Date.now()}`,
-          candId: "",
-          name: candForm.name,
-          phone: candForm.phone,
-          email: candForm.email,
-          segment: candForm.segment,
-          department: candForm.department,
-          stage: candForm.stage,
-          source: candForm.source,
-          gender: candForm.gender,
-          employmentType: candForm.employmentType,
-          stageEnteredAt: now,
-          createdAt: now,
-        });
-        setCandForm((prev) => ({ ...prev, name: "", phone: "", email: "", source: "", stage: "First Interview" }));
-      }
+      const now = new Date().toISOString();
+      await onCreate({
+        id: `cand-${Date.now()}`,
+        candId: "",
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        segment: form.segment,
+        department: form.department,
+        stage: form.stage,
+        source: form.source,
+        gender: form.gender,
+        employmentType: form.employmentType,
+        stageEnteredAt: now,
+        createdAt: now,
+      });
+      setForm((prev) => ({ ...prev, name: "", phone: "", email: "", source: "", stage: "First Interview" }));
       setOpen(false);
     } catch (err) {
       setSubmitError(
@@ -161,11 +91,6 @@ export function NewCandidateDialog({
       setSubmitting(false);
     }
   }
-
-  const submitLabel =
-    submitting ? "Adding…"
-    : addType === "Locum" ? "Add to Locum Pool"
-    : "Add to Pipeline";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -178,192 +103,82 @@ export function NewCandidateDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
 
-          {/* Type selector */}
-          <Field label="Type">
-            <div className="flex gap-0.5 rounded-md border border-border p-0.5">
-              {(["Candidate", "Reliever", "Locum"] as AddType[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setAddType(t)}
-                  className={`flex-1 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
-                    addType === t ? "bg-penda-blue text-white" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
+          <Field label="Name">
+            <Input value={form.name} onChange={(e) => update("name", e.target.value)} required placeholder="Full name" />
           </Field>
 
-          {/* ── CANDIDATE ── */}
-          {addType === "Candidate" && (
-            <>
-              <Field label="Name">
-                <Input value={candForm.name} onChange={(e) => updateCand("name", e.target.value)} required />
-              </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Phone">
+              <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} required placeholder="+2547…" />
+            </Field>
+            <Field label="Email">
+              <Input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} required />
+            </Field>
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Phone">
-                  <Input value={candForm.phone} onChange={(e) => updateCand("phone", e.target.value)} required />
-                </Field>
-                <Field label="Email">
-                  <Input type="email" value={candForm.email} onChange={(e) => updateCand("email", e.target.value)} required />
-                </Field>
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Segment">
+              <Select value={form.segment} onValueChange={(v) => updateSegment(v as Segment)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SEGMENTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Department / Function">
+              <Select value={form.department || undefined} onValueChange={(v) => update("department", v)}>
+                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  {departments.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Segment">
-                  <Select value={candForm.segment} onValueChange={(v) => updateCandSegment(v as Segment)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {SEGMENTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Department / Function">
-                  <Select value={candForm.department || undefined} onValueChange={updateCandDept}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      {departments.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Gender">
+              <Select value={form.gender} onValueChange={(v) => update("gender", v as "Male" | "Female")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Female">Female</SelectItem>
+                  <SelectItem value="Male">Male</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Employment Type">
+              <Select value={form.employmentType} onValueChange={(v) => update("employmentType", v as EmploymentType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {EMPLOYMENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
 
-              <p className="text-xs text-muted-foreground bg-muted rounded-md px-3 py-2">
-                Role will be assigned when the candidate is moved to Hired.
-              </p>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Starting Stage">
+              <Select value={form.stage} onValueChange={(v) => update("stage", v as CandidateStage)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Source">
+              <Select value={form.source} onValueChange={(v) => update("source", v)} required>
+                <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+                <SelectContent>
+                  {CANDIDATE_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Gender">
-                  <Select value={candForm.gender} onValueChange={(v) => updateCand("gender", v as "Male" | "Female")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Female">Female</SelectItem>
-                      <SelectItem value="Male">Male</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Employment Type">
-                  <Select value={candForm.employmentType} onValueChange={(v) => updateCand("employmentType", v as EmploymentType)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {EMPLOYMENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Starting Stage">
-                  <Select value={candForm.stage} onValueChange={(v) => updateCand("stage", v as CandidateStage)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Source">
-                  <Select value={candForm.source} onValueChange={(v) => updateCand("source", v)} required>
-                    <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
-                    <SelectContent>
-                      {CANDIDATE_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-            </>
-          )}
-
-          {/* ── RELIEVER ── */}
-          {addType === "Reliever" && (
-            <>
-              <p className="text-xs text-penda-blue rounded-md border border-penda-blue/30 bg-penda-blue/5 px-3 py-2">
-                Reliever candidates are added to the pipeline. Assign them as <strong>Hired</strong> to a role and they will automatically appear in the Reliever Pool.
-              </p>
-
-              <Field label="Name">
-                <Input value={relieverForm.name} onChange={(e) => updateReliever("name", e.target.value)} required placeholder="Full name" />
-              </Field>
-
-              <Field label="Role Function">
-                <Select value={relieverForm.role} onValueChange={(v) => updateReliever("role", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {RELIEVER_CADRES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Phone">
-                  <Input value={relieverForm.phone} onChange={(e) => updateReliever("phone", e.target.value)} required placeholder="+2547…" />
-                </Field>
-                <Field label="Email">
-                  <Input type="email" value={relieverForm.email} onChange={(e) => updateReliever("email", e.target.value)} placeholder="email address" />
-                </Field>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Starting Stage">
-                  <Select value={relieverForm.stage} onValueChange={(v) => updateReliever("stage", v as CandidateStage)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Source">
-                  <Select value={relieverForm.source} onValueChange={(v) => updateReliever("source", v)} required>
-                    <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
-                    <SelectContent>
-                      {CANDIDATE_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-            </>
-          )}
-
-          {/* ── LOCUM ── */}
-          {addType === "Locum" && (
-            <>
-              <Field label="Name">
-                <Input value={locumForm.name} onChange={(e) => updateLocum("name", e.target.value)} required />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Speciality / Role Function">
-                  <Input value={locumForm.speciality} onChange={(e) => updateLocum("speciality", e.target.value)} placeholder="e.g. Sonography" required />
-                </Field>
-                <Field label="Phone">
-                  <Input value={locumForm.phone} onChange={(e) => updateLocum("phone", e.target.value)} />
-                </Field>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="License Number">
-                  <Input value={locumForm.licenseNumber} onChange={(e) => updateLocum("licenseNumber", e.target.value)} required />
-                </Field>
-                <Field label="Daily Rate (KES)">
-                  <Input type="number" value={locumForm.dailyRate} onChange={(e) => updateLocum("dailyRate", e.target.value)} required />
-                </Field>
-              </div>
-
-              <Field label="Availability">
-                <Input
-                  value={locumForm.availability}
-                  onChange={(e) => updateLocum("availability", e.target.value)}
-                  placeholder="Weekends, On call…"
-                  required
-                />
-              </Field>
-
-              <p className="text-xs text-muted-foreground rounded-md border border-border bg-muted/40 px-3 py-2">
-                Branch assignment is done in the Locum Pool once a deployment is confirmed. Locums are added to the pool without a branch.
-              </p>
-            </>
+          {(form.employmentType === "Reliever" || form.employmentType === "Locum") && (
+            <p className="text-xs text-penda-blue rounded-md border border-penda-blue/30 bg-penda-blue/5 px-3 py-2">
+              When this candidate is moved to <strong>Hired</strong>, they will automatically be added to the{" "}
+              {form.employmentType === "Reliever" ? "Reliever Pool" : "Locum Pool"}.
+            </p>
           )}
 
           {submitError && (
@@ -374,7 +189,7 @@ export function NewCandidateDialog({
 
           <DialogFooter>
             <Button type="submit" disabled={submitting} className="bg-penda-blue hover:bg-penda-blue-dark">
-              {submitLabel}
+              {submitting ? "Adding…" : "Add to Pipeline"}
             </Button>
           </DialogFooter>
         </form>
