@@ -70,7 +70,7 @@ export function FormShell({
   const b = { ...DEFAULT_BRAND, ...brand };
 
   return (
-    <div className="light min-h-screen grid grid-cols-1 md:grid-cols-[minmax(0,0.86fr)_minmax(0,1fr)] bg-background">
+    <div className="light min-h-screen grid grid-cols-1 md:grid-cols-[minmax(0,0.86fr)_minmax(0,1fr)] bg-background px-0 md:px-[15px]">
       <div className="relative overflow-hidden bg-gradient-to-br from-penda-blue via-[#1442D6] to-penda-blue-dark px-6 py-8 sm:px-10 md:py-14 lg:py-16 flex flex-col text-white">
         <div className="pointer-events-none absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-penda-pink/30 blur-3xl" />
         <div className="pointer-events-none absolute -top-20 -left-10 h-56 w-56 rounded-full bg-white/5 blur-3xl" />
@@ -122,7 +122,7 @@ export function FormShell({
       </div>
 
       <div className="flex items-center justify-center px-4 py-10 sm:px-8 sm:py-14">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-lg">
           <h1 className="text-2xl font-bold text-balance text-foreground">{title}</h1>
           {subtitle && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>}
           <div className="mt-6">{children}</div>
