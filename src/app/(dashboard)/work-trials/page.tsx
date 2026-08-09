@@ -340,6 +340,15 @@ export default function WorkTrialsPage() {
                     <td className="px-4 py-3">
                       <p className="font-medium">{candidate?.name ?? <span className="text-destructive/70">Unlinked</span>}</p>
                       {role && <p className="text-xs text-muted-foreground">{role.title} · {role.department}</p>}
+                      {trial.roleCategory && (
+                        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium mt-0.5 ${
+                          trial.roleCategory === "Specialist"
+                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                            : "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300"
+                        }`}>
+                          {trial.roleCategory === "Specialist" && trial.specialty ? trial.specialty : trial.roleCategory}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       {branch ? (

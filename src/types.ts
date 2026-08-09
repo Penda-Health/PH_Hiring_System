@@ -78,9 +78,36 @@ export interface Branch {
   regionalManager: string;
   capacity: number;
   active: boolean;
+  workTrialActive: boolean;
   address: string;
   mapPinUrl: string;
 }
+
+/** Day-of-week names matching the Airtable multipleSelects choices. */
+export type WorkTrialDay =
+  | "Monday"
+  | "Tuesday"
+  | "Wednesday"
+  | "Thursday"
+  | "Friday"
+  | "Saturday";
+
+/** One row in the Work Trial Specialty Config table. */
+export interface SpecialtyConfig {
+  id: string;
+  /** Internal key, e.g. "Dental" */
+  specialty: string;
+  /** Label shown to candidates, e.g. "Dental" */
+  displayName: string;
+  /** Airtable record IDs of allowed branches */
+  branchIds: string[];
+  /** Which days of the week are available */
+  availableDays: WorkTrialDay[];
+  active: boolean;
+  notes: string;
+}
+
+export type WorkTrialRoleCategory = "General" | "Specialist";
 
 export type RequisitionLevel =
   | "Entry"
@@ -236,6 +263,8 @@ export interface WorkTrial {
   // single (shorter) overallRecommendation. null = not yet submitted either way.
   submissionMethod: "Online" | "Uploaded" | null;
   uploadedFormFiles?: { url: string; filename: string }[];
+  roleCategory?: WorkTrialRoleCategory;
+  specialty?: string;
 }
 
 export type RehireAnswer = "Yes, without hesitation" | "Yes, with some reservations" | "No, I would not recommend them";

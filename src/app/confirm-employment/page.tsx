@@ -3,7 +3,14 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { FormShell, FormMessage } from "@/components/forms/form-shell";
+import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
+
+const BRAND: FormShellBrand = {
+  eyebrow: "Penda Health · 6-Month Check-in",
+  headline: "A quick confirmation, six months in.",
+  lede: "We check in with every new hire's manager around the 6-month mark to keep our records accurate.",
+  footer: "Questions? ta@penda.co.ke",
+};
 
 type FormData = {
   employeeName: string;
@@ -40,7 +47,7 @@ function ConfirmEmploymentForm() {
 
   if (loadError === "missing_token" || loadError === "expired") {
     return (
-      <FormShell title="Link expired" subtitle="This confirmation link is no longer valid.">
+      <FormShell brand={BRAND} title="Link expired" subtitle="This confirmation link is no longer valid.">
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>
@@ -53,7 +60,7 @@ function ConfirmEmploymentForm() {
 
   if (loadError) {
     return (
-      <FormShell title="Something went wrong" subtitle="We couldn't load this confirmation request.">
+      <FormShell brand={BRAND} title="Something went wrong" subtitle="We couldn't load this confirmation request.">
         <FormMessage>
           <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
         </FormMessage>
@@ -63,7 +70,7 @@ function ConfirmEmploymentForm() {
 
   if (!data) {
     return (
-      <FormShell title="Loading…">
+      <FormShell brand={BRAND} title="Loading…">
         <p className="text-sm text-muted-foreground">Loading…</p>
       </FormShell>
     );
@@ -71,7 +78,7 @@ function ConfirmEmploymentForm() {
 
   if (submitted) {
     return (
-      <FormShell title="Thank you" subtitle="Your response has been recorded.">
+      <FormShell brand={BRAND} title="Thank you" subtitle="Your response has been recorded.">
         <FormMessage>
           <p>{confirmedValue ? `Thanks for confirming ${data.employeeName} is still employed.` : "Thanks for letting us know."}</p>
         </FormMessage>
@@ -81,7 +88,7 @@ function ConfirmEmploymentForm() {
 
   if (data.alreadySubmitted) {
     return (
-      <FormShell title="Already responded" subtitle={`Confirmation for ${data.employeeName}`}>
+      <FormShell brand={BRAND} title="Already responded" subtitle={`Confirmation for ${data.employeeName}`}>
         <FormMessage>
           <p>This confirmation has already been recorded. Contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> with any questions.</p>
         </FormMessage>
@@ -112,7 +119,7 @@ function ConfirmEmploymentForm() {
   }
 
   return (
-    <FormShell
+    <FormShell brand={BRAND}
       title="6-Month Employment Confirmation"
       subtitle={`${data.employeeName} — ${data.role}, started ${data.startDate}`}
     >

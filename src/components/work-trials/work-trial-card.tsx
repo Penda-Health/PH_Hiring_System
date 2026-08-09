@@ -149,6 +149,17 @@ export function ManualReviewDialog({
             <p className="text-muted-foreground text-xs">
               {branch?.name ?? "No branch"} · {trial.date || "No date"}
             </p>
+            {trial.roleCategory && (
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium mt-0.5 ${
+                trial.roleCategory === "Specialist"
+                  ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                  : "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300"
+              }`}>
+                {trial.roleCategory === "Specialist" && trial.specialty
+                  ? `Specialist · ${trial.specialty}`
+                  : trial.roleCategory}
+              </span>
+            )}
           </div>
 
           {/* Existing scores (if any) */}

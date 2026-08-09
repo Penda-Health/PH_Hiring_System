@@ -4,9 +4,19 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormShell, FormMessage } from "@/components/forms/form-shell";
+import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
 import { DatePickerCalendar } from "@/components/forms/date-picker-calendar";
 import { MapPin, Phone, Calendar, CheckCircle2 } from "lucide-react";
+
+const BRAND: FormShellBrand = {
+  headline: "You're one step from your work trial.",
+  lede: "Pick a branch and a day that works — we'll have your supervisor and paperwork ready when you arrive.",
+  stats: [
+    { value: "9–5", label: "Paid, full day" },
+    { value: "60", label: "Days out to pick from" },
+  ],
+  footer: "Questions? ta@penda.co.ke",
+};
 
 type Branch = {
   id: string;
@@ -16,6 +26,20 @@ type Branch = {
   mapPinUrl?: string;
   bmName?: string;
   bmPhone?: string;
+};
+
+type SpecialtyConfig = {
+  id: string;
+  specialty: string;
+  displayName: string;
+  branchIds: string[];
+  availableDays: string[];
+  active: boolean;
+};
+
+// Day name → JS day number (0=Sun…6=Sat)
+const DAY_NAME_TO_NUM: Record<string, number> = {
+  Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
 };
 
 type IdentifyResult = {
@@ -52,7 +76,8 @@ function formatDateDisplay(dateStr: string) {
 
 function WorkTrialRequestForm() {
   const [branches, setBranches] = React.useState<Branch[]>([]);
-  const [step, setStep] = React.useState<"identify" | "schedule" | "done">("identify");
+  const [specialtyConfigs, setSpecialtyConfigs] = React.useState<SpecialtyConfig[]>([]);
+  const [step, setStep] = React.useState<"identify" | "role" | "schedule" | "done">("identify");
 
   // Identify step
   const [name, setName] = React.useState("");
@@ -60,6 +85,10 @@ function WorkTrialRequestForm() {
   const [email, setEmail] = React.useState("");
   const [identifying, setIdentifying] = React.useState(false);
   const [identifyError, setIdentifyError] = React.useState<string | null>(null);
+
+  // Role step
+  const [roleCategory, setRoleCategory] = React.useState<"General" | "Specialist" | "">("");
+  const [selectedSpecialty, setSelectedSpecialty] = React.useState("");
 
   // Schedule step
   const [sessionToken, setSessionToken] = React.useState("");
@@ -95,7 +124,10 @@ function WorkTrialRequestForm() {
   React.useEffect(() => {
     fetch("/api/public/work-trial-request")
       .then((r) => r.json())
-      .then((d) => setBranches(d.branches ?? []))
+      .then((d) => {
+        setBranches(d.branches ?? []);
+        setSpecialtyConfigs((d.specialtyConfigs ?? []).filter((s: SpecialtyConfig) => s.active));
+      })
       .catch(() => {});
   }, []);
 
@@ -136,7 +168,8 @@ function WorkTrialRequestForm() {
         setConfirmedDate(data.selectedDate ?? "");
         setStep("done");
       } else {
-        setStep("schedule");
+        // Go to role selection; skip it if no active specialties configured
+        setStep(specialtyConfigs.length > 0 ? "role" : "schedule");
       }
     } catch (err) {
       setIdentifyError(
@@ -157,7 +190,14 @@ function WorkTrialRequestForm() {
       const res = await fetch("/api/public/work-trial-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ step: "schedule", sessionToken, branchId, date }),
+        body: JSON.stringify({
+          step: "schedule",
+          sessionToken,
+          branchId,
+          date,
+          ...(roleCategory ? { roleCategory } : {}),
+          ...(roleCategory === "Specialist" && selectedSpecialty ? { specialty: selectedSpecialty } : {}),
+        }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "server_error");
@@ -171,12 +211,16 @@ function WorkTrialRequestForm() {
       setConfirmedDate(data.date ?? date);
       setStep("done");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
+      const bodyErr = err instanceof Error ? err.message : "";
       setScheduleError(
-        msg === "session_expired"
+        bodyErr === "session_expired"
           ? "Your session expired. Please go back and re-enter your details."
-          : msg === "sunday_date"
+          : bodyErr === "sunday_date"
           ? "Sundays are not available. Please pick a different day."
+          : bodyErr === "invalid_branch_for_specialty"
+          ? `That branch doesn't offer ${selectedSpecialty || "specialist"} work trials. Please select a different branch.`
+          : bodyErr === "invalid_day_for_specialty"
+          ? `That day is not available for ${selectedSpecialty || "specialist"} work trials. Please pick another date.`
           : "Something went wrong. Please try again."
       );
     } finally {
@@ -184,10 +228,40 @@ function WorkTrialRequestForm() {
     }
   }
 
+  // ── Derived: filtered branches + allowed days based on specialty ──────────
+  const activeSpecialtyConfig = React.useMemo(
+    () => (roleCategory === "Specialist" && selectedSpecialty
+      ? specialtyConfigs.find((s) => s.specialty === selectedSpecialty) ?? null
+      : null),
+    [roleCategory, selectedSpecialty, specialtyConfigs]
+  );
+
+  const filteredBranches = React.useMemo(
+    () => (activeSpecialtyConfig && activeSpecialtyConfig.branchIds.length > 0
+      ? branches.filter((b) => activeSpecialtyConfig.branchIds.includes(b.id))
+      : branches),
+    [activeSpecialtyConfig, branches]
+  );
+
+  const allowedDayNumbers = React.useMemo<number[] | undefined>(
+    () => (activeSpecialtyConfig && activeSpecialtyConfig.availableDays.length > 0
+      ? activeSpecialtyConfig.availableDays
+          .map((d) => DAY_NAME_TO_NUM[d])
+          .filter((n): n is number => n !== undefined)
+      : undefined),
+    [activeSpecialtyConfig]
+  );
+
+  const allowedDaysLabel = React.useMemo(() => {
+    if (!allowedDayNumbers) return "Weekdays only · Mon – Sat available";
+    const names = (activeSpecialtyConfig?.availableDays ?? []).join(", ");
+    return `Available days: ${names}`;
+  }, [allowedDayNumbers, activeSpecialtyConfig]);
+
   // ── Identify step ─────────────────────────────────────────────────────────
   if (step === "identify") {
     return (
-      <FormShell
+      <FormShell brand={BRAND}
         title="Work Trial Scheduling"
         subtitle="Enter your details below to confirm your work trial at Penda Health."
       >
@@ -260,27 +334,149 @@ function WorkTrialRequestForm() {
     );
   }
 
-  // ── Schedule step ─────────────────────────────────────────────────────────
-  if (step === "schedule") {
-    const selectedBranch = branches.find((b) => b.id === branchId);
+  // ── Role selection step ───────────────────────────────────────────────────
+  if (step === "role") {
+    const canContinue =
+      roleCategory === "General" ||
+      (roleCategory === "Specialist" && selectedSpecialty !== "");
 
     return (
-      <FormShell
+      <FormShell brand={BRAND}
+        title="What role are you applying for?"
+        subtitle={`Hi ${candidateName}, please let us know the type of role so we can assign the right branch and schedule.`}
+      >
+        <div className="space-y-5">
+          {/* General vs Specialist */}
+          <div className="space-y-2">
+            <Label>Role type</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(["General", "Specialist"] as const).map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    setRoleCategory(cat);
+                    if (cat === "General") setSelectedSpecialty("");
+                  }}
+                  className={`text-left rounded-lg border p-4 transition-colors ${
+                    roleCategory === cat
+                      ? "border-penda-blue bg-penda-blue/5 ring-1 ring-penda-blue/30"
+                      : "border-border hover:border-penda-blue/50"
+                  }`}
+                >
+                  <p className="font-semibold text-sm">
+                    {cat === "General" ? "General Clinical Role" : "Specialist Service"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {cat === "General"
+                      ? "Clinical Officer, Nurse, Receptionist, etc."
+                      : "Dental, Sonographer, Reproductive Health, Pharmacy, Lab, etc."}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Specialty picker — only when Specialist selected */}
+          {roleCategory === "Specialist" && (
+            <div className="space-y-2">
+              <Label>Select your specialist area</Label>
+              {specialtyConfigs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No specialist work trials are currently available. Contact{" "}
+                  <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">
+                    ta@penda.co.ke
+                  </a>{" "}
+                  for assistance.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {specialtyConfigs.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSelectedSpecialty(s.specialty)}
+                      className={`text-left rounded-lg border p-3 transition-colors ${
+                        selectedSpecialty === s.specialty
+                          ? "border-penda-blue bg-penda-blue/5 ring-1 ring-penda-blue/30"
+                          : "border-border hover:border-penda-blue/50"
+                      }`}
+                    >
+                      <p className="font-medium text-sm">{s.displayName}</p>
+                      {s.availableDays.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {s.availableDays.join(", ")}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <Button
+            type="button"
+            className="w-full bg-penda-blue hover:bg-penda-blue-dark"
+            disabled={!canContinue}
+            onClick={() => {
+              // Clear any previously selected branch/date since they may not
+              // apply to the new specialty filter
+              setBranchId("");
+              setDate("");
+              setStep("schedule");
+            }}
+          >
+            Continue
+          </Button>
+        </div>
+      </FormShell>
+    );
+  }
+
+  // ── Schedule step ─────────────────────────────────────────────────────────
+  if (step === "schedule") {
+    const selectedBranch = filteredBranches.find((b) => b.id === branchId);
+
+    return (
+      <FormShell brand={BRAND}
         title="Choose your work trial"
         subtitle={`Hi ${candidateName}, please pick a branch and date below.`}
       >
         <form onSubmit={handleSchedule} className="space-y-6">
+          {/* Specialty badge */}
+          {roleCategory && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium ${
+                roleCategory === "Specialist"
+                  ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                  : "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300"
+              }`}>
+                {roleCategory === "Specialist" && selectedSpecialty
+                  ? `Specialist · ${selectedSpecialty}`
+                  : "General Clinical Role"}
+              </span>
+              <button
+                type="button"
+                className="text-muted-foreground underline text-xs"
+                onClick={() => setStep("role")}
+              >
+                Change
+              </button>
+            </div>
+          )}
+
           {/* Branch selector */}
           <div className="space-y-2">
             <Label>Choose a branch</Label>
-            {branches.length === 0 ? (
+            {filteredBranches.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No branches available right now. Contact{" "}
                 <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
               </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {branches.map((b) => (
+                {filteredBranches.map((b) => (
                   <button
                     key={b.id}
                     type="button"
@@ -319,10 +515,14 @@ function WorkTrialRequestForm() {
               onChange={setDate}
               minDate={minDate}
               maxDate={maxDate}
+              allowedDays={allowedDayNumbers}
+              allowedDaysLabel={allowedDaysLabel}
               placeholder="Select a date"
             />
             <p className="text-xs text-muted-foreground">
-              Available from tomorrow · Monday – Saturday · up to 60 days ahead
+              {allowedDayNumbers
+                ? `Available: ${activeSpecialtyConfig?.availableDays.join(", ") ?? "selected days"} · up to 60 days ahead`
+                : "Available from tomorrow · Monday – Saturday · up to 60 days ahead"}
             </p>
           </div>
 
@@ -357,7 +557,7 @@ function WorkTrialRequestForm() {
 
   // ── Confirmation ──────────────────────────────────────────────────────────
   return (
-    <FormShell title="You're confirmed!" subtitle={`Great news, ${candidateName}`}>
+    <FormShell brand={BRAND} title="You're confirmed!" subtitle={`Great news, ${candidateName}`}>
       <div className="space-y-4">
         {/* Tick + date hero */}
         <div className="flex flex-col items-center gap-2 py-4">

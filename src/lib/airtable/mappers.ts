@@ -15,6 +15,9 @@ import {
   NewEmployee,
   Reliever,
   Locum,
+  SpecialtyConfig,
+  WorkTrialDay,
+  WorkTrialRoleCategory,
 } from "@/types";
 import { AirtableRecord, cleanFields, firstLink, link } from "./client";
 import { F } from "./field-names";
@@ -57,6 +60,7 @@ export function branchFromAirtable(r: AirtableRecord): Branch {
     regionalManager: str(f[F.Branches.REGIONAL_MANAGER]),
     capacity: num(f[F.Branches.CAPACITY]),
     active: bool(f[F.Branches.ACTIVE]),
+    workTrialActive: bool(f[F.Branches.WORK_TRIAL_ACTIVE]),
     address: str(f[F.Branches.ADDRESS]),
     mapPinUrl: str(f[F.Branches.MAP_PIN_URL]),
   };
@@ -359,6 +363,8 @@ export function workTrialFromAirtable(r: AirtableRecord): WorkTrial {
     overallRecommendation: opt<string>(f[F.WorkTrials.OVERALL_RECOMMENDATION]) ?? undefined,
     submissionMethod: (opt<string>(f[F.WorkTrials.SUBMISSION_METHOD]) ?? null) as WorkTrial["submissionMethod"],
     uploadedFormFiles: attachmentsFromAirtable(f[F.WorkTrials.UPLOADED_FORM]),
+    roleCategory: opt<WorkTrialRoleCategory>(f[F.WorkTrials.ROLE_CATEGORY]),
+    specialty: opt<string>(f[F.WorkTrials.SPECIALTY]),
   };
 }
 export function workTrialToAirtable(w: Partial<WorkTrial>) {
@@ -394,7 +400,28 @@ export function workTrialToAirtable(w: Partial<WorkTrial>) {
     // Uploaded Form is intentionally not mapped here — attachments are
     // written via client.ts's uploadAttachment(), a separate Airtable API
     // call, not a plain field PATCH.
+    [F.WorkTrials.ROLE_CATEGORY]: w.roleCategory ?? undefined,
+    [F.WorkTrials.SPECIALTY]: w.specialty ?? undefined,
   });
+}
+
+// ---------- Work Trial Specialty Config ----------
+export function specialtyConfigFromAirtable(r: AirtableRecord): SpecialtyConfig {
+  const f = r.fields;
+  const rawDays = Array.isArray(f[F.WorkTrialSpecialtyConfig.AVAILABLE_DAYS])
+    ? (f[F.WorkTrialSpecialtyConfig.AVAILABLE_DAYS] as string[])
+    : [];
+  return {
+    id: r.id,
+    specialty: str(f[F.WorkTrialSpecialtyConfig.SPECIALTY]),
+    displayName: str(f[F.WorkTrialSpecialtyConfig.DISPLAY_NAME]) || str(f[F.WorkTrialSpecialtyConfig.SPECIALTY]),
+    branchIds: Array.isArray(f[F.WorkTrialSpecialtyConfig.BRANCHES])
+      ? (f[F.WorkTrialSpecialtyConfig.BRANCHES] as string[])
+      : [],
+    availableDays: rawDays as WorkTrialDay[],
+    active: bool(f[F.WorkTrialSpecialtyConfig.ACTIVE]),
+    notes: str(f[F.WorkTrialSpecialtyConfig.NOTES]),
+  };
 }
 
 // ---------- Reference Checks ----------

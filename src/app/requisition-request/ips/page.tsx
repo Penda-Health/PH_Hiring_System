@@ -7,9 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FormShell, FormMessage } from "@/components/forms/form-shell";
+import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 import { IPS_FUNCTIONS } from "@/lib/department-options";
+
+const BRAND: FormShellBrand = {
+  eyebrow: "Penda Health · IPS Requisition",
+  headline: "Turn an approved gap into an open role.",
+  lede: "Use this once the role's approval is complete — it enters the hiring pipeline as soon as you submit.",
+  footer: "Questions? ta@penda.co.ke",
+};
 
 const GAP_REASONS: { value: GapReason; label: string; description: string }[] = [
   { value: "Transfer", label: "Transfer", description: "Employee moved to a different branch or department" },
@@ -114,7 +121,7 @@ export default function PublicIpsRequisitionRequestPage() {
 
   if (submitted) {
     return (
-      <FormShell title="Request received" subtitle={`Thanks ${submitterName}, your requisition has been created.`}>
+      <FormShell brand={BRAND} title="Request received" subtitle={`Thanks ${submitterName}, your requisition has been created.`}>
         <FormMessage>
           <p>The role is now an open role in our pipeline. You&apos;ll receive email updates at {submitterEmail} as it progresses.</p>
         </FormMessage>
@@ -123,7 +130,7 @@ export default function PublicIpsRequisitionRequestPage() {
   }
 
   return (
-    <FormShell
+    <FormShell brand={BRAND}
       title="IPS Gap Requisition Request"
       subtitle="Use this link once the role's approval is complete."
     >

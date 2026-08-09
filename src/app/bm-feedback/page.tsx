@@ -4,7 +4,7 @@ import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FormShell, FormMessage } from "@/components/forms/form-shell";
+import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
 import { FormattableTextarea } from "@/components/forms/formattable-textarea";
 import {
   WRITTEN_ASSESSMENT_MIN_LENGTH,
@@ -14,6 +14,17 @@ import {
   isTechnicalAutoFail,
   PASS_THRESHOLD,
 } from "@/lib/work-trial-helpers";
+
+const BRAND: FormShellBrand = {
+  eyebrow: "Penda Health · Work Trial Assessment",
+  headline: "Your read on today's trial shapes who joins the team.",
+  lede: "A few honest minutes here — culture, patient experience, technical fit — is how we make a fair call.",
+  stats: [
+    { value: "40/40/20", label: "Culture · Patient · Technical" },
+    { value: "≤6/10", label: "Auto-fail threshold" },
+  ],
+  footer: "Questions? ta@penda.co.ke",
+};
 
 type FormData = {
   candidateName: string;
@@ -148,7 +159,7 @@ function BmFeedbackForm() {
 
   if (loadError === "missing_token" || loadError === "expired") {
     return (
-      <FormShell title="Link expired" subtitle="This feedback link is no longer valid.">
+      <FormShell brand={BRAND} title="Link expired" subtitle="This feedback link is no longer valid.">
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>Email: <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a></p>
@@ -159,7 +170,7 @@ function BmFeedbackForm() {
 
   if (loadError) {
     return (
-      <FormShell title="Something went wrong">
+      <FormShell brand={BRAND} title="Something went wrong">
         <FormMessage>
           <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
         </FormMessage>
@@ -169,7 +180,7 @@ function BmFeedbackForm() {
 
   if (!data) {
     return (
-      <FormShell title="Loading…">
+      <FormShell brand={BRAND} title="Loading…">
         <p className="text-sm text-muted-foreground">Loading work trial details…</p>
       </FormShell>
     );
@@ -320,7 +331,7 @@ function BmFeedbackForm() {
   // ─── Arrival step ───────────────────────────────────────────────────────────
   if (step === "arrival" && data.arrivalMarked === null) {
     return (
-      <FormShell title="Work Trial Assessment" subtitle={header}>
+      <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-5">
           <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Candidate</p>
@@ -359,7 +370,7 @@ function BmFeedbackForm() {
   // ─── Role select step ────────────────────────────────────────────────────────
   if (step === "role-select") {
     return (
-      <FormShell title="Work Trial Assessment" subtitle={header}>
+      <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-5">
           <p className="text-sm font-medium">Step 2 of 5 — I am the:</p>
           <div className="grid grid-cols-2 gap-3">
@@ -387,7 +398,7 @@ function BmFeedbackForm() {
   // ─── Method select step ──────────────────────────────────────────────────────
   if (step === "method") {
     return (
-      <FormShell title="Work Trial Assessment" subtitle={header}>
+      <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-5">
           <p className="text-sm font-medium">Step 3 of 5 — How would you like to submit this assessment?</p>
           <div className="grid grid-cols-1 gap-3">
@@ -421,7 +432,7 @@ function BmFeedbackForm() {
   if (step === "scoring") {
     const commentKey = { culture: "commentCulture", patient: "commentPatient", technical: "commentTechnical" } as const;
     return (
-      <FormShell title="Work Trial Assessment" subtitle={header}>
+      <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-6">
           <p className="text-sm font-medium text-muted-foreground">
             Step 4 of 5 — Score each area (1 = Poor · 5 = Good · 10 = Excellent)
@@ -505,7 +516,7 @@ function BmFeedbackForm() {
   // ─── Qualitative feedback step ────────────────────────────────────────────────
   if (step === "feedback") {
     return (
-      <FormShell title="Work Trial Assessment" subtitle={header}>
+      <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <form onSubmit={handleScoreSubmit} className="space-y-6">
           <p className="text-sm font-medium text-muted-foreground">
             Step 5 of 5 — Qualitative feedback
@@ -612,7 +623,7 @@ function BmFeedbackForm() {
   // ─── Upload-a-completed-form step ─────────────────────────────────────────────
   if (step === "upload") {
     return (
-      <FormShell title="Work Trial Assessment" subtitle={header}>
+      <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <form onSubmit={handleUploadSubmit} className="space-y-6">
           <p className="text-sm font-medium text-muted-foreground">
             Step 4 of 4 — Scores, uploaded form, and overall recommendation
@@ -735,7 +746,7 @@ function BmFeedbackForm() {
   // ─── Pending BM approval (BM opens same link to approve) ─────────────────────
   if (step === "pending-approval" && !approvalResult) {
     return (
-      <FormShell title="Scores pending your approval" subtitle={header}>
+      <FormShell brand={BRAND} title="Scores pending your approval" subtitle={header}>
         <div className="space-y-5">
           <p className="text-sm text-muted-foreground">
             The In-Charge has submitted assessment scores for {data.candidateName}. Please review and approve.
@@ -781,7 +792,7 @@ function BmFeedbackForm() {
   // ─── Approved ────────────────────────────────────────────────────────────────
   if (step === "approved" && approvalResult) {
     return (
-      <FormShell title="Assessment approved" subtitle={header}>
+      <FormShell brand={BRAND} title="Assessment approved" subtitle={header}>
         <FormMessage>
           <p>
             Score: <strong>{approvalResult.total.toFixed(1)}/100</strong> —{" "}
@@ -799,7 +810,7 @@ function BmFeedbackForm() {
   if (step === "done" && !scoreResult) {
     if (data.arrivalMarked === false) {
       return (
-        <FormShell title="Recorded" subtitle={header}>
+        <FormShell brand={BRAND} title="Recorded" subtitle={header}>
           <FormMessage>
             <p>Thanks — we&apos;ve recorded that {data.candidateName} did not arrive. The recruitment team has been notified.</p>
           </FormMessage>
@@ -808,7 +819,7 @@ function BmFeedbackForm() {
     }
     if (data.alreadyScored) {
       return (
-        <FormShell title="Already submitted" subtitle={header}>
+        <FormShell brand={BRAND} title="Already submitted" subtitle={header}>
           <FormMessage>
             <p>This assessment has already been submitted. Contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> if you need to make a correction.</p>
           </FormMessage>
@@ -821,7 +832,7 @@ function BmFeedbackForm() {
   if (scoreResult) {
     if (scoreResult.submittedByRole === "Incharge") {
       return (
-        <FormShell title="Scores submitted" subtitle={header}>
+        <FormShell brand={BRAND} title="Scores submitted" subtitle={header}>
           <FormMessage>
             <p>
               Score: <strong>{scoreResult.total.toFixed(1)}/100</strong>
@@ -835,7 +846,7 @@ function BmFeedbackForm() {
       );
     }
     return (
-      <FormShell title="Assessment submitted" subtitle={header}>
+      <FormShell brand={BRAND} title="Assessment submitted" subtitle={header}>
         <FormMessage>
           <p>
             Score: <strong>{scoreResult.total.toFixed(1)}/100</strong> —{" "}

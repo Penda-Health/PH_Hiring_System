@@ -6,7 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FormShell, FormMessage } from "@/components/forms/form-shell";
+import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
+
+const BRAND: FormShellBrand = {
+  eyebrow: "Penda Health · Reference Check",
+  headline: "A few honest minutes from you helps us get this hire right.",
+  lede: "You were listed as a reference — your perspective on their work is one of the most valuable inputs we get.",
+  footer: "Questions? ta@penda.co.ke",
+};
 
 type FormData = {
   candidateName: string;
@@ -88,7 +95,7 @@ function RefereeForm() {
 
   if (loadError === "missing_token" || loadError === "expired") {
     return (
-      <FormShell title="Link expired" subtitle="This reference check link is no longer valid.">
+      <FormShell brand={BRAND} title="Link expired" subtitle="This reference check link is no longer valid.">
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>
@@ -101,7 +108,7 @@ function RefereeForm() {
 
   if (loadError) {
     return (
-      <FormShell title="Something went wrong">
+      <FormShell brand={BRAND} title="Something went wrong">
         <FormMessage>
           <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
         </FormMessage>
@@ -111,7 +118,7 @@ function RefereeForm() {
 
   if (!data) {
     return (
-      <FormShell title="Loading…">
+      <FormShell brand={BRAND} title="Loading…">
         <p className="text-sm text-muted-foreground">Loading reference check details…</p>
       </FormShell>
     );
@@ -119,7 +126,7 @@ function RefereeForm() {
 
   if (submitted) {
     return (
-      <FormShell title="Thank you" subtitle={`Hi ${data.refereeName}`}>
+      <FormShell brand={BRAND} title="Thank you" subtitle={`Hi ${data.refereeName}`}>
         <FormMessage>
           <p>Your reference for {data.candidateName} has been submitted. We appreciate your time.</p>
         </FormMessage>
@@ -129,7 +136,7 @@ function RefereeForm() {
 
   if (data.alreadySubmitted) {
     return (
-      <FormShell title="Already submitted" subtitle={`Hi ${data.refereeName}`}>
+      <FormShell brand={BRAND} title="Already submitted" subtitle={`Hi ${data.refereeName}`}>
         <FormMessage>
           <p>
             You&apos;ve already submitted a reference for {data.candidateName}. Contact{" "}
@@ -179,7 +186,7 @@ function RefereeForm() {
   }
 
   return (
-    <FormShell
+    <FormShell brand={BRAND}
       title="Reference check"
       subtitle={`Hi ${data.refereeName}, ${data.candidateName} listed you as a reference for the ${data.roleTitle} role at Penda Health.`}
     >

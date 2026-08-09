@@ -15,6 +15,7 @@ export const TABLE_NAMES = {
   NewEmployees: "New Employees",
   Relievers: "Relievers",
   Locums: "Locums",
+  WorkTrialSpecialtyConfig: "Work Trial Specialty Config",
 } as const;
 
 export const F = {
@@ -29,6 +30,7 @@ export const F = {
     REGIONAL_MANAGER: "Regional Manager",
     CAPACITY: "Capacity",
     ACTIVE: "Active",
+    WORK_TRIAL_ACTIVE: "Work Trial Active",
     ADDRESS: "Address",
     MAP_PIN_URL: "Map Pin URL",
   },
@@ -163,6 +165,8 @@ export const F = {
     // single Overall Recommendation.
     SUBMISSION_METHOD: "Submission Method",
     UPLOADED_FORM: "Uploaded Form",
+    ROLE_CATEGORY: "Role Category",
+    SPECIALTY: "Specialty",
   },
   ReferenceChecks: {
     REF_ID: "Ref ID",
@@ -251,5 +255,18 @@ export const F = {
     LICENSE_NUMBER: "License Number",
     AVAILABILITY: "Availability",
     LAST_DEPLOYED: "Last Deployed",
+  },
+  WorkTrialSpecialtyConfig: {
+    SPECIALTY: "Specialty",
+    DISPLAY_NAME: "Display Name",
+    BRANCHES: "Branches",
+    AVAILABLE_DAYS: "Available Days",
+    ACTIVE: "Active",
+    NOTES: "Notes",
+  },
+  // Additional Work Trials fields (specialist support)
+  WorkTrialsSpecialist: {
+    ROLE_CATEGORY: "Role Category",
+    SPECIALTY: "Specialty",
   },
 } as const;

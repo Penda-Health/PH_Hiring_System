@@ -11,6 +11,7 @@ import {
   candidateFromAirtable,
   workTrialFromAirtable,
   branchFromAirtable,
+  specialtyConfigFromAirtable,
 } from "@/lib/airtable/mappers";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -34,8 +35,11 @@ export async function GET(request: NextRequest) {
   if (limited) return limited;
 
   try {
-    const records = await listRecords(TABLE_NAMES.Branches);
-    const branches = records.map(branchFromAirtable).map((b) => ({
+    const [branchRecords, specialtyRecords] = await Promise.all([
+      listRecordsFiltered(TABLE_NAMES.Branches, `{${F.Branches.WORK_TRIAL_ACTIVE}}=1`),
+      listRecords(TABLE_NAMES.WorkTrialSpecialtyConfig),
+    ]);
+    const branches = branchRecords.map(branchFromAirtable).map((b) => ({
       id: b.id,
       name: b.name,
       city: b.city,
@@ -44,7 +48,10 @@ export async function GET(request: NextRequest) {
       bmName: b.branchManager,
       bmPhone: b.bmPhone,
     }));
-    return NextResponse.json({ branches });
+    const specialtyConfigs = specialtyRecords
+      .map(specialtyConfigFromAirtable)
+      .filter((s) => s.active);
+    return NextResponse.json({ branches, specialtyConfigs });
   } catch (err) {
     console.error("[api/public/work-trial-request] GET failed:", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
@@ -65,6 +72,8 @@ const scheduleSchema = z.object({
   sessionToken: z.string().min(1).max(4000),
   branchId: z.string().min(1).max(100),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+  roleCategory: z.enum(["General", "Specialist"]).optional(),
+  specialty: z.string().trim().max(80).optional(),
 });
 
 const postSchema = z.union([identifySchema, scheduleSchema]);
@@ -202,7 +211,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Step 2: schedule ───────────────────────────────────────────────────────
-  const { sessionToken, branchId, date } = result.data;
+  const { sessionToken, branchId, date, roleCategory, specialty } = result.data;
   const payload = await verifyWorkTrialRequestToken(sessionToken);
   if (!payload) return NextResponse.json({ error: "session_expired" }, { status: 401 });
 
@@ -210,6 +219,11 @@ export async function POST(request: NextRequest) {
   if (dayOfWeek === 0) {
     return NextResponse.json({ error: "sunday_date" }, { status: 400 });
   }
+
+  // Day names matching Airtable Available Days choices
+  const JS_DAY_TO_NAME: Record<number, string> = {
+    1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday",
+  };
 
   try {
     // Guard against overwriting an already-booked slot — without this, a
@@ -222,6 +236,32 @@ export async function POST(request: NextRequest) {
     const existingTrial = workTrialFromAirtable(existingTrialRecord);
     if (existingTrial.branchId && existingTrial.date) {
       return NextResponse.json({ error: "already_submitted" }, { status: 409 });
+    }
+
+    // For specialist roles validate branch + day against the specialty config.
+    if (roleCategory === "Specialist" && specialty) {
+      const configRecords = await listRecords(TABLE_NAMES.WorkTrialSpecialtyConfig);
+      const config = configRecords
+        .map(specialtyConfigFromAirtable)
+        .find((s) => s.active && s.specialty === specialty);
+
+      if (config) {
+        // Branch must be in the allowed list
+        if (config.branchIds.length > 0 && !config.branchIds.includes(branchId)) {
+          return NextResponse.json(
+            { error: "invalid_branch_for_specialty", message: `${specialty} work trials can only be held at specific branches.` },
+            { status: 400 }
+          );
+        }
+        // Day must be allowed
+        const dayName = JS_DAY_TO_NAME[dayOfWeek];
+        if (config.availableDays.length > 0 && dayName && !(config.availableDays as string[]).includes(dayName)) {
+          return NextResponse.json(
+            { error: "invalid_day_for_specialty", message: `${specialty} work trials are not available on ${dayName}s.` },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     const branchRecord = await getRecord(TABLE_NAMES.Branches, branchId);
@@ -238,6 +278,8 @@ export async function POST(request: NextRequest) {
       [F.WorkTrials.DATE]: date,
       [F.WorkTrials.SUPERVISOR]: branch.branchManager || undefined,
       ...(bmScoringLink ? { [F.WorkTrials.BM_SCORING_LINK]: bmScoringLink } : {}),
+      ...(roleCategory ? { [F.WorkTrials.ROLE_CATEGORY]: roleCategory } : {}),
+      ...(specialty ? { [F.WorkTrials.SPECIALTY]: specialty } : {}),
     });
 
     return NextResponse.json({

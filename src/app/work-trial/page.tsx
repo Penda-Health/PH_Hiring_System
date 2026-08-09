@@ -5,7 +5,17 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FormShell, FormMessage } from "@/components/forms/form-shell";
+import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
+
+const BRAND: FormShellBrand = {
+  headline: "A short trial, a real look at life at Penda.",
+  lede: "It's usually just one day — enough for us to see your skills in action, and for you to get a feel for the team.",
+  stats: [
+    { value: "1 day", label: "Typical length" },
+    { value: "Paid", label: "Compensated trial" },
+  ],
+  footer: "Questions? ta@penda.co.ke",
+};
 
 type Branch = { id: string; name: string; city: string; branchManager: string };
 type FormData = {
@@ -61,7 +71,7 @@ function WorkTrialForm() {
 
   if (loadError === "missing_token" || loadError === "expired") {
     return (
-      <FormShell title="Link expired" subtitle="This work trial link is no longer valid.">
+      <FormShell brand={BRAND} title="Link expired" subtitle="This work trial link is no longer valid.">
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>
@@ -74,7 +84,7 @@ function WorkTrialForm() {
 
   if (loadError) {
     return (
-      <FormShell title="Something went wrong" subtitle="We couldn't load your work trial details.">
+      <FormShell brand={BRAND} title="Something went wrong" subtitle="We couldn't load your work trial details.">
         <FormMessage>
           <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
         </FormMessage>
@@ -84,7 +94,7 @@ function WorkTrialForm() {
 
   if (!data) {
     return (
-      <FormShell title="Loading…">
+      <FormShell brand={BRAND} title="Loading…">
         <p className="text-sm text-muted-foreground">Loading your work trial details…</p>
       </FormShell>
     );
@@ -92,7 +102,7 @@ function WorkTrialForm() {
 
   if (submitted) {
     return (
-      <FormShell title="You're all set!" subtitle={`Hi ${data.candidateName}, thank you for confirming.`}>
+      <FormShell brand={BRAND} title="You're all set!" subtitle={`Hi ${data.candidateName}, thank you for confirming.`}>
         <FormMessage>
           <p>
             Your work trial is confirmed for <strong>{date}</strong> at{" "}
@@ -106,7 +116,7 @@ function WorkTrialForm() {
 
   if (data.alreadySubmitted) {
     return (
-      <FormShell title="Already confirmed" subtitle={`Hi ${data.candidateName}`}>
+      <FormShell brand={BRAND} title="Already confirmed" subtitle={`Hi ${data.candidateName}`}>
         <FormMessage>
           <p>
             You&apos;ve already selected your work trial: <strong>{data.selectedDate}</strong> at{" "}
@@ -123,7 +133,7 @@ function WorkTrialForm() {
 
   if (data.branches.length === 0) {
     return (
-      <FormShell title="No branches available" subtitle={`Hi ${data.candidateName}`}>
+      <FormShell brand={BRAND} title="No branches available" subtitle={`Hi ${data.candidateName}`}>
         <FormMessage>
           <p>Please contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> to arrange your work trial date.</p>
         </FormMessage>
@@ -161,7 +171,7 @@ function WorkTrialForm() {
   }
 
   return (
-    <FormShell
+    <FormShell brand={BRAND}
       title="Confirm your work trial"
       subtitle={`Hi ${data.candidateName}, we're excited to move you forward for the ${data.roleTitle} role.`}
     >

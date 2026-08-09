@@ -3,8 +3,8 @@
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// Days blocked (0 = Sunday)
-const BLOCKED_DAYS = new Set([0]);
+// Default blocked days (0 = Sunday)
+const DEFAULT_BLOCKED_DAYS = new Set([0]);
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -38,6 +38,10 @@ function formatMonth(d: Date): string {
   return d.toLocaleDateString("en-KE", { month: "long", year: "numeric" });
 }
 
+/** JS day numbers that are allowed (0=Sun, 1=Mon…6=Sat).
+ * When undefined, Mon–Sat are available (Sunday always blocked). */
+export type AllowedDayNumbers = number[];
+
 interface DatePickerCalendarProps {
   value: string; // "YYYY-MM-DD" or ""
   onChange: (value: string) => void;
@@ -45,6 +49,13 @@ interface DatePickerCalendarProps {
   minDate?: Date;
   /** Latest selectable date. Defaults to 60 days from today. */
   maxDate?: Date;
+  /**
+   * If provided, only these JS day numbers (0=Sun…6=Sat) are selectable.
+   * Sunday is always blocked regardless of this list.
+   */
+  allowedDays?: AllowedDayNumbers;
+  /** Human-readable label for the allowed days (shown in calendar legend). */
+  allowedDaysLabel?: string;
   placeholder?: string;
   disabled?: boolean;
   error?: string | null;
@@ -55,6 +66,8 @@ export function DatePickerCalendar({
   onChange,
   minDate,
   maxDate,
+  allowedDays,
+  allowedDaysLabel,
   placeholder = "Pick a date",
   disabled = false,
   error,
@@ -101,7 +114,10 @@ export function DatePickerCalendar({
     const d = new Date(year, month, day);
     d.setHours(0, 0, 0, 0);
     const jsDay = d.getDay();
-    if (BLOCKED_DAYS.has(jsDay)) return true;
+    // Sunday always blocked
+    if (DEFAULT_BLOCKED_DAYS.has(jsDay)) return true;
+    // If allowedDays is specified, only those day numbers are permitted
+    if (allowedDays && !allowedDays.includes(jsDay)) return true;
     if (d < effectiveMin) return true;
     if (d > effectiveMax) return true;
     return false;
@@ -258,7 +274,7 @@ export function DatePickerCalendar({
 
           {/* Legend */}
           <p className="mt-3 text-[11px] text-muted-foreground text-center border-t border-border pt-2">
-            Weekdays only · Mon – Sat available
+            {allowedDaysLabel ?? "Weekdays only · Mon – Sat available"}
           </p>
         </div>
       )}
