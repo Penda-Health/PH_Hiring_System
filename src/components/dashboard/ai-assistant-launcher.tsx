@@ -257,7 +257,7 @@ function CopyButton({ getText }: { getText: () => string }) {
 export function AiAssistantLauncher() {
   const {
     openRoles, candidates, offers, branches, interviews,
-    workTrials, referenceChecks, canEdit, updateOpenRoleStatus,
+    workTrials, referenceChecks, canEdit, canSeeSalary, updateOpenRoleStatus,
   } = useRecruitmentData();
   const [providerId, setProviderId] = React.useState<ProviderId>("llama");
   const [input, setInput] = React.useState("");
@@ -290,7 +290,7 @@ export function AiAssistantLauncher() {
     const text = prompt.trim();
     if (!text || status === "streaming" || status === "submitted") return;
     const context = buildAiContext({
-      openRoles, candidates, offers, branches, interviews, workTrials, referenceChecks,
+      openRoles, candidates, offers, branches, interviews, workTrials, referenceChecks, canSeeSalary,
     });
     sendMessage({ text }, { body: { providerId, context, canEdit } });
     setInput("");
@@ -329,7 +329,7 @@ export function AiAssistantLauncher() {
         <button
           type="button"
           aria-label="Open Penny, your AI assistant"
-          className="fixed right-5 bottom-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-penda-teal text-white shadow-lg hover:bg-penda-teal-dark transition-colors"
+          className="fixed right-5 bottom-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-penda-blue text-white shadow-lg hover:bg-penda-blue-dark transition-colors"
         >
           <Sparkles className="h-5 w-5" />
         </button>
@@ -337,7 +337,7 @@ export function AiAssistantLauncher() {
       <SheetContent className="flex flex-col gap-3">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-penda-teal" /> Penny
+            <Sparkles className="h-4 w-4 text-penda-blue" /> Penny
           </SheetTitle>
         </SheetHeader>
 
@@ -351,7 +351,7 @@ export function AiAssistantLauncher() {
               onClick={() => setProviderId(p.id)}
               className={cn(
                 "flex-1 truncate rounded-sm px-2 py-1 text-xs font-medium transition-colors",
-                providerId === p.id ? "bg-penda-teal text-white" : "text-muted-foreground hover:text-foreground"
+                providerId === p.id ? "bg-penda-blue text-white" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {p.label}
@@ -387,7 +387,7 @@ export function AiAssistantLauncher() {
                 <div
                   className={cn(
                     "inline-block max-w-[85%] rounded-lg px-3 py-2 text-left",
-                    message.role === "user" ? "bg-penda-teal text-white" : "bg-muted text-foreground"
+                    message.role === "user" ? "bg-penda-blue text-white" : "bg-muted text-foreground"
                   )}
                 >
                   {message.parts.map((part, i) => {

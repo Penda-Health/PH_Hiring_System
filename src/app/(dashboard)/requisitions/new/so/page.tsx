@@ -121,7 +121,7 @@ export default function NewSoRequisitionPage() {
                 type="button"
                 onClick={() => setType(t.value)}
                 className={`text-left rounded-lg border p-3 transition-colors ${
-                  type === t.value ? "border-penda-teal bg-penda-teal/5" : "border-border hover:border-penda-teal/50"
+                  type === t.value ? "border-penda-blue bg-penda-blue/5" : "border-border hover:border-penda-blue/50"
                 }`}
               >
                 <p className="font-medium">{t.label}</p>
@@ -308,7 +308,7 @@ export default function NewSoRequisitionPage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex gap-3">
-        <Button onClick={handleSubmit} disabled={!canSubmit || submitting} className="bg-penda-teal hover:bg-penda-teal-dark">
+        <Button onClick={handleSubmit} disabled={!canSubmit || submitting} className="bg-penda-blue hover:bg-penda-blue-dark">
           {submitting ? "Submitting…" : "Submit for approval"}
         </Button>
         <Button variant="outline" onClick={() => router.push("/requisitions")}>

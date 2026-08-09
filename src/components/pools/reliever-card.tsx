@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const STATUS_STYLES: Record<Reliever["status"], string> = {
-  Active: "bg-penda-teal-light text-penda-teal-dark border-transparent",
+  Active: "bg-penda-blue-light text-penda-blue-dark border-transparent",
   Inactive: "bg-muted text-muted-foreground border-transparent",
 };
 
@@ -26,7 +26,7 @@ export function RelieverCard({ reliever }: { reliever: Reliever }) {
         </div>
         <p className="text-xs text-muted-foreground">Available: {reliever.availabilityDates}</p>
         {reliever.notes && <p className="text-xs text-muted-foreground italic">{reliever.notes}</p>}
-        <a href={`tel:${reliever.phone}`} className="flex items-center gap-1.5 text-xs text-penda-teal hover:underline">
+        <a href={`tel:${reliever.phone}`} className="flex items-center gap-1.5 text-xs text-penda-blue hover:underline">
           <Phone className="h-3.5 w-3.5" /> {reliever.phone}
         </a>
       </CardContent>

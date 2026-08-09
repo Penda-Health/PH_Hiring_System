@@ -74,7 +74,7 @@ function BranchPicker({
                 checked={allSel}
                 ref={(el) => { if (el) el.indeterminate = someSel && !allSel; }}
                 onChange={() => onToggleRegion(region, rb)}
-                className="h-3.5 w-3.5 rounded border-border accent-penda-teal"
+                className="h-3.5 w-3.5 rounded border-border accent-penda-blue"
               />
               {region}
             </label>
@@ -85,7 +85,7 @@ function BranchPicker({
                     type="checkbox"
                     checked={selected.includes(branch.name)}
                     onChange={() => onToggleBranch(branch.name)}
-                    className="h-4 w-4 rounded border-border accent-penda-teal"
+                    className="h-4 w-4 rounded border-border accent-penda-blue"
                   />
                   {branch.name}
                 </label>
@@ -239,7 +239,7 @@ export function NewCandidateDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-penda-teal hover:bg-penda-teal-dark">Add Candidate</Button>
+        <Button className="bg-penda-blue hover:bg-penda-blue-dark">Add Candidate</Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
@@ -256,7 +256,7 @@ export function NewCandidateDialog({
                   type="button"
                   onClick={() => setAddType(t)}
                   className={`flex-1 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
-                    addType === t ? "bg-penda-teal text-white" : "text-muted-foreground hover:text-foreground"
+                    addType === t ? "bg-penda-blue text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {t}
@@ -427,7 +427,7 @@ export function NewCandidateDialog({
           )}
 
           <DialogFooter>
-            <Button type="submit" disabled={submitting} className="bg-penda-teal hover:bg-penda-teal-dark">
+            <Button type="submit" disabled={submitting} className="bg-penda-blue hover:bg-penda-blue-dark">
               {submitLabel}
             </Button>
           </DialogFooter>

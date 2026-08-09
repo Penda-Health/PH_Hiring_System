@@ -44,7 +44,7 @@ function ConfirmEmploymentForm() {
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>
-            Email: <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>
+            Email: <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>
           </p>
         </FormMessage>
       </FormShell>
@@ -55,7 +55,7 @@ function ConfirmEmploymentForm() {
     return (
       <FormShell title="Something went wrong" subtitle="We couldn't load this confirmation request.">
         <FormMessage>
-          <p>Please try again later, or contact <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
+          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
         </FormMessage>
       </FormShell>
     );
@@ -83,7 +83,7 @@ function ConfirmEmploymentForm() {
     return (
       <FormShell title="Already responded" subtitle={`Confirmation for ${data.employeeName}`}>
         <FormMessage>
-          <p>This confirmation has already been recorded. Contact <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> with any questions.</p>
+          <p>This confirmation has already been recorded. Contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> with any questions.</p>
         </FormMessage>
       </FormShell>
     );
@@ -124,7 +124,7 @@ function ConfirmEmploymentForm() {
         {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 
         <div className="flex gap-3">
-          <Button onClick={() => handleSubmit(true)} disabled={submitting} className="flex-1 bg-penda-teal hover:bg-penda-teal-dark">
+          <Button onClick={() => handleSubmit(true)} disabled={submitting} className="flex-1 bg-penda-blue hover:bg-penda-blue-dark">
             {submitting ? "Submitting…" : "Yes, still employed"}
           </Button>
           <Button onClick={() => handleSubmit(false)} disabled={submitting} variant="outline" className="flex-1">

@@ -31,6 +31,16 @@ function bool(v: unknown): boolean {
 function opt<T>(v: unknown): T | undefined {
   return v === undefined || v === null || v === "" ? undefined : (v as T);
 }
+// Airtable attachment fields come back as an array of
+// { id, url, filename, size, type, thumbnails? } objects. We only need
+// enough to link to/display the file, not the full Airtable shape.
+function attachmentsFromAirtable(v: unknown): { url: string; filename: string }[] | undefined {
+  if (!Array.isArray(v) || v.length === 0) return undefined;
+  return v
+    .filter((a): a is { url?: unknown; filename?: unknown } => typeof a === "object" && a !== null)
+    .map((a) => ({ url: str(a.url), filename: str(a.filename) }))
+    .filter((a) => a.url);
+}
 
 // ---------- Branches ----------
 export function branchFromAirtable(r: AirtableRecord): Branch {
@@ -347,6 +357,8 @@ export function workTrialFromAirtable(r: AirtableRecord): WorkTrial {
     strengths: opt<string>(f[F.WorkTrials.STRENGTHS]) ?? undefined,
     areasOfDevelopment: opt<string>(f[F.WorkTrials.AREAS_OF_DEVELOPMENT]) ?? undefined,
     overallRecommendation: opt<string>(f[F.WorkTrials.OVERALL_RECOMMENDATION]) ?? undefined,
+    submissionMethod: (opt<string>(f[F.WorkTrials.SUBMISSION_METHOD]) ?? null) as WorkTrial["submissionMethod"],
+    uploadedFormFiles: attachmentsFromAirtable(f[F.WorkTrials.UPLOADED_FORM]),
   };
 }
 export function workTrialToAirtable(w: Partial<WorkTrial>) {
@@ -378,6 +390,10 @@ export function workTrialToAirtable(w: Partial<WorkTrial>) {
     [F.WorkTrials.STRENGTHS]: w.strengths,
     [F.WorkTrials.AREAS_OF_DEVELOPMENT]: w.areasOfDevelopment,
     [F.WorkTrials.OVERALL_RECOMMENDATION]: w.overallRecommendation,
+    [F.WorkTrials.SUBMISSION_METHOD]: w.submissionMethod ?? undefined,
+    // Uploaded Form is intentionally not mapped here — attachments are
+    // written via client.ts's uploadAttachment(), a separate Airtable API
+    // call, not a plain field PATCH.
   });
 }
 

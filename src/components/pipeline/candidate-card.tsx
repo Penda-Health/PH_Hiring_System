@@ -21,7 +21,7 @@ export function CandidateCard({
     <div className="group relative">
       <Card
         onClick={onClick}
-        className="cursor-pointer hover:border-penda-teal transition-colors"
+        className="cursor-pointer hover:border-penda-blue transition-colors"
       >
         <CardContent className="p-3 space-y-2">
           <div className="flex items-start justify-between gap-2">

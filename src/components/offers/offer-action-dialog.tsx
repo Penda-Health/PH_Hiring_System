@@ -127,7 +127,7 @@ export function OfferActionDialog({
                 </div>
               )}
               <DialogFooter>
-                <Button type="submit" className="bg-penda-teal hover:bg-penda-teal-dark">
+                <Button type="submit" className="bg-penda-blue hover:bg-penda-blue-dark">
                   {COPY[mode].cta}
                 </Button>
               </DialogFooter>

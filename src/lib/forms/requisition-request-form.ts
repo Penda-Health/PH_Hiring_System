@@ -5,7 +5,7 @@
 // immediately converted to an Open Role since approval/budget evaluation
 // already happened over email before the link was shared.
 import { createRecord, listRecords } from "@/lib/airtable/client";
-import { TABLE_NAMES } from "@/lib/airtable/field-names";
+import { TABLE_NAMES, F } from "@/lib/airtable/field-names";
 import {
   branchFromAirtable,
   openRoleFromAirtable,
@@ -13,8 +13,9 @@ import {
   requisitionToAirtable,
   openRoleToAirtable,
 } from "@/lib/airtable/mappers";
-import { Requisition, Segment } from "@/types";
+import { Requisition, Segment, OpenRole } from "@/types";
 import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
+import { nextSequentialId } from "@/lib/airtable/route-handlers";
 
 export async function loadActiveBranches(): Promise<{ id: string; name: string; city: string }[]> {
   const records = await listRecords(TABLE_NAMES.Branches);
@@ -40,7 +41,15 @@ export async function loadRoleTitleSuggestions(segment: Segment): Promise<string
 export async function submitPublicRequisitionRequest(
   input: Omit<Requisition, "id" | "reqId" | "status" | "approverChain" | "currentApproverIndex" | "submittedBy" | "submittedAt">
 ): Promise<{ requisitionId: string; openRoleId: string }> {
-  const reqId = `REQ-${Date.now()}`;
+  // Same server-assigned sequential ID logic as the authenticated
+  // POST /api/requisitions route (see route-handlers.ts) — `REQ-${Date.now()}`
+  // previously minted 13-digit IDs that broke the REQ-NNN pattern every
+  // other requisition (and the nextSequentialId scan itself) expects.
+  const reqId = await nextSequentialId(
+    TABLE_NAMES.Requisitions,
+    { airtableField: F.Requisitions.REQ_ID, prefix: "REQ", pad: 3, min: 6 },
+    {}
+  );
   const requisitionPayload: Partial<Requisition> = {
     ...input,
     reqId,
@@ -58,7 +67,18 @@ export async function submitPublicRequisitionRequest(
   const branches = await listRecords(TABLE_NAMES.Branches).then((records) => records.map(branchFromAirtable));
   const openRolePayload = buildOpenRoleFromRequisition(requisition, branches, { isPublicSubmission: true });
 
-  const createdRoleRecord = await createRecord(TABLE_NAMES.OpenRoles, openRoleToAirtable(openRolePayload));
+  // Same server-assigned Role ID logic as POST /api/open-roles — previously
+  // the record was created with no Role ID at all, leaving it blank/
+  // inconsistent with every other Open Role.
+  const roleId = await nextSequentialId(
+    TABLE_NAMES.OpenRoles,
+    { airtableField: F.OpenRoles.ROLE_ID, prefix: (body: Partial<OpenRole>) => (body.segment === "SO" ? "SO" : "IPS"), pad: 3 },
+    openRolePayload
+  );
+  const openRoleFields = openRoleToAirtable(openRolePayload);
+  openRoleFields[F.OpenRoles.ROLE_ID] = roleId;
+
+  const createdRoleRecord = await createRecord(TABLE_NAMES.OpenRoles, openRoleFields);
 
   return { requisitionId: requisition.id, openRoleId: createdRoleRecord.id };
 }

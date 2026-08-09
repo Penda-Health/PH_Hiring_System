@@ -10,7 +10,7 @@ export function RateGauge({
   title,
   value,
   target,
-  color = "#005B5E",
+  color = "#1E55FF",
 }: {
   title: string;
   value: number;

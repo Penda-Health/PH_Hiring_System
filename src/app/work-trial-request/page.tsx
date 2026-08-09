@@ -192,7 +192,7 @@ function WorkTrialRequestForm() {
         subtitle="Enter your details below to confirm your work trial at Penda Health."
       >
         <form onSubmit={handleIdentify} className="space-y-5">
-          <div className="rounded-lg border border-penda-teal-light/50 bg-penda-teal/5 p-3 text-sm text-foreground/80 space-y-1">
+          <div className="rounded-lg border border-penda-blue-light/50 bg-penda-blue/5 p-3 text-sm text-foreground/80 space-y-1">
             <p>A work trial is a paid, full-day opportunity to work alongside our team at one of our branches.</p>
             <p className="font-medium">Hours: 9:00 AM – 5:00 PM. Please ensure you are available for the entire day.</p>
           </div>
@@ -250,7 +250,7 @@ function WorkTrialRequestForm() {
 
           <Button
             type="submit"
-            className="w-full bg-penda-teal hover:bg-penda-teal-dark"
+            className="w-full bg-penda-blue hover:bg-penda-blue-dark"
             disabled={identifying || !name.trim() || phoneLocal.length !== 9 || !email.trim()}
           >
             {identifying ? "Looking up your record…" : "Continue"}
@@ -276,7 +276,7 @@ function WorkTrialRequestForm() {
             {branches.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No branches available right now. Contact{" "}
-                <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
+                <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
               </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -287,15 +287,15 @@ function WorkTrialRequestForm() {
                     onClick={() => setBranchId(b.id)}
                     className={`text-left rounded-lg border p-3 transition-colors ${
                       branchId === b.id
-                        ? "border-penda-teal bg-penda-teal/5 ring-1 ring-penda-teal/30"
-                        : "border-border hover:border-penda-teal/50"
+                        ? "border-penda-blue bg-penda-blue/5 ring-1 ring-penda-blue/30"
+                        : "border-border hover:border-penda-blue/50"
                     }`}
                   >
                     <p className="font-medium text-sm">{b.name}</p>
                     {b.city && <p className="text-xs text-muted-foreground mt-0.5">{b.city}</p>}
                     {branchId === b.id && b.address && (
                       <p className="text-xs text-muted-foreground mt-1 flex items-start gap-1">
-                        <MapPin className="h-3 w-3 mt-0.5 shrink-0 text-penda-teal" />
+                        <MapPin className="h-3 w-3 mt-0.5 shrink-0 text-penda-blue" />
                         {b.address}
                       </p>
                     )}
@@ -328,14 +328,14 @@ function WorkTrialRequestForm() {
 
           {/* Branch + date preview */}
           {selectedBranch && date && (
-            <div className="rounded-lg border border-penda-teal/30 bg-penda-teal/5 p-3 text-sm space-y-1">
-              <p className="font-medium text-penda-teal">Your selection</p>
+            <div className="rounded-lg border border-penda-blue/30 bg-penda-blue/5 p-3 text-sm space-y-1">
+              <p className="font-medium text-penda-blue">Your selection</p>
               <p className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 shrink-0 text-penda-teal" />
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-penda-blue" />
                 {selectedBranch.name}{selectedBranch.city ? `, ${selectedBranch.city}` : ""}
               </p>
               <p className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 shrink-0 text-penda-teal" />
+                <Calendar className="h-3.5 w-3.5 shrink-0 text-penda-blue" />
                 {formatDateDisplay(date)}
               </p>
             </div>
@@ -345,7 +345,7 @@ function WorkTrialRequestForm() {
 
           <Button
             type="submit"
-            className="w-full bg-penda-teal hover:bg-penda-teal-dark"
+            className="w-full bg-penda-blue hover:bg-penda-blue-dark"
             disabled={scheduling || !branchId || !date}
           >
             {scheduling ? "Confirming…" : "Confirm my work trial"}
@@ -361,11 +361,11 @@ function WorkTrialRequestForm() {
       <div className="space-y-4">
         {/* Tick + date hero */}
         <div className="flex flex-col items-center gap-2 py-4">
-          <CheckCircle2 className="h-14 w-14 text-penda-teal" />
+          <CheckCircle2 className="h-14 w-14 text-penda-blue" />
           {confirmedDate && (
             <p className="text-lg font-semibold text-center">{formatDateDisplay(confirmedDate)}</p>
           )}
-          <p className="text-sm font-medium text-penda-teal">9:00 AM – 5:00 PM (Full day)</p>
+          <p className="text-sm font-medium text-penda-blue">9:00 AM – 5:00 PM (Full day)</p>
         </div>
 
         {/* Branch card */}
@@ -396,7 +396,7 @@ function WorkTrialRequestForm() {
               {confirmedBmPhone && (
                 <a
                   href={`tel:${confirmedBmPhone}`}
-                  className="inline-flex items-center gap-1 text-sm text-penda-teal mt-0.5"
+                  className="inline-flex items-center gap-1 text-sm text-penda-blue mt-0.5"
                 >
                   <Phone className="h-3.5 w-3.5" />
                   {confirmedBmPhone}
@@ -416,7 +416,7 @@ function WorkTrialRequestForm() {
           </ul>
           <p className="text-sm mt-2">
             Need to make changes? Contact{" "}
-            <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
+            <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
           </p>
         </FormMessage>
       </div>

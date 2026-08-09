@@ -1,7 +1,7 @@
 // Server-only data access for the public, no-login branch-manager feedback
 // form (arrival confirmation + work-trial scoring), prefilled from a signed
 // token rather than a Supabase session.
-import { getRecord, updateRecord } from "@/lib/airtable/client";
+import { getRecord, updateRecord, uploadAttachment } from "@/lib/airtable/client";
 import { TABLE_NAMES, F } from "@/lib/airtable/field-names";
 import { branchFromAirtable, candidateFromAirtable, openRoleFromAirtable, workTrialFromAirtable } from "@/lib/airtable/mappers";
 import { computeWeightedTotal, computePassFail, PASS_THRESHOLD, isCultureAutoFail, isTechnicalAutoFail } from "@/lib/work-trial-helpers";
@@ -39,13 +39,17 @@ export async function loadBmFeedbackFormData(workTrialId: string): Promise<BmFee
     getRecord(TABLE_NAMES.Candidates, trial.candidateId),
     trial.branchId ? getRecord(TABLE_NAMES.Branches, trial.branchId) : Promise.resolve(null),
   ]);
+  // A work trial's linked candidate should always exist — if it 404s, the
+  // data itself is broken, which is a real server error, not a routine
+  // not-found the caller should treat as "form not found".
+  if (!candidateRecord) throw new Error(`Candidate ${trial.candidateId} not found for work trial ${workTrialId}`);
   const candidate = candidateFromAirtable(candidateRecord);
   const branch = branchRecord ? branchFromAirtable(branchRecord) : null;
 
   let roleTitle = "";
   if (candidate.roleId) {
     const roleRecord = await getRecord(TABLE_NAMES.OpenRoles, candidate.roleId);
-    roleTitle = openRoleFromAirtable(roleRecord).title;
+    roleTitle = roleRecord ? openRoleFromAirtable(roleRecord).title : "";
   }
 
   const pendingApproval =
@@ -118,6 +122,43 @@ export async function submitScores(
     ...(comments?.areasOfDevelopment? { [F.WorkTrials.AREAS_OF_DEVELOPMENT]:  comments.areasOfDevelopment} : {}),
     ...(comments?.overallRecommendation ? { [F.WorkTrials.OVERALL_RECOMMENDATION]: comments.overallRecommendation } : {}),
   });
+  return { total, passFail };
+}
+
+// The "upload a completed form" path: numeric scores are still entered and
+// scored with the exact same weighted-total/auto-fail rules as submitScores
+// above, but the six detailed 250-char fields are skipped in favor of one
+// shorter overallRecommendation, and the uploaded file itself is attached to
+// the record. Deliberately reuses computeWeightedTotal/computePassFail
+// rather than reimplementing them, so "uploaded" and "online" work trials
+// are scored identically and stay comparable.
+export async function submitUploadedScores(
+  workTrialId: string,
+  scores: { technical: number; patient: number; culture: number },
+  submittedByRole: "BM" | "Incharge",
+  overallRecommendation: string,
+  file: { filename: string; contentType: string; base64: string }
+): Promise<{ total: number; passFail: "Pass" | "Fail" }> {
+  const total = computeWeightedTotal(scores);
+  const passFail = computePassFail(scores);
+  await updateRecord(TABLE_NAMES.WorkTrials, workTrialId, {
+    [F.WorkTrials.SCORE_TECHNICAL]: scores.technical,
+    [F.WorkTrials.SCORE_PATIENT]: scores.patient,
+    [F.WorkTrials.SCORE_SAFETY]: null,
+    [F.WorkTrials.SCORE_CULTURE]: scores.culture,
+    [F.WorkTrials.TOTAL]: total,
+    // If Incharge submits, passFail stays Pending until BM approves — same
+    // rule as the online path.
+    [F.WorkTrials.PASS_FAIL]: submittedByRole === "BM" ? passFail : "Pending",
+    [F.WorkTrials.FORM_SUBMITTED_AT]: new Date().toISOString(),
+    [F.WorkTrials.SUBMITTED_BY_ROLE]: submittedByRole,
+    [F.WorkTrials.SUBMISSION_METHOD]: "Uploaded",
+    [F.WorkTrials.OVERALL_RECOMMENDATION]: overallRecommendation,
+  });
+  // Separate API call (different Airtable host/endpoint) — do this after the
+  // field update succeeds so a failed upload doesn't leave scores half-saved
+  // without at least the numbers being recorded.
+  await uploadAttachment(TABLE_NAMES.WorkTrials, workTrialId, F.WorkTrials.UPLOADED_FORM, file);
   return { total, passFail };
 }
 

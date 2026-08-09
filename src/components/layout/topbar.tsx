@@ -42,7 +42,7 @@ export function Topbar() {
           <DropdownMenuTrigger asChild>
             <button aria-label="Open profile menu" className="rounded-full">
               <Avatar>
-                <AvatarFallback className="bg-penda-teal text-white">{initials(user.name)}</AvatarFallback>
+                <AvatarFallback className="bg-penda-blue text-white">{initials(user.name)}</AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>

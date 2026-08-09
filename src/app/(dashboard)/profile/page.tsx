@@ -85,7 +85,7 @@ export default function ProfilePage() {
       <Card>
         <CardContent className="flex items-center gap-4 pt-6">
           <Avatar className="h-16 w-16">
-            <AvatarFallback className="bg-penda-teal text-white text-xl">{initials(user.name)}</AvatarFallback>
+            <AvatarFallback className="bg-penda-blue text-white text-xl">{initials(user.name)}</AvatarFallback>
           </Avatar>
           <div className="space-y-1">
             <p className="text-lg font-semibold leading-none">{user.name}</p>
@@ -161,9 +161,9 @@ export default function ProfilePage() {
           </div>
 
           {saveError && <p className="text-sm text-destructive">{saveError}</p>}
-          {saved && <p className="text-sm text-penda-teal-dark">Saved.</p>}
+          {saved && <p className="text-sm text-penda-blue-dark">Saved.</p>}
 
-          <Button onClick={handleSave} disabled={saving} className="bg-penda-teal hover:bg-penda-teal-dark">
+          <Button onClick={handleSave} disabled={saving} className="bg-penda-blue hover:bg-penda-blue-dark">
             {saving ? "Saving…" : "Save changes"}
           </Button>
         </CardContent>

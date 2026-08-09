@@ -59,12 +59,12 @@ export function ScoreEntryDialog({
           )}
           <div className="flex items-center justify-between rounded-md border border-border p-3">
             <span className="text-sm font-medium">Weighted Total</span>
-            <span className={`text-lg font-semibold ${passFail === "Pass" ? "text-penda-teal" : "text-destructive"}`}>
+            <span className={`text-lg font-semibold ${passFail === "Pass" ? "text-penda-blue" : "text-destructive"}`}>
               {total} — {passFail}
             </span>
           </div>
           <DialogFooter>
-            <Button type="submit" className="bg-penda-teal hover:bg-penda-teal-dark">
+            <Button type="submit" className="bg-penda-blue hover:bg-penda-blue-dark">
               Save Scores
             </Button>
           </DialogFooter>

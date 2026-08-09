@@ -169,7 +169,7 @@ export default function PublicSoRequisitionRequestPage() {
                 type="button"
                 onClick={() => setType(t.value)}
                 className={`text-left rounded-lg border p-3 transition-colors ${
-                  type === t.value ? "border-penda-teal bg-penda-teal/5" : "border-border hover:border-penda-teal/50"
+                  type === t.value ? "border-penda-blue bg-penda-blue/5" : "border-border hover:border-penda-blue/50"
                 }`}
               >
                 <p className="font-medium">{t.label}</p>
@@ -346,7 +346,7 @@ export default function PublicSoRequisitionRequestPage() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button onClick={handleSubmit} disabled={!canSubmit || submitting} className="w-full bg-penda-teal hover:bg-penda-teal-dark">
+        <Button onClick={handleSubmit} disabled={!canSubmit || submitting} className="w-full bg-penda-blue hover:bg-penda-blue-dark">
           {submitting ? "Submitting…" : "Submit requisition"}
         </Button>
       </div>

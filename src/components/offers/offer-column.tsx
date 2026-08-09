@@ -24,7 +24,7 @@ export function OfferColumn({
   return (
     <div
       className={`flex flex-col w-64 shrink-0 rounded-md transition-colors ${
-        isDragOver ? "bg-penda-teal/10 ring-1 ring-penda-teal" : ""
+        isDragOver ? "bg-penda-blue/10 ring-1 ring-penda-blue" : ""
       }`}
       onDragOver={(e) => {
         e.preventDefault();

@@ -33,7 +33,7 @@ export function NavList({ onNavigate }: { onNavigate?: () => void }) {
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 active
-                  ? "bg-penda-teal text-white"
+                  ? "bg-penda-blue text-white"
                   : "text-foreground/80 hover:bg-muted hover:text-foreground"
               )}
             >

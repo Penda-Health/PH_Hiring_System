@@ -4,6 +4,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { listRecords, createRecord, updateRecord, deleteRecord, AirtableRecord } from "./client";
+import { getCurrentUserRole } from "@/lib/supabase/server";
+import { canSeeSalary } from "@/lib/permissions";
 
 type FromAirtable<T> = (record: AirtableRecord) => T;
 type ToAirtable<T> = (entity: Partial<T>) => Record<string, unknown>;
@@ -24,7 +26,7 @@ export type GenIdConfig<T = unknown> = {
   min?: number;
 };
 
-async function nextSequentialId<T>(tableName: string, config: GenIdConfig<T>, body: Partial<T>): Promise<string> {
+export async function nextSequentialId<T>(tableName: string, config: GenIdConfig<T>, body: Partial<T>): Promise<string> {
   const prefix = typeof config.prefix === "function" ? config.prefix(body) : config.prefix;
   const records = await listRecords(tableName);
   const pattern = new RegExp(`^${prefix}-(\\d+)$`, "i");
@@ -55,12 +57,30 @@ export function makeCollectionHandlers<T>(
   tableName: string,
   fromAirtable: FromAirtable<T>,
   toAirtable: ToAirtable<T>,
-  options?: { schema?: z.ZodObject; genId?: GenIdConfig<T> }
+  options?: {
+    schema?: z.ZodObject;
+    genId?: GenIdConfig<T>;
+    // Field names to null out in the GET response for roles that shouldn't
+    // see real salary/rate figures (see canSeeSalary in permissions.ts).
+    // Masking only in UI components (the old approach) is cosmetic — a
+    // signed-in Branch Manager could just call this endpoint directly and
+    // get the real numbers, so it has to happen here too.
+    maskFields?: (keyof T)[];
+  }
 ) {
   async function GET() {
     try {
       const records = await listRecords(tableName);
-      return NextResponse.json(records.map(fromAirtable));
+      let mapped = records.map(fromAirtable);
+      if (options?.maskFields?.length && !canSeeSalary(await getCurrentUserRole())) {
+        const fields = options.maskFields;
+        mapped = mapped.map((record) => {
+          const masked: Record<string, unknown> = { ...(record as unknown as Record<string, unknown>) };
+          for (const field of fields) masked[field as string] = null;
+          return masked as T;
+        });
+      }
+      return NextResponse.json(mapped);
     } catch (err) {
       return errorResponse(err, `GET ${tableName}`);
     }

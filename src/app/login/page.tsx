@@ -81,7 +81,7 @@ function LoginForm() {
             className="h-20 w-20 object-contain"
           />
         </span>
-        <CardTitle className="text-2xl text-penda-teal">Penda Hiring</CardTitle>
+        <CardTitle className="text-2xl text-penda-blue">Penda Hiring</CardTitle>
         <CardDescription>Sign in with your @penda.co.ke or @pendahealth.com account</CardDescription>
       </CardHeader>
       <CardContent>
@@ -129,7 +129,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-penda-bg via-[#EAFBF6] to-[#DCF3EC] dark:from-[#0A1F1F] dark:via-[#0C1818] dark:to-[#091414] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-penda-bg via-[#EAEEFB] to-[#DCE2F3] dark:from-[#0A0F1F] dark:via-[#0C0F18] dark:to-[#090C14] px-4">
       <React.Suspense fallback={null}>
         <LoginForm />
       </React.Suspense>

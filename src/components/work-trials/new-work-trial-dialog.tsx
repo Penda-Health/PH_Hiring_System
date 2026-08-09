@@ -15,7 +15,7 @@ interface Props {
   onCreate: (trial: WorkTrial) => Promise<void>;
 }
 
-const EMPTY_REFEREE: WorkTrial = {
+const EMPTY_WORK_TRIAL: WorkTrial = {
   id: "",
   wtId: "",
   candidateId: "",
@@ -34,6 +34,7 @@ const EMPTY_REFEREE: WorkTrial = {
   bmApprovedAt: null,
   reminder12hSent: false,
   escalation24hSent: false,
+  submissionMethod: null,
 };
 
 export function NewWorkTrialDialog({ candidates, branches, onCreate }: Props) {
@@ -50,7 +51,7 @@ export function NewWorkTrialDialog({ candidates, branches, onCreate }: Props) {
     if (!form.candidateId || !form.branchId || !form.date || !form.supervisor.trim()) return;
     setSaving(true);
     try {
-      await onCreate({ ...EMPTY_REFEREE, ...form });
+      await onCreate({ ...EMPTY_WORK_TRIAL, ...form });
       setOpen(false);
       reset();
     } finally {
@@ -61,7 +62,7 @@ export function NewWorkTrialDialog({ candidates, branches, onCreate }: Props) {
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-penda-teal hover:bg-penda-teal-dark text-white">
+        <Button size="sm" className="bg-penda-blue hover:bg-penda-blue-dark text-white">
           <Plus className="h-4 w-4 mr-1.5" />
           New Work Trial
         </Button>
@@ -126,7 +127,7 @@ export function NewWorkTrialDialog({ candidates, branches, onCreate }: Props) {
             <Button
               type="submit"
               disabled={saving || !form.candidateId || !form.branchId || !form.date || !form.supervisor.trim()}
-              className="bg-penda-teal hover:bg-penda-teal-dark text-white"
+              className="bg-penda-blue hover:bg-penda-blue-dark text-white"
             >
               {saving ? "Creating…" : "Create"}
             </Button>

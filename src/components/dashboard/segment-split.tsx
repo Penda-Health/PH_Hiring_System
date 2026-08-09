@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,11 +14,13 @@ const SEGMENT_COLORS: Record<string, string> = { IPS: "#0EA968", SO: "#2563EB" }
 
 export function SegmentSplit({ filters }: { filters: DashboardFilterState }) {
   const { openRoles, candidates, offers, workTrials, interviews, relievers, locums } = useRecruitmentData();
-  const filtered = filterDashboardData(
-    { openRoles, candidates, offers, workTrials, interviews, relievers, locums },
-    filters
-  );
-  const splits = getSegmentSplit(filtered.openRoles, filtered.candidates);
+  const splits = React.useMemo(() => {
+    const filtered = filterDashboardData(
+      { openRoles, candidates, offers, workTrials, interviews, relievers, locums },
+      filters
+    );
+    return getSegmentSplit(filtered.openRoles, filtered.candidates);
+  }, [openRoles, candidates, offers, workTrials, interviews, relievers, locums, filters]);
   const totalHeadcount = splits.reduce((sum, s) => sum + s.headcount, 0);
 
   return (

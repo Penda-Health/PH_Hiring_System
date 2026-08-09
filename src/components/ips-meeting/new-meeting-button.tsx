@@ -32,7 +32,7 @@ export function NewMeetingButton({ onCreated }: { onCreated: (meetingId: string)
 
   return (
     <div className="flex items-center gap-2">
-      <Button size="sm" disabled={creating} onClick={handleClick} className="bg-penda-teal hover:bg-penda-teal-dark">
+      <Button size="sm" disabled={creating} onClick={handleClick} className="bg-penda-blue hover:bg-penda-blue-dark">
         <Plus className="h-4 w-4 mr-1.5" />
         {creating ? "Creating…" : "New meeting"}
       </Button>

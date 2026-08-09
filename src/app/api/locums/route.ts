@@ -6,4 +6,6 @@ import { locumSchema } from "@/lib/airtable/schemas";
 export const { GET, POST } = makeCollectionHandlers(TABLE_NAMES.Locums, locumFromAirtable, locumToAirtable, {
   schema: locumSchema,
   genId: { airtableField: F.Locums.LOCUM_ID, prefix: "loc", min: 100 },
+  // Contributor/Branch Manager never see real figures — see canSeeSalary().
+  maskFields: ["dailyRate"],
 });

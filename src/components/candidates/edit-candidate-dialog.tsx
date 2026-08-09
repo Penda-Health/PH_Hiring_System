@@ -221,7 +221,7 @@ export function EditCandidateDialog({
                 <p className="text-xs font-medium text-muted-foreground">
                   Linked Role
                   {linkedRole && form.roleId !== candidate.roleId && (
-                    <span className="ml-2 text-penda-teal">· changing</span>
+                    <span className="ml-2 text-penda-blue">· changing</span>
                   )}
                 </p>
                 <div className="grid grid-cols-2 gap-3">
@@ -272,7 +272,7 @@ export function EditCandidateDialog({
                 <Button
                   type="submit"
                   disabled={saving || !isDirty}
-                  className="bg-penda-teal hover:bg-penda-teal-dark"
+                  className="bg-penda-blue hover:bg-penda-blue-dark"
                 >
                   {saving ? "Saving…" : "Save changes"}
                 </Button>

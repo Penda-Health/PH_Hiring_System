@@ -92,7 +92,7 @@ export function NewRequisitionDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-penda-teal hover:bg-penda-teal-dark">New Requisition</Button>
+        <Button className="bg-penda-blue hover:bg-penda-blue-dark">New Requisition</Button>
       </DialogTrigger>
       <DialogContent className="max-w-xl">
         <DialogHeader>
@@ -237,7 +237,7 @@ export function NewRequisitionDialog({
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={submitting} className="bg-penda-teal hover:bg-penda-teal-dark">
+            <Button type="submit" disabled={submitting} className="bg-penda-blue hover:bg-penda-blue-dark">
               {submitting ? "Submitting…" : "Submit for Approval"}
             </Button>
           </DialogFooter>

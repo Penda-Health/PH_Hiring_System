@@ -157,6 +157,12 @@ export const F = {
     STRENGTHS: "Strengths",
     AREAS_OF_DEVELOPMENT: "Areas of Development",
     OVERALL_RECOMMENDATION: "Overall Recommendation",
+    // "Online" = filled out through the digital scoring flow (six 250-char
+    // fields). "Uploaded" = a paper/PDF form was uploaded instead — scores
+    // are still entered, but the detailed fields are skipped in favor of a
+    // single Overall Recommendation.
+    SUBMISSION_METHOD: "Submission Method",
+    UPLOADED_FORM: "Uploaded Form",
   },
   ReferenceChecks: {
     REF_ID: "Ref ID",

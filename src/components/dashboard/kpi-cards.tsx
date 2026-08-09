@@ -31,7 +31,7 @@ export function KpiCards({
           <Card key={card.key}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{card.label}</CardTitle>
-              <Icon className="h-4 w-4 text-penda-teal" />
+              <Icon className="h-4 w-4 text-penda-blue" />
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-semibold">{card.value}</p>

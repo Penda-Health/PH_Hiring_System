@@ -51,7 +51,7 @@ export function DepartmentPipelineOverview() {
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <CardTitle>Pipeline by Department</CardTitle>
-          <span className="rounded-full bg-penda-teal px-2.5 py-1 text-xs font-semibold text-white">
+          <span className="rounded-full bg-penda-blue px-2.5 py-1 text-xs font-semibold text-white">
             {totalOpen} open
           </span>
         </div>
@@ -63,7 +63,7 @@ export function DepartmentPipelineOverview() {
               onClick={() => setSegment(s)}
               className={cn(
                 "rounded-sm px-2.5 py-1 text-xs font-medium transition-colors",
-                segment === s ? "bg-penda-teal text-white" : "text-muted-foreground hover:text-foreground"
+                segment === s ? "bg-penda-blue text-white" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {s}

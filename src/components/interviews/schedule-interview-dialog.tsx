@@ -98,7 +98,7 @@ export function ScheduleInterviewDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       {!isControlled && (
         <DialogTrigger asChild>
-          <Button className="bg-penda-teal hover:bg-penda-teal-dark">Schedule Interview</Button>
+          <Button className="bg-penda-blue hover:bg-penda-blue-dark">Schedule Interview</Button>
         </DialogTrigger>
       )}
       <DialogContent className="max-w-lg">
@@ -175,7 +175,7 @@ export function ScheduleInterviewDialog({
           </Field>
 
           <DialogFooter>
-            <Button type="submit" disabled={submitting} className="bg-penda-teal hover:bg-penda-teal-dark">
+            <Button type="submit" disabled={submitting} className="bg-penda-blue hover:bg-penda-blue-dark">
               {submitting ? "Scheduling…" : "Schedule"}
             </Button>
           </DialogFooter>

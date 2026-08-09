@@ -3,12 +3,12 @@
 import * as React from "react";
 import { Candidate, OpenRole } from "@/types";
 import {
-  activeCandidateCountForRole,
   compareRoleGroups,
   roleGroup,
   RoleGroup,
   summarizeHeadcount,
 } from "@/lib/pipeline-helpers";
+import { ACTIVE_CANDIDATE_STAGE_EXCLUSIONS } from "@/lib/roles-helpers";
 import { ViewMode } from "@/components/ui/view-toggle";
 import { RoleCard } from "./role-card";
 import { RoleListItem } from "./role-list-item";
@@ -38,6 +38,19 @@ export function PipelineRoleExplorer({
   onSelectRole: (roleId: string) => void;
   onSelectCandidate: (candidate: Candidate) => void;
 }) {
+  // activeCandidateCountForRole() used to be called per role, each filtering
+  // the whole candidates array — O(roles * candidates) per render. Build the
+  // per-role counts once instead. Computed before the early return below to
+  // keep this hook call unconditional.
+  const activeCountByRoleId = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of candidates) {
+      if (!c.roleId || ACTIVE_CANDIDATE_STAGE_EXCLUSIONS.has(c.stage)) continue;
+      counts.set(c.roleId, (counts.get(c.roleId) ?? 0) + 1);
+    }
+    return counts;
+  }, [candidates]);
+
   if (roles.length === 0) {
     return <p className="text-sm text-muted-foreground text-center py-8">No roles match these filters</p>;
   }
@@ -68,7 +81,7 @@ export function PipelineRoleExplorer({
                 <React.Fragment key={role.id}>
                   <RoleListItem
                     role={role}
-                    count={activeCandidateCountForRole(role.id, candidates)}
+                    count={activeCountByRoleId.get(role.id) ?? 0}
                     selected={role.id === selectedRoleId}
                     onSelect={() => onSelectRole(role.id)}
                   />
@@ -84,7 +97,7 @@ export function PipelineRoleExplorer({
                 <React.Fragment key={role.id}>
                   <RoleCard
                     role={role}
-                    count={activeCandidateCountForRole(role.id, candidates)}
+                    count={activeCountByRoleId.get(role.id) ?? 0}
                     selected={role.id === selectedRoleId}
                     onSelect={() => onSelectRole(role.id)}
                   />

@@ -95,7 +95,7 @@ export function NewRelieverDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-penda-teal hover:bg-penda-teal-dark">Add Reliever</Button>
+        <Button className="bg-penda-blue hover:bg-penda-blue-dark">Add Reliever</Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
@@ -151,7 +151,7 @@ export function NewRelieverDialog({
                         checked={allSelected}
                         ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
                         onChange={() => toggleRegion(region, regionBranches)}
-                        className="h-3.5 w-3.5 rounded border-border accent-penda-teal"
+                        className="h-3.5 w-3.5 rounded border-border accent-penda-blue"
                       />
                       {region}
                     </label>
@@ -162,7 +162,7 @@ export function NewRelieverDialog({
                             type="checkbox"
                             checked={form.selectedBranches.includes(branch.name)}
                             onChange={() => toggleBranch(branch.name)}
-                            className="h-4 w-4 rounded border-border accent-penda-teal"
+                            className="h-4 w-4 rounded border-border accent-penda-blue"
                           />
                           {branch.name}
                         </label>
@@ -178,7 +178,7 @@ export function NewRelieverDialog({
           </Field>
 
           <DialogFooter>
-            <Button type="submit" disabled={submitting} className="bg-penda-teal hover:bg-penda-teal-dark">
+            <Button type="submit" disabled={submitting} className="bg-penda-blue hover:bg-penda-blue-dark">
               {submitting ? "Adding…" : "Add to Pool"}
             </Button>
           </DialogFooter>

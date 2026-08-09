@@ -170,6 +170,8 @@ const F = {
     STRENGTHS: "Strengths",
     AREAS_OF_DEVELOPMENT: "Areas of Development",
     OVERALL_RECOMMENDATION: "Overall Recommendation",
+    SUBMISSION_METHOD: "Submission Method",
+    UPLOADED_FORM: "Uploaded Form",
   },
   ReferenceChecks: {
     REF_ID: "Ref ID",
@@ -459,6 +461,8 @@ const TABLES = [
       { name: F.WorkTrials.STRENGTHS, type: "multilineText" },
       { name: F.WorkTrials.AREAS_OF_DEVELOPMENT, type: "multilineText" },
       { name: F.WorkTrials.OVERALL_RECOMMENDATION, type: "multilineText" },
+      { name: F.WorkTrials.SUBMISSION_METHOD, type: "singleSelect", options: choices(["Online", "Uploaded"]) },
+      { name: F.WorkTrials.UPLOADED_FORM, type: "multipleAttachments" },
     ],
   },
   {

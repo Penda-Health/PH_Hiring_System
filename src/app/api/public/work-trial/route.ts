@@ -4,8 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyWorkTrialToken } from "@/lib/forms/tokens";
 import { loadWorkTrialFormData, submitWorkTrialSelection } from "@/lib/forms/work-trial-form";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, "public:work-trial:get", { limit: 60, windowMs: 10 * 60 * 1000 });
+  if (limited) return limited;
+
   const token = request.nextUrl.searchParams.get("token");
   if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
 
@@ -23,13 +27,16 @@ export async function GET(request: NextRequest) {
 }
 
 const submitSchema = z.object({
-  token: z.string(),
-  branchId: z.string().min(1),
-  date: z.string().min(1),
-  notes: z.string().optional(),
+  token: z.string().min(1).max(4000),
+  branchId: z.string().min(1).max(100),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+  notes: z.string().trim().max(1000).optional(),
 });
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(request, "public:work-trial:post", { limit: 10, windowMs: 10 * 60 * 1000 });
+  if (limited) return limited;
+
   const json = await request.json().catch(() => null);
   const result = submitSchema.safeParse(json);
   if (!result.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });

@@ -14,6 +14,11 @@ export function buildAiContext(data: {
   interviews?: Interview[];
   workTrials?: WorkTrial[];
   referenceChecks?: ReferenceCheck[];
+  // Contributor/Branch Manager don't see real salary figures. This mirrors
+  // the server-side mask already applied to /api/offers (route-handlers.ts
+  // maskFields) — this is a second, independent layer so a masked value
+  // never reaches the LLM even if some future path fetches offers unmasked.
+  canSeeSalary?: boolean;
 }) {
   const {
     openRoles,
@@ -23,6 +28,7 @@ export function buildAiContext(data: {
     interviews = [],
     workTrials = [],
     referenceChecks = [],
+    canSeeSalary = true,
   } = data;
 
   // ── Aggregate KPIs ─────────────────────────────────────────────────────────
@@ -177,7 +183,7 @@ export function buildAiContext(data: {
     return {
       candidateName: candidate?.name || "(no name)",
       roleTitle: role?.title ?? "Unknown Role",
-      offeredSalary: o.offeredSalary,
+      offeredSalary: canSeeSalary ? o.offeredSalary : null,
       outcome: o.outcome,
       deadline: o.deadline,
       joined: o.joined,

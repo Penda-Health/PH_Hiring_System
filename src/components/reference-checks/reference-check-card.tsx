@@ -67,7 +67,7 @@ export function ReferenceCheckCard({
               title="Copy referee 1 link"
               onClick={() => handleCopy(1)}
             >
-              {copied === 1 ? <Check className="h-3.5 w-3.5 text-penda-teal" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied === 1 ? <Check className="h-3.5 w-3.5 text-penda-blue" /> : <Copy className="h-3.5 w-3.5" />}
             </Button>
           </div>
           <div className="flex items-center gap-2">
@@ -81,7 +81,7 @@ export function ReferenceCheckCard({
               title="Copy referee 2 link"
               onClick={() => handleCopy(2)}
             >
-              {copied === 2 ? <Check className="h-3.5 w-3.5 text-penda-teal" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied === 2 ? <Check className="h-3.5 w-3.5 text-penda-blue" /> : <Copy className="h-3.5 w-3.5" />}
             </Button>
           </div>
         </div>
@@ -91,7 +91,7 @@ export function ReferenceCheckCard({
             href={refCheck.driveFolderUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-xs text-penda-teal hover:underline"
+            className="flex items-center gap-2 text-xs text-penda-blue hover:underline"
           >
             <FolderOpen className="h-3.5 w-3.5" /> View Drive folder
           </a>

@@ -64,7 +64,7 @@ export function OfferCard({
 
         {isActionable && (
           <div className="flex flex-wrap gap-1.5 pt-1">
-            <Button size="sm" className="h-7 px-2 text-xs bg-penda-teal hover:bg-penda-teal-dark" onClick={() => onAccept(offer.id)}>
+            <Button size="sm" className="h-7 px-2 text-xs bg-penda-blue hover:bg-penda-blue-dark" onClick={() => onAccept(offer.id)}>
               Accept
             </Button>
             <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => onCounter(offer.id)}>

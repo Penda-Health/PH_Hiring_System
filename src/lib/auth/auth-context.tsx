@@ -141,13 +141,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.session) setUser(await userFromSession(supabase, data.session));
   }, [supabase]);
 
-  return (
-    <AuthContext.Provider
-      value={{ user, loading, error, supabaseConfigured, loginWithGoogle, login, logout, refreshProfile }}
-    >
-      {children}
-    </AuthContext.Provider>
+  // Every consumer of useAuth() re-renders whenever this object's identity
+  // changes — without memoizing it, a plain object literal here gives every
+  // consumer a new reference on every AuthProvider render (e.g. any state
+  // change in a component higher up the tree that re-renders this one),
+  // even when none of the actual auth fields changed.
+  const value = React.useMemo<AuthContextValue>(
+    () => ({ user, loading, error, supabaseConfigured, loginWithGoogle, login, logout, refreshProfile }),
+    [user, loading, error, supabaseConfigured, loginWithGoogle, login, logout, refreshProfile]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

@@ -65,7 +65,7 @@ function WorkTrialForm() {
         <FormMessage>
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>
-            Email: <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>
+            Email: <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>
           </p>
         </FormMessage>
       </FormShell>
@@ -76,7 +76,7 @@ function WorkTrialForm() {
     return (
       <FormShell title="Something went wrong" subtitle="We couldn't load your work trial details.">
         <FormMessage>
-          <p>Please try again later, or contact <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
+          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.</p>
         </FormMessage>
       </FormShell>
     );
@@ -114,7 +114,7 @@ function WorkTrialForm() {
           </p>
           <p>
             Check your email for confirmation. To make changes, contact{" "}
-            <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
+            <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a>.
           </p>
         </FormMessage>
       </FormShell>
@@ -125,7 +125,7 @@ function WorkTrialForm() {
     return (
       <FormShell title="No branches available" subtitle={`Hi ${data.candidateName}`}>
         <FormMessage>
-          <p>Please contact <a className="text-penda-teal underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> to arrange your work trial date.</p>
+          <p>Please contact <a className="text-penda-blue underline" href="mailto:ta@penda.co.ke">ta@penda.co.ke</a> to arrange your work trial date.</p>
         </FormMessage>
       </FormShell>
     );
@@ -182,7 +182,7 @@ function WorkTrialForm() {
                   type="button"
                   onClick={() => setBranchId(b.id)}
                   className={`text-left rounded-lg border p-3 transition-colors ${
-                    branchId === b.id ? "border-penda-teal bg-penda-teal/5" : "border-border hover:border-penda-teal/50"
+                    branchId === b.id ? "border-penda-blue bg-penda-blue/5" : "border-border hover:border-penda-blue/50"
                   }`}
                 >
                   <p className="font-medium">{b.name}</p>
@@ -220,7 +220,7 @@ function WorkTrialForm() {
 
           <Button
             type="submit"
-            className="w-full bg-penda-teal hover:bg-penda-teal-dark"
+            className="w-full bg-penda-blue hover:bg-penda-blue-dark"
             disabled={!branchId || !date || submitting}
           >
             {submitting ? "Submitting…" : "Confirm my work trial"}

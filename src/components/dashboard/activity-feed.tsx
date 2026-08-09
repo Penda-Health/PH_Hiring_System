@@ -13,7 +13,7 @@ const CHANNEL_ICONS: Record<AutomationLogEntry["channel"], typeof Mail> = {
 };
 
 const STATUS_STYLES: Record<AutomationLogEntry["status"], string> = {
-  Success: "bg-penda-teal-light text-penda-teal-dark border-transparent",
+  Success: "bg-penda-blue-light text-penda-blue-dark border-transparent",
   Retrying: "bg-high-bg text-high-fg border-transparent",
   Failed: "bg-critical-bg text-critical-fg border-transparent",
 };

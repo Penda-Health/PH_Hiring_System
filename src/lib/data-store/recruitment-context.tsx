@@ -34,7 +34,7 @@ function dedupWorkTrials(trials: WorkTrial[]): WorkTrial[] {
 import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
 import { listResource, createResource, updateResource, deleteResource } from "@/lib/airtable/browser-api";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canEditRecruitmentData, canDeleteRecords } from "@/lib/permissions";
+import { canEditRecruitmentData, canDeleteRecords, canSeeSalary } from "@/lib/permissions";
 
 type RecruitmentDataContextValue = {
   loading: boolean;
@@ -45,6 +45,8 @@ type RecruitmentDataContextValue = {
   canEdit: boolean;
   /** Recruitment Manager only — can delete records such as work trials. */
   canDelete: boolean;
+  /** Contributor/Branch Manager don't see real salary/rate figures. UI affordance; the real check is server-side (route-handlers.ts maskFields). */
+  canSeeSalary: boolean;
   /** Manually trigger a core data refresh (open-roles + candidates). Also called automatically every 60 s and on tab focus. */
   refresh: () => Promise<void>;
 
@@ -124,6 +126,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   const { user } = useAuth();
   const canEdit = canEditRecruitmentData(user?.role);
   const canDelete = canDeleteRecords(user?.role);
+  const canSeeSalaryValue = canSeeSalary(user?.role);
   const [loading, setLoading] = React.useState(true);
   const [extendedLoading, setExtendedLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -224,6 +227,13 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     }
   }, []);
 
+  // Checked against Airtable's 5 req/sec-per-base cap: this fires 6 requests
+  // together every 60s per open tab, which can burst past 5/sec on its own
+  // before even counting other users/tabs. Left as Promise.all (not
+  // staggered) because airtableRequest() already retries 429s with backoff
+  // (client.ts) — a burst here degrades to a short delay, not a failure. If
+  // this ever needs tightening (e.g. many staff on the dashboard at once),
+  // stagger these six calls or move to a shared server-side poll instead.
   React.useEffect(() => {
     const interval = setInterval(refreshCoreData, 60_000);
     window.addEventListener("focus", refreshCoreData);
@@ -352,13 +362,16 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
 
   const deleteWorkTrial = React.useCallback(
     (id: string) => {
-      if (!guardEdit(canEdit, "deleteWorkTrial")) return;
+      // Delete is a stricter, manager-only tier than canEdit — see
+      // canDeleteRecords() in permissions.ts. The server enforces this too
+      // (middleware.ts); this guard is just the matching client-side check.
+      if (!guardEdit(canDelete, "deleteWorkTrial")) return;
       setWorkTrials((prev) => prev.filter((t) => t.id !== id));
       deleteResource("work-trials", id).catch((err) =>
         console.error("Failed to delete work trial from Airtable:", err)
       );
     },
-    [canEdit]
+    [canDelete]
   );
 
   const submitWorkTrialScores = React.useCallback(
@@ -615,13 +628,14 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
 
   const deleteCandidate = React.useCallback(
     (id: string) => {
-      if (!guardEdit(canEdit, "deleteCandidate")) return;
+      // Manager-only tier — see the comment on deleteWorkTrial above.
+      if (!guardEdit(canDelete, "deleteCandidate")) return;
       setCandidates((prev) => prev.filter((c) => c.id !== id));
       deleteResource("candidates", id).catch((err) => {
         console.error(`Failed to delete candidate ${id} from Airtable:`, err);
       });
     },
-    [canEdit]
+    [canDelete]
   );
 
   const value = React.useMemo<RecruitmentDataContextValue>(
@@ -631,6 +645,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       error,
       canEdit,
       canDelete,
+      canSeeSalary: canSeeSalaryValue,
       refresh: refreshCoreData,
       branches,
       openRoles,
@@ -675,6 +690,8 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       extendedLoading,
       error,
       canEdit,
+      canDelete,
+      canSeeSalaryValue,
       refreshCoreData,
       branches,
       openRoles,

@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Candidate, OpenRole } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -10,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RoleStatusBadge } from "./role-status-badge";
-import { headcountPct, activeCandidateCount } from "@/lib/roles-helpers";
+import { headcountPct, ACTIVE_CANDIDATE_STAGE_EXCLUSIONS } from "@/lib/roles-helpers";
 
 export function RolesTable({
   roles,
@@ -21,6 +22,18 @@ export function RolesTable({
   candidates: Candidate[];
   onSelectRole: (role: OpenRole) => void;
 }) {
+  // activeCandidateCount() filters the whole candidates array per role — for
+  // a table with N roles that's O(N * candidates) every render. Build the
+  // per-role counts once in O(roles + candidates) instead.
+  const activeCountByRoleId = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of candidates) {
+      if (!c.roleId || ACTIVE_CANDIDATE_STAGE_EXCLUSIONS.has(c.stage)) continue;
+      counts.set(c.roleId, (counts.get(c.roleId) ?? 0) + 1);
+    }
+    return counts;
+  }, [candidates]);
+
   return (
     <Table>
       <TableHeader>
@@ -63,7 +76,7 @@ export function RolesTable({
                 </span>
               </div>
             </TableCell>
-            <TableCell>{activeCandidateCount(role, candidates)}</TableCell>
+            <TableCell>{activeCountByRoleId.get(role.id) ?? 0}</TableCell>
             <TableCell className="text-muted-foreground">{role.location}</TableCell>
             <TableCell className="text-muted-foreground">{role.recruiter}</TableCell>
             <TableCell className="text-muted-foreground">

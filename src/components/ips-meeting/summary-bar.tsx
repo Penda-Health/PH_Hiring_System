@@ -11,7 +11,7 @@ export function SummaryBar({ allocations }: { allocations: IpsAllocation[] }) {
 
   const tiles: KpiTileData[] = [
     { label: "Total Slots", value: String(total), icon: ClipboardList, accent: "blue" },
-    { label: "Allocated", value: String(allocated), icon: CheckCircle2, accent: "teal" },
+    { label: "Allocated", value: String(allocated), icon: CheckCircle2, accent: "brand" },
     { label: "Unallocated", value: String(unallocated), icon: AlertTriangle, accent: "amber" },
     { label: "Critical Unfilled", value: String(criticalUnfilled), icon: Flame, accent: "rose" },
     { label: "High Unfilled", value: String(highUnfilled), icon: ShieldAlert, accent: "amber" },

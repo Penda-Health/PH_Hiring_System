@@ -105,7 +105,7 @@ export function BoardEditorsDialog({ currentUserId }: { currentUserId: string })
               ))}
             </SelectContent>
           </Select>
-          <Button size="sm" disabled={!selected} onClick={handleAdd} className="bg-penda-teal hover:bg-penda-teal-dark">
+          <Button size="sm" disabled={!selected} onClick={handleAdd} className="bg-penda-blue hover:bg-penda-blue-dark">
             Add
           </Button>
         </div>

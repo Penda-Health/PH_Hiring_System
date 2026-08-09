@@ -6,8 +6,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { publicRequisitionRequestSchema } from "@/lib/airtable/schemas";
 import { loadActiveBranches, loadRoleTitleSuggestions, submitPublicRequisitionRequest } from "@/lib/forms/requisition-request-form";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, "public:requisition-request:get", { limit: 60, windowMs: 10 * 60 * 1000 });
+  if (limited) return limited;
+
   try {
     const segment = request.nextUrl.searchParams.get("segment") === "SO" ? "SO" : "IPS";
     const [branches, roleTitles] = await Promise.all([loadActiveBranches(), loadRoleTitleSuggestions(segment)]);
@@ -19,6 +23,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // This is the one public route with no per-submission token — a static,
+  // reusable link that mints a real, already-approved Requisition + Open
+  // Role on every valid POST — so it gets the tightest budget of any public
+  // route, on top of the honeypot field already in the schema below.
+  const limited = rateLimit(request, "public:requisition-request:post", { limit: 8, windowMs: 10 * 60 * 1000 });
+  if (limited) return limited;
+
   const json = await request.json().catch(() => null);
   const result = publicRequisitionRequestSchema.safeParse(json);
   if (!result.success) {

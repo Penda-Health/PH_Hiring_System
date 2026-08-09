@@ -11,8 +11,10 @@ import { OfferOutcome } from "@/types";
 type DialogState = { mode: "counter" | "decline" | "withdraw"; offerId: string } | null;
 
 export default function OffersPage() {
-  const { offers, candidates, createOffer, acceptOffer, declineOffer, counterOffer, withdrawOffer, reopenOffer, canEdit } =
-    useRecruitmentData();
+  const {
+    offers, candidates, createOffer, acceptOffer, declineOffer, counterOffer, withdrawOffer, reopenOffer, canEdit,
+    extendedLoading,
+  } = useRecruitmentData();
   const [dialog, setDialog] = React.useState<DialogState>(null);
 
   function handleDropOffer(offerId: string, targetOutcome: OfferOutcome) {
@@ -41,7 +43,12 @@ export default function OffersPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Offer Tracker</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Offer Tracker</h1>
+          {extendedLoading && (
+            <span className="text-xs text-muted-foreground animate-pulse">Loading…</span>
+          )}
+        </div>
         {canEdit && <NewOfferDialog candidates={candidates} onCreate={createOffer} />}
       </div>
       <div className="flex gap-4 overflow-x-auto pb-4">

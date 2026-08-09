@@ -20,6 +20,7 @@ export const workTrials: WorkTrial[] = [
     bmApprovedAt: null,
     reminder12hSent: false,
     escalation24hSent: false,
+    submissionMethod: null,
   },
   {
     id: "wt-2",
@@ -40,6 +41,7 @@ export const workTrials: WorkTrial[] = [
     bmApprovedAt: null,
     reminder12hSent: true,
     escalation24hSent: false,
+    submissionMethod: null,
   },
   {
     id: "wt-3",
@@ -60,6 +62,7 @@ export const workTrials: WorkTrial[] = [
     bmApprovedAt: null,
     reminder12hSent: false,
     escalation24hSent: false,
+    submissionMethod: "Online",
   },
   {
     id: "wt-4",
@@ -80,5 +83,6 @@ export const workTrials: WorkTrial[] = [
     bmApprovedAt: null,
     reminder12hSent: true,
     escalation24hSent: true,
+    submissionMethod: "Online",
   },
 ];

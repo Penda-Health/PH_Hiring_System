@@ -35,7 +35,7 @@ import { Check, ChevronDown, ClipboardCheck, Copy, Pencil, Trash2 } from "lucide
 const STATUS_STYLES: Record<string, string> = {
   "Awaiting Arrival": "bg-muted text-muted-foreground border-transparent",
   "Awaiting Score":   "bg-high-bg text-high-fg border-transparent",
-  Complete:           "bg-penda-teal-light text-penda-teal-dark border-transparent",
+  Complete:           "bg-penda-blue-light text-penda-blue-dark border-transparent",
 };
 
 async function getFormLink(body: Record<string, unknown>): Promise<string> {
@@ -99,19 +99,31 @@ export function ManualReviewDialog({
     trial.scoreTechnical !== null &&
     trial.scoreTechnical < TECHNICAL_AUTO_FAIL_BELOW;
 
+  // The Select is disabled (and its "Pass" option unselectable) once
+  // auto-fail applies, but `outcome` state can still be sitting on "Pass"
+  // from initial load (e.g. trial.passFail was "Pass" before these scores
+  // were entered) — the dropdown being disabled doesn't reset it. Everywhere
+  // that decides what actually gets saved/labelled must go through this
+  // effective value, not the raw `outcome` state, or the save could silently
+  // persist a Pass the UI is showing as a locked Fail.
+  const effectiveOutcome: ReviewOutcome =
+    cultureAutoFail || technicalAutoFail
+      ? outcome === "Did Not Attend" ? "Did Not Attend" : "Fail"
+      : outcome;
+
   async function handleSave() {
     setSaving(true);
     try {
       const patch: Partial<WorkTrial> = {
-        arrivalMarked: outcome === "Did Not Attend" ? false : true,
-        passFail: outcome === "Pass" ? "Pass" : "Fail",
+        arrivalMarked: effectiveOutcome === "Did Not Attend" ? false : true,
+        passFail: effectiveOutcome === "Pass" ? "Pass" : "Fail",
         formSubmittedAt: trial.formSubmittedAt ?? new Date().toISOString(),
         // Fill in a placeholder total of 0 so the record counts as "Complete"
-        total: outcome === "Did Not Attend" ? 0 : (trial.total ?? 0),
+        total: effectiveOutcome === "Did Not Attend" ? 0 : (trial.total ?? 0),
       };
       updateWorkTrial(trial.id, patch);
 
-      if (outcome === "Pass" && advanceStage && candidate) {
+      if (effectiveOutcome === "Pass" && advanceStage && candidate) {
         updateCandidateStage(candidate.id, "Reference Check");
       }
       onOpenChange(false);
@@ -213,12 +225,12 @@ export function ManualReviewDialog({
 
           {/* Advance stage toggle — only shown on Pass */}
           {outcome === "Pass" && !cultureAutoFail && !technicalAutoFail && (
-            <label className="flex items-start gap-3 rounded-lg border border-penda-teal/30 bg-penda-teal/5 p-3 cursor-pointer">
+            <label className="flex items-start gap-3 rounded-lg border border-penda-blue/30 bg-penda-blue/5 p-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={advanceStage}
                 onChange={(e) => setAdvanceStage(e.target.checked)}
-                className="mt-0.5 h-4 w-4 accent-penda-teal"
+                className="mt-0.5 h-4 w-4 accent-penda-blue"
               />
               <div>
                 <p className="text-sm font-medium">Advance to Reference Checks</p>
@@ -235,9 +247,9 @@ export function ManualReviewDialog({
           <Button
             onClick={handleSave}
             disabled={saving}
-            className={outcome === "Pass" && !cultureAutoFail ? "bg-penda-teal hover:bg-penda-teal-dark" : "bg-destructive hover:bg-destructive/90"}
+            className={effectiveOutcome === "Pass" ? "bg-penda-blue hover:bg-penda-blue-dark" : "bg-destructive hover:bg-destructive/90"}
           >
-            {saving ? "Saving…" : `Mark as ${cultureAutoFail ? "Fail" : outcome}`}
+            {saving ? "Saving…" : `Mark as ${effectiveOutcome}`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -350,7 +362,7 @@ function EditWorkTrialDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} className="bg-penda-teal hover:bg-penda-teal-dark">
+          <Button onClick={handleSave} className="bg-penda-blue hover:bg-penda-blue-dark">
             Save
           </Button>
         </DialogFooter>
@@ -416,7 +428,7 @@ export function WorkTrialCard({
               {candidate?.name ?? <span className="text-destructive/80">Unlinked record</span>}
             </CardTitle>
             {role && (
-              <p className="text-xs font-medium text-penda-teal/80">{role.title} · {role.department}</p>
+              <p className="text-xs font-medium text-penda-blue/80">{role.title} · {role.department}</p>
             )}
             <p className="text-xs text-muted-foreground">
               {branch?.name ?? "No branch set"} · {trial.date || "No date set"}
@@ -461,7 +473,7 @@ export function WorkTrialCard({
               {trial.arrivalMarked !== null && (
                 <p className="text-xs">
                   Arrival:{" "}
-                  <span className={trial.arrivalMarked ? "text-penda-teal font-medium" : "text-destructive font-medium"}>
+                  <span className={trial.arrivalMarked ? "text-penda-blue font-medium" : "text-destructive font-medium"}>
                     {trial.arrivalMarked ? "Arrived" : "Did not arrive"}
                   </span>
                 </p>
@@ -493,7 +505,7 @@ export function WorkTrialCard({
                     <div className="flex items-center gap-1 text-muted-foreground col-span-2 mt-0.5">
                       <span>Scored by:</span>
                       <span className="font-medium text-foreground">{trial.submittedByRole}</span>
-                      {trial.bmApprovedAt && <span className="text-penda-teal">· BM approved</span>}
+                      {trial.bmApprovedAt && <span className="text-penda-blue">· BM approved</span>}
                     </div>
                   )}
                   <div className="col-span-2 flex items-center justify-between rounded-md border border-border p-2 mt-1">
@@ -549,11 +561,11 @@ export function WorkTrialCard({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
                     <DropdownMenuItem onClick={() => copyLink("bm-feedback")}>
-                      {copied === "bm-feedback" ? <Check className="h-3.5 w-3.5 mr-2 text-penda-teal" /> : <Copy className="h-3.5 w-3.5 mr-2" />}
+                      {copied === "bm-feedback" ? <Check className="h-3.5 w-3.5 mr-2 text-penda-blue" /> : <Copy className="h-3.5 w-3.5 mr-2" />}
                       BM / Incharge scoring link
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => copyLink("work-trial")}>
-                      {copied === "work-trial" ? <Check className="h-3.5 w-3.5 mr-2 text-penda-teal" /> : <Copy className="h-3.5 w-3.5 mr-2" />}
+                      {copied === "work-trial" ? <Check className="h-3.5 w-3.5 mr-2 text-penda-blue" /> : <Copy className="h-3.5 w-3.5 mr-2" />}
                       Candidate confirmation link
                     </DropdownMenuItem>
                   </DropdownMenuContent>

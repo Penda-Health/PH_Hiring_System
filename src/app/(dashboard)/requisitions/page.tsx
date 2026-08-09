@@ -11,13 +11,18 @@ import { CopyPublicLinkMenu } from "@/components/requisitions/copy-public-link-m
 
 export default function RequisitionsPage() {
   const { user } = useAuth();
-  const { requisitions, branches, createRequisition, approveRequisition, rejectRequisition, canEdit } =
+  const { requisitions, branches, createRequisition, approveRequisition, rejectRequisition, canEdit, extendedLoading } =
     useRecruitmentData();
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Requisition Intake</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Requisition Intake</h1>
+          {extendedLoading && (
+            <span className="text-xs text-muted-foreground animate-pulse">Loading…</span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {canEdit && <CopyPublicLinkMenu />}
           <Button variant="outline" asChild>

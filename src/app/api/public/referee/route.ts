@@ -4,8 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyRefereeToken } from "@/lib/forms/tokens";
 import { loadRefereeFormData, submitRefereeForm } from "@/lib/forms/referee-form";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, "public:referee:get", { limit: 60, windowMs: 10 * 60 * 1000 });
+  if (limited) return limited;
+
   const token = request.nextUrl.searchParams.get("token");
   if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
 
@@ -23,23 +27,26 @@ export async function GET(request: NextRequest) {
 }
 
 const submitSchema = z.object({
-  token: z.string(),
-  relationship: z.string().min(1),
-  durationKnown: z.string().min(1),
-  techScore: z.number().min(1).max(5),
-  reliabilityScore: z.number().min(1).max(5),
-  teamworkScore: z.number().min(1).max(5),
+  token: z.string().min(1).max(4000),
+  relationship: z.string().trim().min(1).max(100),
+  durationKnown: z.string().trim().min(1).max(100),
+  techScore: z.number().int().min(1).max(5),
+  reliabilityScore: z.number().int().min(1).max(5),
+  teamworkScore: z.number().int().min(1).max(5),
   wouldRehire: z.enum([
     "Yes, without hesitation",
     "Yes, with some reservations",
     "No, I would not recommend them",
   ]),
-  strengthExample: z.string().min(50),
-  developmentAreas: z.string().optional(),
-  notes: z.string().optional(),
+  strengthExample: z.string().trim().min(50).max(3000),
+  developmentAreas: z.string().trim().max(3000).optional(),
+  notes: z.string().trim().max(2000).optional(),
 });
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(request, "public:referee:post", { limit: 10, windowMs: 10 * 60 * 1000 });
+  if (limited) return limited;
+
   const json = await request.json().catch(() => null);
   const result = submitSchema.safeParse(json);
   if (!result.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });

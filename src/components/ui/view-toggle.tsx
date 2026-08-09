@@ -13,7 +13,7 @@ export function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (view
         onClick={() => onChange("cards")}
         className={cn(
           "flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-sm font-medium transition-colors",
-          view === "cards" ? "bg-penda-teal text-white" : "text-muted-foreground hover:text-foreground"
+          view === "cards" ? "bg-penda-blue text-white" : "text-muted-foreground hover:text-foreground"
         )}
       >
         <LayoutGrid className="h-4 w-4" />
@@ -24,7 +24,7 @@ export function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (view
         onClick={() => onChange("list")}
         className={cn(
           "flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-sm font-medium transition-colors",
-          view === "list" ? "bg-penda-teal text-white" : "text-muted-foreground hover:text-foreground"
+          view === "list" ? "bg-penda-blue text-white" : "text-muted-foreground hover:text-foreground"
         )}
       >
         <List className="h-4 w-4" />

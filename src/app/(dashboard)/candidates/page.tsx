@@ -25,6 +25,7 @@ export default function CandidatesPage() {
     openRoles,
     branches,
     canEdit,
+    canDelete,
     createCandidate,
     updateCandidate,
     updateCandidateStage,
@@ -120,6 +121,7 @@ export default function CandidatesPage() {
             candidates={paged}
             openRoles={openRoles}
             canEdit={canEdit}
+            canDelete={canDelete}
             onViewProfile={setViewingCandidate}
             onEdit={setEditingCandidate}
             onMoveStage={setMovingCandidate}

@@ -28,7 +28,7 @@ export function InterviewRow({
         {new Date(interview.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} · {interview.time}
       </div>
       <button
-        className="col-span-3 text-left font-medium hover:text-penda-teal truncate"
+        className="col-span-3 text-left font-medium hover:text-penda-blue truncate"
         onClick={() => candidate && onSelectCandidate(candidate.id)}
       >
         {candidate?.name ?? "Unknown"}

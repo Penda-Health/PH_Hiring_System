@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/config";
-import { isRouteAllowed, isGatedMutation, canEditRecruitmentData } from "@/lib/permissions";
+import { isRouteAllowed, isGatedMutation, canEditRecruitmentData, canDeleteRecords } from "@/lib/permissions";
 import type { UserRoleName } from "@/types";
 
 const ALLOWED_DOMAINS = ["penda.co.ke", "pendahealth.com"];
@@ -110,8 +110,14 @@ export async function middleware(request: NextRequest) {
   // member, but only Recruitment User/Manager can create or edit it —
   // Branch Manager and Contributor are view-only. This is the real
   // enforcement boundary; any UI-level disabling is just affordance on top.
+  // DELETE is a stricter, manager-only tier on top of that (canDeleteRecords)
+  // — a Recruitment User can edit but not delete.
   if (isGatedMutation(request.method, request.nextUrl.pathname)) {
-    if (!canEditRecruitmentData(role)) {
+    if (request.method === "DELETE") {
+      if (!canDeleteRecords(role)) {
+        return NextResponse.json({ error: "Only a Recruitment Manager can delete records." }, { status: 403 });
+      }
+    } else if (!canEditRecruitmentData(role)) {
       return NextResponse.json({ error: "You don't have permission to edit recruitment data." }, { status: 403 });
     }
   }

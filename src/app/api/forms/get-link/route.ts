@@ -4,7 +4,8 @@
 // calls). Uses the Supabase session instead.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getCurrentUserRole } from "@/lib/supabase/server";
+import { canEditRecruitmentData } from "@/lib/permissions";
 import { signWorkTrialToken, signBmFeedbackToken, signRefereeToken } from "@/lib/forms/tokens";
 
 const schema = z.union([
@@ -35,6 +36,16 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  // These tokens grant write access to work-trial/bm-feedback/referee scores
+  // via the public token-only endpoints — minting one is equivalent to
+  // editing recruitment data, so it needs the same permission tier, not just
+  // "signed in". Without this, a view-only Contributor/Branch Manager could
+  // mint a link for any candidate/work trial ID and self-escalate.
+  const role = await getCurrentUserRole();
+  if (!canEditRecruitmentData(role)) {
+    return NextResponse.json({ error: "You don't have permission to issue form links." }, { status: 403 });
+  }
 
   const json = await request.json().catch(() => null);
   const result = schema.safeParse(json);
