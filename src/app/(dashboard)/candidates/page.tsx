@@ -30,7 +30,6 @@ export default function CandidatesPage() {
     updateCandidateStage,
     deleteCandidate,
     createInterview,
-    createReliever,
     createLocum,
   } = useRecruitmentData();
 
