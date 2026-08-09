@@ -12,6 +12,8 @@ export interface FormShellBrand {
   lede?: string;
   /** Up to 2 short stats (e.g. "9–5" / "Full day"). Hidden on narrow screens. */
   stats?: FormShellStat[];
+  /** Short "what to expect"-style detail under the stats. Hidden on narrow screens. */
+  note?: string;
   /** Small closing line under the stats, e.g. branch cities or a contact address. */
   footer?: string;
 }
@@ -100,6 +102,13 @@ export function FormShell({
                     </div>
                   ))}
                 </div>
+              )}
+
+              {b.note && (
+                <p className="mt-6 hidden text-xs leading-relaxed text-white/70 md:block">
+                  <span className="font-semibold text-white/90">What to expect: </span>
+                  {b.note}
+                </p>
               )}
             </div>
           </div>

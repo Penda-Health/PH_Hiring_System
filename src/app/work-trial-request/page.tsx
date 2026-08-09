@@ -15,6 +15,7 @@ const BRAND: FormShellBrand = {
     { value: "9–5", label: "Full day, on-site" },
     { value: "2 wks", label: "Days out to pick from" },
   ],
+  note: "It runs like a normal working day, with exposure to the Penda Way, our systems, and our patients. Your Branch Manager/Incharge guides you throughout.",
   footer: "Questions? careers@pendahealth.com",
 };
 
@@ -276,12 +277,6 @@ function WorkTrialRequestForm() {
               As part of our benefits, we reimburse <span className="font-medium text-foreground">KES 1,000</span>{" "}
               post-onboarding for any work trial attended, to cover transport, lunch, and other costs associated
               with the day.
-            </p>
-            <p className="border-t border-penda-blue-light/40 pt-2.5">
-              <span className="font-medium text-foreground">What to expect: </span>
-              It runs much like a normal working day, but with added exposure to the Penda Way, our systems, our
-              patients, and interactions with other teams and departments. The Branch Manager/Incharge will be
-              with you throughout the day to guide you.
             </p>
           </div>
 
