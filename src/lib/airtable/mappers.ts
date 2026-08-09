@@ -271,8 +271,10 @@ export function candidateToAirtable(c: Partial<Candidate>) {
     [F.Candidates.REF_CHECK_STATUS]: c.refCheckStatus,
     [F.Candidates.OFFER_STATUS]: c.offerStatus,
     [F.Candidates.JOINED]: c.joined,
-    [F.Candidates.STAGE_ENTERED_AT]: c.stageEnteredAt,
-    [F.Candidates.CREATED_AT]: c.createdAt,
+    // Candidates table uses date-only fields — strip the time component before
+    // writing so Airtable doesn't reject a full ISO datetime string.
+    [F.Candidates.STAGE_ENTERED_AT]: c.stageEnteredAt ? c.stageEnteredAt.slice(0, 10) : undefined,
+    [F.Candidates.CREATED_AT]: c.createdAt ? c.createdAt.slice(0, 10) : undefined,
   });
 }
 

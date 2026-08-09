@@ -114,6 +114,7 @@ export function NewCandidateDialog({
 }) {
   const [open, setOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [addType, setAddType] = React.useState<AddType>("Candidate");
 
   const [candForm, setCandForm] = React.useState(() => ({
@@ -181,6 +182,7 @@ export function NewCandidateDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitError(null);
     setSubmitting(true);
     try {
       if (addType === "Reliever" && onCreateReliever) {
@@ -225,6 +227,10 @@ export function NewCandidateDialog({
         setCandForm((prev) => ({ ...prev, name: "", phone: "", email: "", source: "", stage: "First Interview" }));
       }
       setOpen(false);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Something went wrong. Please try again."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -424,6 +430,12 @@ export function NewCandidateDialog({
                 Branch assignment is done in the Locum Pool once a deployment is confirmed. Locums are added to the pool without a branch.
               </p>
             </>
+          )}
+
+          {submitError && (
+            <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+              {submitError}
+            </p>
           )}
 
           <DialogFooter>
