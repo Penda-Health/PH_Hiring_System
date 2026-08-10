@@ -152,7 +152,8 @@ async function handleUploadStep(request: NextRequest) {
     return NextResponse.json({ ok: true, total, passFail, submittedByRole: result.data.submittedByRole });
   } catch (err) {
     console.error("[api/public/bm-feedback] upload POST failed:", err);
-    return NextResponse.json({ error: "server_error" }, { status: 500 });
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "server_error", detail }, { status: 500 });
   }
 }
 
@@ -211,6 +212,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, total, passFail, submittedByRole: result.data.submittedByRole });
   } catch (err) {
     console.error("[api/public/bm-feedback] POST failed:", err);
-    return NextResponse.json({ error: "server_error" }, { status: 500 });
+    // Include the raw error message in the response body so the UI can surface
+    // it directly — makes diagnosing Airtable field/type errors much faster.
+    // This is a token-gated form (BM-only) so leaking internal error strings
+    // is acceptable; remove the `detail` key once the error is resolved.
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "server_error", detail }, { status: 500 });
   }
 }

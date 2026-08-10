@@ -242,6 +242,8 @@ function BmFeedbackForm() {
         throw new Error(
           body.error === "already_submitted"
             ? "This assessment has already been submitted."
+            : body.detail
+            ? `Submission failed: ${body.detail}`
             : "Something went wrong. Please try again."
         );
       }
@@ -283,6 +285,8 @@ function BmFeedbackForm() {
             ? "That file is too large (max 10MB)."
             : body.error === "unsupported_file_type"
             ? "Unsupported file type. Please upload a PDF, JPG, or PNG."
+            : body.detail
+            ? `Submission failed: ${body.detail}`
             : "Something went wrong. Please try again."
         );
       }
