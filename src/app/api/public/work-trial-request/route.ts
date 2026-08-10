@@ -71,16 +71,16 @@ export async function GET(request: NextRequest) {
       .map(specialtyConfigFromAirtable)
       .filter((s) => s.active);
 
-    // Build deduplicated cadre list from open roles
+    // Build deduplicated cadre list from open roles (MCMT is internal — excluded)
+    const EXCLUDED_DEPTS = new Set(["MCMT"]);
     const seenDepts = new Set<string>();
     const availableCadres: string[] = [];
     for (const r of openRoleRecords) {
       const dept = String(r.fields[F.OpenRoles.DEPARTMENT] ?? "").trim();
-      if (dept && !seenDepts.has(dept)) {
-        seenDepts.add(dept);
-        const cadre = DEPT_TO_CADRE[dept] ?? dept;
-        if (!availableCadres.includes(cadre)) availableCadres.push(cadre);
-      }
+      if (!dept || EXCLUDED_DEPTS.has(dept) || seenDepts.has(dept)) continue;
+      seenDepts.add(dept);
+      const cadre = DEPT_TO_CADRE[dept] ?? dept;
+      if (!availableCadres.includes(cadre)) availableCadres.push(cadre);
     }
     if (!availableCadres.includes("Other")) availableCadres.push("Other");
 
@@ -272,11 +272,18 @@ export async function POST(request: NextRequest) {
     }
 
     // For specialist roles validate branch + day against the specialty config.
-    // Dental sub-roles (Dentist, COHO, Dental Assistant) are stored as-is in
-    // the Specialty field but validated against the parent "Dental" config.
-    const DENTAL_SUB_ROLES = new Set(["Dentist", "COHO", "Dental Assistant"]);
+    // Sub-roles (Dentist, COHO, Dental Lead, Sonographer Incharge …) are stored
+    // verbatim in the Specialty field but validated against their parent config.
+    const SPECIALTY_PARENT_MAP: Record<string, string> = {
+      "Dentist":              "Dental",
+      "COHO":                 "Dental",
+      "Dental Assistant":     "Dental",
+      "Dental Lead":          "Dental",
+      "Sonographer":          "Sonography",
+      "Sonographer Incharge": "Sonography",
+    };
     if (roleCategory === "Specialist" && specialty) {
-      const configSpecialty = DENTAL_SUB_ROLES.has(specialty) ? "Dental" : specialty;
+      const configSpecialty = SPECIALTY_PARENT_MAP[specialty] ?? specialty;
       const configRecords = await listRecords(TABLE_NAMES.WorkTrialSpecialtyConfig);
       const config = configRecords
         .map(specialtyConfigFromAirtable)

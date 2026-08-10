@@ -43,9 +43,21 @@ const DAY_NAME_TO_NUM: Record<string, number> = {
   Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
 };
 
-// When a candidate selects one of these dental roles the specialty config
-// key used for branch/day validation is "Dental" (the parent config).
-const DENTAL_SUB_ROLES = ["Dentist", "COHO", "Dental Assistant"] as const;
+// Cadres that have a secondary sub-role picker. Each entry lists the options
+// shown in the second dropdown. The specialty config lookup key (for branch/day
+// filtering) is the parent cadre entry, not the sub-role — e.g. selecting
+// "Dental Lead" still validates against the "Dental" specialty config.
+const SPECIALIST_SUB_ROLES: Record<string, readonly string[]> = {
+  "Dental":       ["Dentist", "COHO", "Dental Assistant", "Dental Lead"],
+  "Sonographer":  ["Sonographer", "Sonographer Incharge"],
+};
+
+// Maps cadre display names back to the specialty config key stored in Airtable.
+// Needed where the DEPT_TO_CADRE rename makes the two differ (e.g. "Sonography"
+// dept → "Sonographer" cadre but specialty config still has specialty="Sonography").
+const CADRE_TO_SPECIALTY_KEY: Record<string, string> = {
+  "Sonographer": "Sonography",
+};
 
 type IdentifyResult = {
   sessionToken: string;
@@ -95,11 +107,11 @@ function WorkTrialRequestForm() {
   const [identifyError, setIdentifyError] = React.useState<string | null>(null);
 
   // Role step — two-level selection:
-  // selectedCadre is the primary dropdown (e.g. "Dental", "Nurse")
-  // dentalSubRole is only used when selectedCadre === "Dental"
-  // selectedRole (derived) is what gets stored / sent to the API
+  // selectedCadre  = primary dropdown value (e.g. "Dental", "Sonographer", "Nurse")
+  // subRole        = secondary dropdown, only for cadres with SPECIALIST_SUB_ROLES
+  // selectedRole   = derived final value stored in Airtable
   const [selectedCadre, setSelectedCadre] = React.useState("");
-  const [dentalSubRole, setDentalSubRole] = React.useState("");
+  const [subRole, setSubRole] = React.useState("");
 
   // Schedule step
   const [sessionToken, setSessionToken] = React.useState("");
@@ -247,14 +259,17 @@ function WorkTrialRequestForm() {
   }
 
   // ── Derived values ────────────────────────────────────────────────────────
-  // The final role stored in Airtable: Dental sub-roles are their own string
-  // (e.g. "Dentist"), everything else is the cadre name itself.
-  const selectedRole = selectedCadre === "Dental" ? dentalSubRole : selectedCadre;
+  // Final role stored in Airtable: sub-role when the cadre has sub-options,
+  // otherwise the cadre name itself (e.g. "Nurse", "Clinical Officer").
+  const selectedRole = SPECIALIST_SUB_ROLES[selectedCadre] ? subRole : selectedCadre;
 
-  // Specialty config matches on the primary cadre (always "Dental" for dental
-  // sub-roles) — this drives branch/day filtering for specialist trials.
+  // Specialty config lookup: some cadre names differ from the Airtable specialty
+  // key (e.g. "Sonographer" cadre ↔ "Sonography" config). CADRE_TO_SPECIALTY_KEY
+  // bridges that; anything not in the map uses the cadre name directly.
   const activeSpecialtyConfig = React.useMemo(
-    () => specialtyConfigs.find((s) => s.specialty === selectedCadre) ?? null,
+    () => specialtyConfigs.find(
+      (s) => s.specialty === (CADRE_TO_SPECIALTY_KEY[selectedCadre] ?? selectedCadre)
+    ) ?? null,
     [selectedCadre, specialtyConfigs]
   );
 
@@ -382,7 +397,8 @@ function WorkTrialRequestForm() {
   // Assistant). General vs Specialist is derived on our end from whether the
   // cadre matches an active SpecialtyConfig — candidates never see that split.
   if (step === "role") {
-    const canContinue = selectedCadre && (selectedCadre !== "Dental" || Boolean(dentalSubRole));
+    const subRoleOptions = SPECIALIST_SUB_ROLES[selectedCadre];
+    const canContinue = selectedCadre && (!subRoleOptions || Boolean(subRole));
     return (
       <FormShell brand={BRAND}
         title="What role are you applying for?"
@@ -396,7 +412,7 @@ function WorkTrialRequestForm() {
               value={selectedCadre}
               onChange={(e) => {
                 setSelectedCadre(e.target.value);
-                setDentalSubRole(""); // reset sub-role when cadre changes
+                setSubRole(""); // reset sub-role whenever primary changes
               }}
               className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-penda-blue/40 disabled:opacity-50"
             >
@@ -408,7 +424,7 @@ function WorkTrialRequestForm() {
                 : /* Fallback while cadres are loading or unavailable */ [
                     "Clinical Officer", "Nurse", "Pharmacy Technician",
                     "Laboratory Technician", "Receptionist / Front Office",
-                    "Dental", "Other",
+                    "Dental", "Sonographer", "Other",
                   ].map((cadre) => (
                     <option key={cadre} value={cadre}>{cadre}</option>
                   ))
@@ -416,18 +432,18 @@ function WorkTrialRequestForm() {
             </select>
           </div>
 
-          {/* Dental sub-role — only shown when Dental is selected */}
-          {selectedCadre === "Dental" && (
+          {/* Sub-role picker — shown for any cadre in SPECIALIST_SUB_ROLES */}
+          {subRoleOptions && (
             <div className="space-y-2">
-              <Label htmlFor="dental-subrole">Specific role</Label>
+              <Label htmlFor="sub-role">Specific role</Label>
               <select
-                id="dental-subrole"
-                value={dentalSubRole}
-                onChange={(e) => setDentalSubRole(e.target.value)}
+                id="sub-role"
+                value={subRole}
+                onChange={(e) => setSubRole(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-penda-blue/40"
               >
                 <option value="" disabled>Select specific role…</option>
-                {DENTAL_SUB_ROLES.map((r) => (
+                {subRoleOptions.map((r) => (
                   <option key={r} value={r}>{r}</option>
                 ))}
               </select>
