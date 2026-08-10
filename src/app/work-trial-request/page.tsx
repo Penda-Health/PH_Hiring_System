@@ -43,18 +43,9 @@ const DAY_NAME_TO_NUM: Record<string, number> = {
   Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
 };
 
-// General clinical roles shown to every candidate regardless of specialty config.
-// Pharmacy, Laboratory, and Nursing are listed here — they are general roles.
-// Any role that matches a SpecialtyConfig.specialty key is routed as Specialist;
-// everything in this list (and "Other") is routed as General.
-const GENERAL_ROLE_OPTIONS = [
-  "Clinical Officer",
-  "Nurse",
-  "Pharmacy Technician",
-  "Laboratory Technician",
-  "Receptionist / Front Office",
-  "Other",
-] as const;
+// When a candidate selects one of these dental roles the specialty config
+// key used for branch/day validation is "Dental" (the parent config).
+const DENTAL_SUB_ROLES = ["Dentist", "COHO", "Dental Assistant"] as const;
 
 type IdentifyResult = {
   sessionToken: string;
@@ -93,6 +84,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function WorkTrialRequestForm() {
   const [branches, setBranches] = React.useState<Branch[]>([]);
   const [specialtyConfigs, setSpecialtyConfigs] = React.useState<SpecialtyConfig[]>([]);
+  const [availableCadres, setAvailableCadres] = React.useState<string[]>([]);
   const [step, setStep] = React.useState<"identify" | "role" | "schedule" | "done">("identify");
 
   // Identify step
@@ -102,8 +94,12 @@ function WorkTrialRequestForm() {
   const [identifying, setIdentifying] = React.useState(false);
   const [identifyError, setIdentifyError] = React.useState<string | null>(null);
 
-  // Role step — candidate picks their actual role; category is derived on our end
-  const [selectedRole, setSelectedRole] = React.useState("");
+  // Role step — two-level selection:
+  // selectedCadre is the primary dropdown (e.g. "Dental", "Nurse")
+  // dentalSubRole is only used when selectedCadre === "Dental"
+  // selectedRole (derived) is what gets stored / sent to the API
+  const [selectedCadre, setSelectedCadre] = React.useState("");
+  const [dentalSubRole, setDentalSubRole] = React.useState("");
 
   // Schedule step
   const [sessionToken, setSessionToken] = React.useState("");
@@ -142,6 +138,7 @@ function WorkTrialRequestForm() {
       .then((d) => {
         setBranches(d.branches ?? []);
         setSpecialtyConfigs((d.specialtyConfigs ?? []).filter((s: SpecialtyConfig) => s.active));
+        setAvailableCadres(d.availableCadres ?? []);
       })
       .catch(() => {});
   }, []);
@@ -249,12 +246,16 @@ function WorkTrialRequestForm() {
     }
   }
 
-  // ── Derived: specialtyConfig, filtered branches + allowed days ─────────────
-  // If the selected role matches a SpecialtyConfig entry it is a Specialist
-  // trial; otherwise it is General and all branches + all weekdays are open.
+  // ── Derived values ────────────────────────────────────────────────────────
+  // The final role stored in Airtable: Dental sub-roles are their own string
+  // (e.g. "Dentist"), everything else is the cadre name itself.
+  const selectedRole = selectedCadre === "Dental" ? dentalSubRole : selectedCadre;
+
+  // Specialty config matches on the primary cadre (always "Dental" for dental
+  // sub-roles) — this drives branch/day filtering for specialist trials.
   const activeSpecialtyConfig = React.useMemo(
-    () => specialtyConfigs.find((s) => s.specialty === selectedRole) ?? null,
-    [selectedRole, specialtyConfigs]
+    () => specialtyConfigs.find((s) => s.specialty === selectedCadre) ?? null,
+    [selectedCadre, specialtyConfigs]
   );
 
   const filteredBranches = React.useMemo(
@@ -376,70 +377,68 @@ function WorkTrialRequestForm() {
   }
 
   // ── Role selection step ───────────────────────────────────────────────────
-  // Candidates pick their actual role; we derive General vs Specialist from
-  // whether the selection matches an active SpecialtyConfig entry.
+  // Single dropdown lists unique cadres from live open roles. Dental triggers
+  // a second dropdown for the specific sub-role (Dentist / COHO / Dental
+  // Assistant). General vs Specialist is derived on our end from whether the
+  // cadre matches an active SpecialtyConfig — candidates never see that split.
   if (step === "role") {
+    const canContinue = selectedCadre && (selectedCadre !== "Dental" || Boolean(dentalSubRole));
     return (
       <FormShell brand={BRAND}
         title="What role are you applying for?"
         subtitle={`Hi ${candidateName}, select the role that best matches your position.`}
       >
         <div className="space-y-5">
-          {/* General clinical roles — always shown */}
           <div className="space-y-2">
-            <Label>Clinical &amp; General Roles</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {GENERAL_ROLE_OPTIONS.map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => setSelectedRole(role)}
-                  className={`text-left rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
-                    selectedRole === role
-                      ? "border-penda-blue bg-penda-blue/5 ring-1 ring-penda-blue/30"
-                      : "border-border hover:border-penda-blue/50"
-                  }`}
-                >
-                  {role}
-                </button>
-              ))}
-            </div>
+            <Label htmlFor="role-select">Role type</Label>
+            <select
+              id="role-select"
+              value={selectedCadre}
+              onChange={(e) => {
+                setSelectedCadre(e.target.value);
+                setDentalSubRole(""); // reset sub-role when cadre changes
+              }}
+              className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-penda-blue/40 disabled:opacity-50"
+            >
+              <option value="" disabled>Select a role…</option>
+              {availableCadres.length > 0
+                ? availableCadres.map((cadre) => (
+                    <option key={cadre} value={cadre}>{cadre}</option>
+                  ))
+                : /* Fallback while cadres are loading or unavailable */ [
+                    "Clinical Officer", "Nurse", "Pharmacy Technician",
+                    "Laboratory Technician", "Receptionist / Front Office",
+                    "Dental", "Other",
+                  ].map((cadre) => (
+                    <option key={cadre} value={cadre}>{cadre}</option>
+                  ))
+              }
+            </select>
           </div>
 
-          {/* Specialist services — only shown when configs are active in Airtable */}
-          {specialtyConfigs.length > 0 && (
+          {/* Dental sub-role — only shown when Dental is selected */}
+          {selectedCadre === "Dental" && (
             <div className="space-y-2">
-              <Label>Specialist Services</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {specialtyConfigs.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setSelectedRole(s.specialty)}
-                    className={`text-left rounded-lg border p-3 transition-colors ${
-                      selectedRole === s.specialty
-                        ? "border-penda-blue bg-penda-blue/5 ring-1 ring-penda-blue/30"
-                        : "border-border hover:border-penda-blue/50"
-                    }`}
-                  >
-                    <p className="font-medium text-sm">{s.displayName}</p>
-                    {s.availableDays.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {s.availableDays.join(", ")}
-                      </p>
-                    )}
-                  </button>
+              <Label htmlFor="dental-subrole">Specific role</Label>
+              <select
+                id="dental-subrole"
+                value={dentalSubRole}
+                onChange={(e) => setDentalSubRole(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-penda-blue/40"
+              >
+                <option value="" disabled>Select specific role…</option>
+                {DENTAL_SUB_ROLES.map((r) => (
+                  <option key={r} value={r}>{r}</option>
                 ))}
-              </div>
+              </select>
             </div>
           )}
 
           <Button
             type="button"
             className="w-full bg-penda-blue hover:bg-penda-blue-dark"
-            disabled={!selectedRole}
+            disabled={!canContinue}
             onClick={() => {
-              // Clear branch/date — they may not be valid for the new selection
               setBranchId("");
               setDate("");
               setStep("schedule");

@@ -34,10 +34,29 @@ export async function GET(request: NextRequest) {
   const limited = rateLimit(request, "public:work-trial-request:get", { limit: 60, windowMs: 10 * 60 * 1000 });
   if (limited) return limited;
 
+  // Maps IPS department field values to the candidate-facing cadre label.
+  const DEPT_TO_CADRE: Record<string, string> = {
+    "Clinical Services": "Clinical Officer",
+    "Nursing":           "Nurse",
+    "Pharmacy":          "Pharmacy Technician",
+    "Laboratory":        "Laboratory Technician",
+    "Front Office":      "Receptionist / Front Office",
+    "Dental":            "Dental",
+    "Sonography":        "Sonographer",
+    "Reproductive Health": "Reproductive Health",
+    "MCMT":              "MCMT",
+  };
+
   try {
-    const [branchRecords, specialtyRecords] = await Promise.all([
+    const [branchRecords, specialtyRecords, openRoleRecords] = await Promise.all([
       listRecordsFiltered(TABLE_NAMES.Branches, `{${F.Branches.WORK_TRIAL_ACTIVE}}=1`),
       listRecords(TABLE_NAMES.WorkTrialSpecialtyConfig),
+      // Unique cadres from live IPS open roles — deduped by department so
+      // "Pharmacy Technician" appears once even if ten branches have it open.
+      listRecordsFiltered(
+        TABLE_NAMES.OpenRoles,
+        `AND({${F.OpenRoles.SEGMENT}}='IPS',OR({${F.OpenRoles.STATUS}}='Open',{${F.OpenRoles.STATUS}}='On Hold'))`
+      ),
     ]);
     const branches = branchRecords.map(branchFromAirtable).map((b) => ({
       id: b.id,
@@ -51,7 +70,21 @@ export async function GET(request: NextRequest) {
     const specialtyConfigs = specialtyRecords
       .map(specialtyConfigFromAirtable)
       .filter((s) => s.active);
-    return NextResponse.json({ branches, specialtyConfigs });
+
+    // Build deduplicated cadre list from open roles
+    const seenDepts = new Set<string>();
+    const availableCadres: string[] = [];
+    for (const r of openRoleRecords) {
+      const dept = String(r.fields[F.OpenRoles.DEPARTMENT] ?? "").trim();
+      if (dept && !seenDepts.has(dept)) {
+        seenDepts.add(dept);
+        const cadre = DEPT_TO_CADRE[dept] ?? dept;
+        if (!availableCadres.includes(cadre)) availableCadres.push(cadre);
+      }
+    }
+    if (!availableCadres.includes("Other")) availableCadres.push("Other");
+
+    return NextResponse.json({ branches, specialtyConfigs, availableCadres });
   } catch (err) {
     console.error("[api/public/work-trial-request] GET failed:", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
@@ -239,11 +272,15 @@ export async function POST(request: NextRequest) {
     }
 
     // For specialist roles validate branch + day against the specialty config.
+    // Dental sub-roles (Dentist, COHO, Dental Assistant) are stored as-is in
+    // the Specialty field but validated against the parent "Dental" config.
+    const DENTAL_SUB_ROLES = new Set(["Dentist", "COHO", "Dental Assistant"]);
     if (roleCategory === "Specialist" && specialty) {
+      const configSpecialty = DENTAL_SUB_ROLES.has(specialty) ? "Dental" : specialty;
       const configRecords = await listRecords(TABLE_NAMES.WorkTrialSpecialtyConfig);
       const config = configRecords
         .map(specialtyConfigFromAirtable)
-        .find((s) => s.active && s.specialty === specialty);
+        .find((s) => s.active && s.specialty === configSpecialty);
 
       if (config) {
         // Branch must be in the allowed list
