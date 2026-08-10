@@ -43,6 +43,19 @@ const DAY_NAME_TO_NUM: Record<string, number> = {
   Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
 };
 
+// General clinical roles shown to every candidate regardless of specialty config.
+// Pharmacy, Laboratory, and Nursing are listed here — they are general roles.
+// Any role that matches a SpecialtyConfig.specialty key is routed as Specialist;
+// everything in this list (and "Other") is routed as General.
+const GENERAL_ROLE_OPTIONS = [
+  "Clinical Officer",
+  "Nurse",
+  "Pharmacy Technician",
+  "Laboratory Technician",
+  "Receptionist / Front Office",
+  "Other",
+] as const;
+
 type IdentifyResult = {
   sessionToken: string;
   candidateName: string;
@@ -89,9 +102,8 @@ function WorkTrialRequestForm() {
   const [identifying, setIdentifying] = React.useState(false);
   const [identifyError, setIdentifyError] = React.useState<string | null>(null);
 
-  // Role step
-  const [roleCategory, setRoleCategory] = React.useState<"General" | "Specialist" | "">("");
-  const [selectedSpecialty, setSelectedSpecialty] = React.useState("");
+  // Role step — candidate picks their actual role; category is derived on our end
+  const [selectedRole, setSelectedRole] = React.useState("");
 
   // Schedule step
   const [sessionToken, setSessionToken] = React.useState("");
@@ -175,8 +187,7 @@ function WorkTrialRequestForm() {
         setConfirmedDate(data.selectedDate ?? "");
         setStep("done");
       } else {
-        // Go to role selection; skip it if no active specialties configured
-        setStep(specialtyConfigs.length > 0 ? "role" : "schedule");
+        setStep("role");
       }
     } catch (err) {
       setIdentifyError(
@@ -194,6 +205,9 @@ function WorkTrialRequestForm() {
     setScheduleError(null);
     setScheduling(true);
     try {
+      // Derive category + specialty from the selected role so the API gets the
+      // correct routing data without the candidate having made that call themselves.
+      const isSpecialty = Boolean(activeSpecialtyConfig);
       const res = await fetch("/api/public/work-trial-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -202,8 +216,8 @@ function WorkTrialRequestForm() {
           sessionToken,
           branchId,
           date,
-          ...(roleCategory ? { roleCategory } : {}),
-          ...(roleCategory === "Specialist" && selectedSpecialty ? { specialty: selectedSpecialty } : {}),
+          roleCategory: isSpecialty ? "Specialist" : "General",
+          ...(isSpecialty ? { specialty: selectedRole } : {}),
         }),
       });
       const body = await res.json();
@@ -225,9 +239,9 @@ function WorkTrialRequestForm() {
           : bodyErr === "sunday_date"
           ? "Sundays are not available. Please pick a different day."
           : bodyErr === "invalid_branch_for_specialty"
-          ? `That branch doesn't offer ${selectedSpecialty || "specialist"} work trials. Please select a different branch.`
+          ? `That branch doesn't offer ${selectedRole || "specialist"} work trials. Please select a different branch.`
           : bodyErr === "invalid_day_for_specialty"
-          ? `That day is not available for ${selectedSpecialty || "specialist"} work trials. Please pick another date.`
+          ? `That day is not available for ${selectedRole || "specialist"} work trials. Please pick another date.`
           : "Something went wrong. Please try again."
       );
     } finally {
@@ -235,12 +249,12 @@ function WorkTrialRequestForm() {
     }
   }
 
-  // ── Derived: filtered branches + allowed days based on specialty ──────────
+  // ── Derived: specialtyConfig, filtered branches + allowed days ─────────────
+  // If the selected role matches a SpecialtyConfig entry it is a Specialist
+  // trial; otherwise it is General and all branches + all weekdays are open.
   const activeSpecialtyConfig = React.useMemo(
-    () => (roleCategory === "Specialist" && selectedSpecialty
-      ? specialtyConfigs.find((s) => s.specialty === selectedSpecialty) ?? null
-      : null),
-    [roleCategory, selectedSpecialty, specialtyConfigs]
+    () => specialtyConfigs.find((s) => s.specialty === selectedRole) ?? null,
+    [selectedRole, specialtyConfigs]
   );
 
   const filteredBranches = React.useMemo(
@@ -362,93 +376,70 @@ function WorkTrialRequestForm() {
   }
 
   // ── Role selection step ───────────────────────────────────────────────────
+  // Candidates pick their actual role; we derive General vs Specialist from
+  // whether the selection matches an active SpecialtyConfig entry.
   if (step === "role") {
-    const canContinue =
-      roleCategory === "General" ||
-      (roleCategory === "Specialist" && selectedSpecialty !== "");
-
     return (
       <FormShell brand={BRAND}
         title="What role are you applying for?"
-        subtitle={`Hi ${candidateName}, please let us know the type of role so we can assign the right branch and schedule.`}
+        subtitle={`Hi ${candidateName}, select the role that best matches your position.`}
       >
         <div className="space-y-5">
-          {/* General vs Specialist */}
+          {/* General clinical roles — always shown */}
           <div className="space-y-2">
-            <Label>Role type</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(["General", "Specialist"] as const).map((cat) => (
+            <Label>Clinical &amp; General Roles</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {GENERAL_ROLE_OPTIONS.map((role) => (
                 <button
-                  key={cat}
+                  key={role}
                   type="button"
-                  onClick={() => {
-                    setRoleCategory(cat);
-                    if (cat === "General") setSelectedSpecialty("");
-                  }}
-                  className={`text-left rounded-lg border p-4 transition-colors ${
-                    roleCategory === cat
+                  onClick={() => setSelectedRole(role)}
+                  className={`text-left rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
+                    selectedRole === role
                       ? "border-penda-blue bg-penda-blue/5 ring-1 ring-penda-blue/30"
                       : "border-border hover:border-penda-blue/50"
                   }`}
                 >
-                  <p className="font-semibold text-sm">
-                    {cat === "General" ? "General Clinical Role" : "Specialist Service"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {cat === "General"
-                      ? "Clinical Officer, Nurse, Receptionist, etc."
-                      : "Dental, Sonographer, Reproductive Health, Pharmacy, Lab, etc."}
-                  </p>
+                  {role}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Specialty picker — only when Specialist selected */}
-          {roleCategory === "Specialist" && (
+          {/* Specialist services — only shown when configs are active in Airtable */}
+          {specialtyConfigs.length > 0 && (
             <div className="space-y-2">
-              <Label>Select your specialist area</Label>
-              {specialtyConfigs.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No specialist work trials are currently available. Contact{" "}
-                  <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
-                    careers@pendahealth.com
-                  </a>{" "}
-                  for assistance.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {specialtyConfigs.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => setSelectedSpecialty(s.specialty)}
-                      className={`text-left rounded-lg border p-3 transition-colors ${
-                        selectedSpecialty === s.specialty
-                          ? "border-penda-blue bg-penda-blue/5 ring-1 ring-penda-blue/30"
-                          : "border-border hover:border-penda-blue/50"
-                      }`}
-                    >
-                      <p className="font-medium text-sm">{s.displayName}</p>
-                      {s.availableDays.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {s.availableDays.join(", ")}
-                        </p>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <Label>Specialist Services</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {specialtyConfigs.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setSelectedRole(s.specialty)}
+                    className={`text-left rounded-lg border p-3 transition-colors ${
+                      selectedRole === s.specialty
+                        ? "border-penda-blue bg-penda-blue/5 ring-1 ring-penda-blue/30"
+                        : "border-border hover:border-penda-blue/50"
+                    }`}
+                  >
+                    <p className="font-medium text-sm">{s.displayName}</p>
+                    {s.availableDays.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {s.availableDays.join(", ")}
+                      </p>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
           <Button
             type="button"
             className="w-full bg-penda-blue hover:bg-penda-blue-dark"
-            disabled={!canContinue}
+            disabled={!selectedRole}
             onClick={() => {
-              // Clear any previously selected branch/date since they may not
-              // apply to the new specialty filter
+              // Clear branch/date — they may not be valid for the new selection
               setBranchId("");
               setDate("");
               setStep("schedule");
@@ -471,17 +462,15 @@ function WorkTrialRequestForm() {
         subtitle={`Hi ${candidateName}, please pick a branch and date below.`}
       >
         <form onSubmit={handleSchedule} className="space-y-6">
-          {/* Specialty badge */}
-          {roleCategory && (
+          {/* Role badge */}
+          {selectedRole && (
             <div className="flex items-center gap-2 text-xs">
               <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium ${
-                roleCategory === "Specialist"
+                activeSpecialtyConfig
                   ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
                   : "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300"
               }`}>
-                {roleCategory === "Specialist" && selectedSpecialty
-                  ? `Specialist · ${selectedSpecialty}`
-                  : "General Clinical Role"}
+                {selectedRole}
               </span>
               <button
                 type="button"
@@ -529,7 +518,7 @@ function WorkTrialRequestForm() {
           </div>
 
           {/* Full-day notice */}
-          <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-200 space-y-0.5">
+          <div className="rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-900 dark:text-amber-100 space-y-0.5">
             <p className="font-semibold">This is a full-day event</p>
             <p>The work trial runs from <strong>9:00 AM to 5:00 PM</strong>. Please only book a date on which you are available for the entire day.</p>
           </div>
@@ -634,13 +623,7 @@ function WorkTrialRequestForm() {
         </div>
 
         <FormMessage>
-          <ul className="space-y-1.5 text-sm">
-            <li><strong>The work trial runs from 9:00 AM to 5:00 PM.</strong> Please plan to be available for the entire day.</li>
-            <li>Arrive by <strong>9:00 AM sharp</strong> — punctuality is taken into account during the assessment.</li>
-            <li>Bring a valid national ID or passport.</li>
-            <li>Dress professionally and bring a pen.</li>
-            <li>A confirmation email has been sent to you with these details.</li>
-          </ul>
+          <p className="text-sm">A confirmation email has been sent to you with all the details.</p>
           <p className="text-sm mt-2">
             Need to make changes? Contact{" "}
             <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.

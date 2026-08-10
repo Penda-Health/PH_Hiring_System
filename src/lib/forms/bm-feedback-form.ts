@@ -108,13 +108,16 @@ export async function submitScores(
   await updateRecord(TABLE_NAMES.WorkTrials, workTrialId, {
     [F.WorkTrials.SCORE_TECHNICAL]: scores.technical,
     [F.WorkTrials.SCORE_PATIENT]: scores.patient,
-    [F.WorkTrials.SCORE_SAFETY]: null,
+    // Score Safety is intentionally omitted — the current form only collects
+    // Culture, Patient, and Technical scores. Sending null for a field that
+    // may not exist in the base causes an Airtable API error.
     [F.WorkTrials.SCORE_CULTURE]: scores.culture,
     [F.WorkTrials.TOTAL]: total,
     // If Incharge submits, passFail stays Pending until BM approves
     [F.WorkTrials.PASS_FAIL]: submittedByRole === "BM" ? passFail : "Pending",
     [F.WorkTrials.FORM_SUBMITTED_AT]: new Date().toISOString(),
     [F.WorkTrials.SUBMITTED_BY_ROLE]: submittedByRole,
+    [F.WorkTrials.SUBMISSION_METHOD]: "Online",
     ...(comments?.commentCulture    ? { [F.WorkTrials.COMMENT_CULTURE]:       comments.commentCulture    } : {}),
     ...(comments?.commentPatient    ? { [F.WorkTrials.COMMENT_PATIENT]:       comments.commentPatient    } : {}),
     ...(comments?.commentTechnical  ? { [F.WorkTrials.COMMENT_TECHNICAL]:     comments.commentTechnical  } : {}),
@@ -144,7 +147,7 @@ export async function submitUploadedScores(
   await updateRecord(TABLE_NAMES.WorkTrials, workTrialId, {
     [F.WorkTrials.SCORE_TECHNICAL]: scores.technical,
     [F.WorkTrials.SCORE_PATIENT]: scores.patient,
-    [F.WorkTrials.SCORE_SAFETY]: null,
+    // Score Safety intentionally omitted — see submitScores comment above.
     [F.WorkTrials.SCORE_CULTURE]: scores.culture,
     [F.WorkTrials.TOTAL]: total,
     // If Incharge submits, passFail stays Pending until BM approves — same

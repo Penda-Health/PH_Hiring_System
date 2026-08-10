@@ -16,18 +16,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CANDIDATE_SOURCES } from "@/lib/candidate-sources";
 import { departmentOptionsFor } from "@/lib/department-options";
 
-const STAGES: CandidateStage[] = [
+// "Hired", "Rejected", and "Withdrawn" are intentionally excluded — those
+// transitions carry side effects (headcount update, pool auto-add, etc.) and
+// MUST go through MoveStageDialog so the recruiter picks a hire type and role.
+const EDITABLE_STAGES: CandidateStage[] = [
   "First Interview",
   "Second Interview",
   "Panel Interview",
   "Work Trial",
   "Reference Check",
   "Offer",
-  "Hired",
   "Backup Pool",
-  "Rejected",
-  "Withdrawn",
 ];
+const TERMINAL_STAGES = new Set<CandidateStage>(["Hired", "Rejected", "Withdrawn"]);
 const EMPLOYMENT_TYPES: EmploymentType[] = ["Full-time", "Part-time", "Contract", "Reliever", "Locum"];
 const SEGMENTS: Segment[] = ["IPS", "SO"];
 
@@ -219,14 +220,22 @@ export function EditCandidateDialog({
                   </Select>
                 </Field>
                 <Field label="Stage">
-                  <Select value={form.stage} onValueChange={(v) => update("stage", v as CandidateStage)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {STAGES.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {candidate && TERMINAL_STAGES.has(candidate.stage) ? (
+                    // Terminal stages are read-only here — use Move Stage to change them
+                    <div className="flex h-9 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                      {candidate.stage}
+                      <span className="ml-auto text-[10px]">use Move Stage</span>
+                    </div>
+                  ) : (
+                    <Select value={form.stage} onValueChange={(v) => update("stage", v as CandidateStage)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {EDITABLE_STAGES.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </Field>
               </div>
 
