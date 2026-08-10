@@ -395,7 +395,7 @@ export function WorkTrialCard({
   onUpdate?: (id: string, patch: Partial<WorkTrial>) => void;
   onDelete?: (id: string) => void;
 }) {
-  const { candidates, branches, openRoles, canEdit, canDelete } = useRecruitmentData();
+  const { candidates, branches, openRoles, canEdit, canDelete, updateCandidateStage } = useRecruitmentData();
   const [scoreDialogOpen, setScoreDialogOpen] = React.useState(false);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = React.useState(false);
@@ -426,8 +426,15 @@ export function WorkTrialCard({
   }
 
   function handleDelete() {
-    if (!window.confirm("Delete this work trial record? This cannot be undone.")) return;
+    const candidateName = candidate?.name ?? "this candidate";
+    const msg = candidate
+      ? `Delete ${candidateName}'s work trial?\n\nThey will be moved back to First Interview so they don't reappear here. You can adjust their stage from the Candidates page.`
+      : "Delete this unlinked work trial record? This cannot be undone.";
+    if (!window.confirm(msg)) return;
     onDelete?.(trial.id);
+    // Move the candidate out of Work Trial stage — without this the auto-sync
+    // treats them as unsynced and recreates the work trial on next page load.
+    if (candidate) updateCandidateStage(candidate.id, "First Interview");
   }
 
   return (

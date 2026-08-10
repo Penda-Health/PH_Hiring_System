@@ -1,5 +1,6 @@
 export const CANDIDATE_SOURCES = [
   "ATS Applicant",
+  "Self Referral",
   "Referral",
   "LinkedIn",
   "BrighterMonday",
