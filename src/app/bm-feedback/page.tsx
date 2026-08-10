@@ -55,7 +55,7 @@ const CATEGORIES = [
     key: "patient" as const,
     label: "Patient Experience",
     weight: 40,
-    description: "Communication with patients, empathy, bedside manner, and patient-centred care.",
+    description: "Communication with patients, empathy, consultation manner, and patient-centred care.",
   },
   {
     key: "technical" as const,
