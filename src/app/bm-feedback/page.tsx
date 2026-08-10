@@ -582,7 +582,7 @@ function BmFeedbackForm() {
           </div>
 
           {selectedRole === "Incharge" && (
-            <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
+            <div className="rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-900 dark:text-amber-100">
               These scores will be sent to the Branch Manager for approval before being finalised.
             </div>
           )}
@@ -710,7 +710,7 @@ function BmFeedbackForm() {
           </div>
 
           {selectedRole === "Incharge" && (
-            <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
+            <div className="rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-900 dark:text-amber-100">
               These scores will be sent to the Branch Manager for approval before being finalised.
             </div>
           )}
