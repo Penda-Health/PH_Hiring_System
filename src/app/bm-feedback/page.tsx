@@ -242,9 +242,7 @@ function BmFeedbackForm() {
         throw new Error(
           body.error === "already_submitted"
             ? "This assessment has already been submitted."
-            : body.detail
-            ? `Submission failed: ${body.detail}`
-            : "Something went wrong. Please try again."
+            : "Couldn't save the assessment. Please try again or email careers@pendahealth.com."
         );
       }
       const body = await res.json();
@@ -285,9 +283,7 @@ function BmFeedbackForm() {
             ? "That file is too large (max 10MB)."
             : body.error === "unsupported_file_type"
             ? "Unsupported file type. Please upload a PDF, JPG, or PNG."
-            : body.detail
-            ? `Submission failed: ${body.detail}`
-            : "Something went wrong. Please try again."
+            : "Couldn't save the assessment. Please try again or email careers@pendahealth.com."
         );
       }
       const body = await res.json();

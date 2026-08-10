@@ -117,7 +117,6 @@ export async function submitScores(
     [F.WorkTrials.PASS_FAIL]: submittedByRole === "BM" ? passFail : "Pending",
     [F.WorkTrials.FORM_SUBMITTED_AT]: new Date().toISOString(),
     [F.WorkTrials.SUBMITTED_BY_ROLE]: submittedByRole,
-    [F.WorkTrials.SUBMISSION_METHOD]: "Online",
     ...(comments?.commentCulture    ? { [F.WorkTrials.COMMENT_CULTURE]:       comments.commentCulture    } : {}),
     ...(comments?.commentPatient    ? { [F.WorkTrials.COMMENT_PATIENT]:       comments.commentPatient    } : {}),
     ...(comments?.commentTechnical  ? { [F.WorkTrials.COMMENT_TECHNICAL]:     comments.commentTechnical  } : {}),
@@ -155,7 +154,9 @@ export async function submitUploadedScores(
     [F.WorkTrials.PASS_FAIL]: submittedByRole === "BM" ? passFail : "Pending",
     [F.WorkTrials.FORM_SUBMITTED_AT]: new Date().toISOString(),
     [F.WorkTrials.SUBMITTED_BY_ROLE]: submittedByRole,
-    [F.WorkTrials.SUBMISSION_METHOD]: "Uploaded",
+    // SUBMISSION_METHOD omitted — field not yet in the Airtable base.
+    // Add a "Submission Method" single-select field (options: Online, Uploaded)
+    // to Work Trials and uncomment: [F.WorkTrials.SUBMISSION_METHOD]: "Uploaded"
     [F.WorkTrials.OVERALL_RECOMMENDATION]: overallRecommendation,
   });
   // Separate API call (different Airtable host/endpoint) — do this after the
