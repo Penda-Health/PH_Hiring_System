@@ -226,7 +226,9 @@ function WorkTrialRequestForm() {
           branchId,
           date,
           roleCategory: isSpecialty ? "Specialist" : "General",
-          ...(isSpecialty ? { specialty: selectedRole } : {}),
+          // Always send the role so Airtable Specialty field is populated for
+          // general cadres (Clinical Officer, Nurse …) as well as specialist ones.
+          specialty: selectedRole,
         }),
       });
       const body = await res.json();
