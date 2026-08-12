@@ -120,6 +120,9 @@ function WorkTrialRequestForm() {
   const [date, setDate] = React.useState("");
   const [scheduling, setScheduling] = React.useState(false);
   const [scheduleError, setScheduleError] = React.useState<string | null>(null);
+  // Dates already booked at the selected branch — greyed out in the calendar
+  const [bookedDates, setBookedDates] = React.useState<string[]>([]);
+  const [loadingAvailability, setLoadingAvailability] = React.useState(false);
 
   // Confirmation data
   const [confirmedBranchName, setConfirmedBranchName] = React.useState("");
@@ -154,6 +157,26 @@ function WorkTrialRequestForm() {
       })
       .catch(() => {});
   }, []);
+
+  // When the branch changes: fetch already-booked dates so the calendar can
+  // grey them out, and clear any previously selected date that might now clash.
+  React.useEffect(() => {
+    if (!branchId) {
+      setBookedDates([]);
+      return;
+    }
+    setLoadingAvailability(true);
+    fetch(`/api/public/work-trial-request?branchId=${encodeURIComponent(branchId)}&bookedDates=true`)
+      .then((r) => r.json())
+      .then((d) => {
+        const dates: string[] = d.bookedDates ?? [];
+        setBookedDates(dates);
+        // If the previously chosen date is now booked at the new branch, reset it
+        setDate((prev) => (prev && dates.includes(prev) ? "" : prev));
+      })
+      .catch(() => setBookedDates([]))
+      .finally(() => setLoadingAvailability(false));
+  }, [branchId]);
 
   function handlePhoneChange(e: React.ChangeEvent<HTMLInputElement>) {
     setPhoneLocal(e.target.value.replace(/\D/g, "").slice(0, 9));
@@ -540,23 +563,33 @@ function WorkTrialRequestForm() {
             <p>The work trial runs from <strong>9:00 AM to 5:00 PM</strong>. Please only book a date on which you are available for the entire day.</p>
           </div>
 
-          {/* Date picker */}
+          {/* Date picker — only active once a branch is selected */}
           <div className="space-y-2">
             <Label>Preferred date</Label>
-            <DatePickerCalendar
-              value={date}
-              onChange={setDate}
-              minDate={minDate}
-              maxDate={maxDate}
-              allowedDays={allowedDayNumbers}
-              allowedDaysLabel={allowedDaysLabel}
-              placeholder="Select a date"
-            />
-            <p className="text-xs text-muted-foreground">
-              {allowedDayNumbers
-                ? `Available: ${activeSpecialtyConfig?.availableDays.join(", ") ?? "selected days"} · up to 2 weeks ahead`
-                : "Available from tomorrow · Monday – Saturday · up to 2 weeks ahead"}
-            </p>
+            {!branchId ? (
+              <p className="text-sm text-muted-foreground italic">
+                Select a branch above to see available dates.
+              </p>
+            ) : (
+              <>
+                <DatePickerCalendar
+                  value={date}
+                  onChange={setDate}
+                  minDate={minDate}
+                  maxDate={maxDate}
+                  allowedDays={allowedDayNumbers}
+                  allowedDaysLabel={allowedDaysLabel}
+                  placeholder={loadingAvailability ? "Checking availability…" : "Select a date"}
+                  disabled={loadingAvailability}
+                  bookedDates={bookedDates}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {allowedDayNumbers
+                    ? `Available: ${activeSpecialtyConfig?.availableDays.join(", ") ?? "selected days"} · up to 2 weeks ahead`
+                    : "Available from tomorrow · Monday – Saturday · up to 2 weeks ahead"}
+                </p>
+              </>
+            )}
           </div>
 
           {/* Branch + date preview */}

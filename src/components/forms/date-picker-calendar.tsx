@@ -59,6 +59,11 @@ interface DatePickerCalendarProps {
   placeholder?: string;
   disabled?: boolean;
   error?: string | null;
+  /**
+   * Dates already booked at the selected branch (YYYY-MM-DD).
+   * These are shown with a strikethrough and are not selectable.
+   */
+  bookedDates?: string[];
 }
 
 export function DatePickerCalendar({
@@ -71,7 +76,12 @@ export function DatePickerCalendar({
   placeholder = "Pick a date",
   disabled = false,
   error,
+  bookedDates,
 }: DatePickerCalendarProps) {
+  const bookedSet = React.useMemo(
+    () => new Set(bookedDates ?? []),
+    [bookedDates]
+  );
   const tomorrow = React.useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
@@ -110,6 +120,10 @@ export function DatePickerCalendar({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  function isBookedDay(year: number, month: number, day: number): boolean {
+    return bookedSet.has(isoDate(new Date(year, month, day)));
+  }
+
   function isDisabledDay(year: number, month: number, day: number): boolean {
     const d = new Date(year, month, day);
     d.setHours(0, 0, 0, 0);
@@ -120,6 +134,8 @@ export function DatePickerCalendar({
     if (allowedDays && !allowedDays.includes(jsDay)) return true;
     if (d < effectiveMin) return true;
     if (d > effectiveMax) return true;
+    // Already booked at this branch
+    if (isBookedDay(year, month, day)) return true;
     return false;
   }
 
@@ -241,11 +257,11 @@ export function DatePickerCalendar({
 
             {/* Day cells */}
             {Array.from({ length: totalDays }, (_, i) => i + 1).map((day) => {
-              const disabled = isDisabledDay(year, month, day);
+              const isDisabled = isDisabledDay(year, month, day);
+              const isBooked = isBookedDay(year, month, day);
               const dateStr = isoDate(new Date(year, month, day));
               const selected = dateStr === value;
               const isToday = dateStr === isoDate(new Date());
-              // Sunday check for muted colour
               const isSunday = new Date(year, month, day).getDay() === 0;
 
               return (
@@ -253,12 +269,15 @@ export function DatePickerCalendar({
                   key={day}
                   type="button"
                   onClick={() => handleDayClick(year, month, day)}
-                  disabled={disabled}
+                  disabled={isDisabled}
+                  title={isBooked ? "Already booked at this branch" : undefined}
                   className={`
                     h-8 w-full rounded-md text-sm transition-colors relative
                     ${selected
                       ? "bg-penda-blue text-white font-semibold"
-                      : disabled
+                      : isBooked
+                      ? "text-muted-foreground/40 cursor-not-allowed line-through decoration-muted-foreground/40"
+                      : isDisabled
                       ? "text-muted-foreground/30 cursor-not-allowed"
                       : isSunday
                       ? "text-muted-foreground/40 cursor-not-allowed"
@@ -273,9 +292,16 @@ export function DatePickerCalendar({
           </div>
 
           {/* Legend */}
-          <p className="mt-3 text-[11px] text-muted-foreground text-center border-t border-border pt-2">
-            {allowedDaysLabel ?? "Weekdays only · Mon – Sat available"}
-          </p>
+          <div className="mt-3 border-t border-border pt-2 space-y-0.5 text-center">
+            <p className="text-[11px] text-muted-foreground">
+              {allowedDaysLabel ?? "Weekdays only · Mon – Sat available"}
+            </p>
+            {bookedSet.size > 0 && (
+              <p className="text-[11px] text-muted-foreground/70">
+                <span className="line-through">00</span> = already booked at this branch
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>

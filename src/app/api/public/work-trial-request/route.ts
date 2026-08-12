@@ -34,6 +34,25 @@ export async function GET(request: NextRequest) {
   const limited = rateLimit(request, "public:work-trial-request:get", { limit: 60, windowMs: 10 * 60 * 1000 });
   if (limited) return limited;
 
+  // ── Booked-dates sub-route: ?branchId=XXX&bookedDates=true ────────────────
+  // Returns dates already taken at a specific branch so the calendar can
+  // grey them out before the candidate tries to book.
+  const url = new URL(request.url);
+  const bookedBranchId = url.searchParams.get("branchId");
+  if (bookedBranchId && url.searchParams.get("bookedDates") === "true") {
+    try {
+      const allTrials = await listRecords(TABLE_NAMES.WorkTrials);
+      const bookedDates = allTrials
+        .map(workTrialFromAirtable)
+        .filter((t) => t.branchId === bookedBranchId && Boolean(t.date))
+        .map((t) => t.date as string);
+      return NextResponse.json({ bookedDates });
+    } catch (err) {
+      console.error("[api/public/work-trial-request] bookedDates failed:", err);
+      return NextResponse.json({ bookedDates: [] }); // soft fail — better than blocking the form
+    }
+  }
+
   // Maps IPS department field values to the candidate-facing cadre label.
   const DEPT_TO_CADRE: Record<string, string> = {
     "Clinical Services": "Clinical Officer",
