@@ -358,8 +358,11 @@ export async function POST(request: NextRequest) {
       [F.WorkTrials.DATE]: date,
       [F.WorkTrials.SUPERVISOR]: branch.branchManager || undefined,
       // New bookings: write BM Scoring Link (triggers Airtable notification automation).
-      // Reschedules: omit it so the automation doesn't re-fire as a duplicate booking.
+      // Reschedules: omit it so the booking automation doesn't re-fire as a duplicate.
       ...(bmScoringLink ? { [F.WorkTrials.BM_SCORING_LINK]: bmScoringLink } : {}),
+      // Reschedules: stamp Rescheduled At — Airtable automation watches this field
+      // to send the BM a "date changed" notification in the same email thread.
+      ...(reschedule ? { [F.WorkTrials.RESCHEDULED_AT]: new Date().toISOString() } : {}),
       // Specialty/role kept from original booking on reschedule (candidate skips role step).
       ...(specialty ? { [F.WorkTrials.SPECIALTY]: specialty } : {}),
       ...(roleCategory ? { [F.WorkTrials.ROLE_CATEGORY]: roleCategory } : {}),

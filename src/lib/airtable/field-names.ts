@@ -167,6 +167,7 @@ export const F = {
     UPLOADED_FORM: "Uploaded Form",
     ROLE_CATEGORY: "Role Category",
     SPECIALTY: "Specialty",
+    RESCHEDULED_AT: "Rescheduled At",
   },
   ReferenceChecks: {
     REF_ID: "Ref ID",
