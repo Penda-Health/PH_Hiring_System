@@ -126,6 +126,8 @@ const scheduleSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   roleCategory: z.enum(["General", "Specialist"]).optional(),
   specialty: z.string().trim().max(80).optional(),
+  /** true when the candidate is changing an already-booked work trial date */
+  reschedule: z.boolean().optional(),
 });
 
 const postSchema = z.union([identifySchema, scheduleSchema]);
@@ -209,6 +211,7 @@ export async function POST(request: NextRequest) {
       let selectedMapPinUrl: string | null = null;
       let selectedBmName: string | null = null;
       let selectedBmPhone: string | null = null;
+      let selectedSpecialty: string | null = null;
 
       if (existingTrial) {
         workTrialId = existingTrial.id;
@@ -224,6 +227,7 @@ export async function POST(request: NextRequest) {
           selectedMapPinUrl = branch?.mapPinUrl ?? null;
           selectedBmName = branch?.branchManager ?? null;
           selectedBmPhone = branch?.bmPhone ?? null;
+          selectedSpecialty = existingTrial.specialty ?? null;
         }
       } else {
         const wtId = await nextSequentialId(TABLE_NAMES.WorkTrials, { airtableField: F.WorkTrials.WT_ID, prefix: "WT", pad: 3 }, {});
@@ -255,6 +259,7 @@ export async function POST(request: NextRequest) {
         selectedMapPinUrl,
         selectedBmName,
         selectedBmPhone,
+        selectedSpecialty,
       });
     } catch (err) {
       console.error("[api/public/work-trial-request] identify failed:", err);
@@ -263,7 +268,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Step 2: schedule ───────────────────────────────────────────────────────
-  const { sessionToken, branchId, date, roleCategory, specialty } = result.data;
+  const { sessionToken, branchId, date, roleCategory, specialty, reschedule = false } = result.data;
   const payload = await verifyWorkTrialRequestToken(sessionToken);
   if (!payload) return NextResponse.json({ error: "session_expired" }, { status: 401 });
 
@@ -278,16 +283,24 @@ export async function POST(request: NextRequest) {
   };
 
   try {
-    // Guard against overwriting an already-booked slot — without this, a
-    // replayed/duplicate POST (double submit, browser back+resend, or a
-    // direct call reusing an old sessionToken) could silently reschedule a
-    // trial the candidate already confirmed, out from under the branch that
-    // was told about the original date.
+    // Guard against accidental overwrites and enforce reschedule cutoff.
     const existingTrialRecord = await getRecord(TABLE_NAMES.WorkTrials, payload.workTrialId);
     if (!existingTrialRecord) return NextResponse.json({ error: "not_found" }, { status: 404 });
     const existingTrial = workTrialFromAirtable(existingTrialRecord);
     if (existingTrial.branchId && existingTrial.date) {
-      return NextResponse.json({ error: "already_submitted" }, { status: 409 });
+      if (!reschedule) {
+        // Normal booking path: block duplicate/replayed submissions.
+        return NextResponse.json({ error: "already_submitted" }, { status: 409 });
+      }
+      // Reschedule path: enforce the 1-day-before cutoff.
+      // Candidates may change their date up until the day before the trial.
+      const trialDate = new Date(`${existingTrial.date}T00:00:00`);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const daysDiff = Math.floor((trialDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff < 1) {
+        return NextResponse.json({ error: "reschedule_cutoff_passed" }, { status: 400 });
+      }
     }
 
     // For specialist roles validate branch + day against the specialty config.
@@ -331,22 +344,30 @@ export async function POST(request: NextRequest) {
     if (!branchRecord) return NextResponse.json({ error: "invalid_branch" }, { status: 400 });
     const branch = branchFromAirtable(branchRecord);
 
-    // Generate a long-lived BM scoring link (90 days) stored on the record.
-    // Airtable automations read {BM Scoring Link} directly — no code needed to send it.
-    const bmToken = await signBmFeedbackToken({ workTrialId: payload.workTrialId, candidateId: payload.candidateId }, "90d");
-    const bmScoringLink = appUrl() ? `${appUrl()}/bm-feedback?token=${bmToken}` : "";
+    // On a reschedule, keep the existing BM Scoring Link (it still points to
+    // the same work trial record and is valid). Only generate a new link on
+    // the initial booking so Airtable Automation 1 fires exactly once.
+    let bmScoringLink = "";
+    if (!reschedule) {
+      const bmToken = await signBmFeedbackToken({ workTrialId: payload.workTrialId, candidateId: payload.candidateId }, "90d");
+      bmScoringLink = appUrl() ? `${appUrl()}/bm-feedback?token=${bmToken}` : "";
+    }
 
     await updateRecord(TABLE_NAMES.WorkTrials, payload.workTrialId, {
       [F.WorkTrials.BRANCH]: [branchId],
       [F.WorkTrials.DATE]: date,
       [F.WorkTrials.SUPERVISOR]: branch.branchManager || undefined,
+      // New bookings: write BM Scoring Link (triggers Airtable notification automation).
+      // Reschedules: omit it so the automation doesn't re-fire as a duplicate booking.
       ...(bmScoringLink ? { [F.WorkTrials.BM_SCORING_LINK]: bmScoringLink } : {}),
-      ...(roleCategory ? { [F.WorkTrials.ROLE_CATEGORY]: roleCategory } : {}),
+      // Specialty/role kept from original booking on reschedule (candidate skips role step).
       ...(specialty ? { [F.WorkTrials.SPECIALTY]: specialty } : {}),
+      ...(roleCategory ? { [F.WorkTrials.ROLE_CATEGORY]: roleCategory } : {}),
     });
 
     return NextResponse.json({
       ok: true,
+      rescheduled: reschedule,
       branchName: branch.name,
       branchAddress: branch.address,
       mapPinUrl: branch.mapPinUrl,

@@ -123,6 +123,9 @@ function WorkTrialRequestForm() {
   // Dates already booked at the selected branch — greyed out in the calendar
   const [bookedDates, setBookedDates] = React.useState<string[]>([]);
   const [loadingAvailability, setLoadingAvailability] = React.useState(false);
+  // Reschedule mode — candidate changing an existing booking
+  const [rescheduling, setRescheduling] = React.useState(false);
+  const [existingSpecialty, setExistingSpecialty] = React.useState("");
 
   // Confirmation data
   const [confirmedBranchName, setConfirmedBranchName] = React.useState("");
@@ -217,6 +220,7 @@ function WorkTrialRequestForm() {
         setConfirmedBmName(data.selectedBmName ?? "");
         setConfirmedBmPhone(data.selectedBmPhone ?? "");
         setConfirmedDate(data.selectedDate ?? "");
+        setExistingSpecialty(data.selectedSpecialty ?? "");
         setStep("done");
       } else {
         setStep("role");
@@ -237,8 +241,8 @@ function WorkTrialRequestForm() {
     setScheduleError(null);
     setScheduling(true);
     try {
-      // Derive category + specialty from the selected role so the API gets the
-      // correct routing data without the candidate having made that call themselves.
+      // Derive category + specialty. On reschedule the candidate skips the role
+      // step so we reuse the specialty stored from their original booking.
       const isSpecialty = Boolean(activeSpecialtyConfig);
       const res = await fetch("/api/public/work-trial-request", {
         method: "POST",
@@ -248,10 +252,15 @@ function WorkTrialRequestForm() {
           sessionToken,
           branchId,
           date,
-          roleCategory: isSpecialty ? "Specialist" : "General",
-          // Always send the role so Airtable Specialty field is populated for
-          // general cadres (Clinical Officer, Nurse …) as well as specialist ones.
-          specialty: selectedRole,
+          reschedule: rescheduling,
+          // Rescheduling: send the original specialty (role step was skipped).
+          // New booking: derive from the role step selection.
+          ...(rescheduling
+            ? { specialty: existingSpecialty }
+            : {
+                roleCategory: isSpecialty ? "Specialist" : "General",
+                specialty: selectedRole,
+              }),
         }),
       });
       const body = await res.json();
@@ -264,6 +273,7 @@ function WorkTrialRequestForm() {
       setConfirmedBmName(data.bmName ?? "");
       setConfirmedBmPhone(data.bmPhone ?? "");
       setConfirmedDate(data.date ?? date);
+      setRescheduling(false);
       setStep("done");
     } catch (err) {
       const bodyErr = err instanceof Error ? err.message : "";
@@ -272,6 +282,8 @@ function WorkTrialRequestForm() {
           ? "Your session expired. Please go back and re-enter your details."
           : bodyErr === "sunday_date"
           ? "Sundays are not available. Please pick a different day."
+          : bodyErr === "reschedule_cutoff_passed"
+          ? "Changes are no longer possible — your work trial is tomorrow or today. Contact careers@pendahealth.com if you have an urgent issue."
           : bodyErr === "invalid_branch_for_specialty"
           ? `That branch doesn't offer ${selectedRole || "specialist"} work trials. Please select a different branch.`
           : bodyErr === "invalid_day_for_specialty"
@@ -297,6 +309,16 @@ function WorkTrialRequestForm() {
     ) ?? null,
     [selectedCadre, specialtyConfigs]
   );
+
+  // Candidates may reschedule up to 1 day before their trial.
+  const canReschedule = React.useMemo(() => {
+    if (!confirmedDate) return false;
+    const trialDate = new Date(`${confirmedDate}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysDiff = Math.floor((trialDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return daysDiff >= 1;
+  }, [confirmedDate]);
 
   const filteredBranches = React.useMemo(
     () => (activeSpecialtyConfig && activeSpecialtyConfig.branchIds.length > 0
@@ -498,8 +520,10 @@ function WorkTrialRequestForm() {
 
     return (
       <FormShell brand={BRAND}
-        title="Choose your work trial"
-        subtitle={`Hi ${candidateName}, please pick a branch and date below.`}
+        title={rescheduling ? "Change your work trial" : "Choose your work trial"}
+        subtitle={rescheduling
+          ? `Hi ${candidateName}, select a new branch and date.`
+          : `Hi ${candidateName}, please pick a branch and date below.`}
       >
         <form onSubmit={handleSchedule} className="space-y-6">
           {/* Role badge */}
@@ -614,7 +638,9 @@ function WorkTrialRequestForm() {
             className="w-full bg-penda-blue hover:bg-penda-blue-dark"
             disabled={scheduling || !branchId || !date}
           >
-            {scheduling ? "Confirming…" : "Confirm my work trial"}
+            {scheduling
+              ? (rescheduling ? "Updating…" : "Confirming…")
+              : (rescheduling ? "Update my work trial" : "Confirm my work trial")}
           </Button>
         </form>
       </FormShell>
@@ -672,12 +698,34 @@ function WorkTrialRequestForm() {
           )}
         </div>
 
+        {/* Reschedule option */}
+        {canReschedule ? (
+          <div className="rounded-lg border border-border p-3 text-sm space-y-2">
+            <p className="text-muted-foreground">Need to change your date or branch?</p>
+            <button
+              type="button"
+              onClick={() => {
+                setRescheduling(true);
+                setBranchId("");
+                setDate("");
+                setScheduleError(null);
+                setStep("schedule");
+              }}
+              className="inline-flex items-center gap-1.5 text-penda-blue font-medium hover:underline text-sm"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              Change date or branch
+            </button>
+          </div>
+        ) : confirmedDate ? (
+          <p className="text-xs text-muted-foreground text-center">
+            Changes are no longer available — your trial is tomorrow or today.
+            Contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a> for urgent issues.
+          </p>
+        ) : null}
+
         <FormMessage>
           <p className="text-sm">A confirmation email has been sent to you with all the details.</p>
-          <p className="text-sm mt-2">
-            Need to make changes? Contact{" "}
-            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.
-          </p>
         </FormMessage>
       </div>
     </FormShell>
