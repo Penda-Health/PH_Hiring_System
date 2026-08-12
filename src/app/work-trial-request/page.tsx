@@ -70,6 +70,7 @@ type IdentifyResult = {
   selectedMapPinUrl: string | null;
   selectedBmName: string | null;
   selectedBmPhone: string | null;
+  selectedSpecialty: string | null;
 };
 
 type ScheduleResult = {
