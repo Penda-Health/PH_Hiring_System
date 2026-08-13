@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { Mail, Phone, Pencil, Trash2, Check, X } from "lucide-react";
-import { Reliever } from "@/types";
+import { Branch, Reliever } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RELIEVER_CADRES } from "@/lib/mock-data/clusters";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BranchMultiSelect } from "./branch-multi-select";
 
 const STATUS_STYLES: Record<Reliever["status"], string> = {
   Active: "bg-penda-blue-light text-penda-blue-dark border-transparent",
@@ -17,12 +18,15 @@ const STATUS_STYLES: Record<Reliever["status"], string> = {
 
 export function RelieverCard({
   reliever,
+  branches,
   canEdit,
   canDelete,
   onUpdate,
   onDelete,
 }: {
   reliever: Reliever;
+  /** Needed to render the "Branches Covered" picker in edit mode. */
+  branches: Branch[];
   canEdit?: boolean;
   canDelete?: boolean;
   onUpdate?: (patch: Partial<Reliever>) => void;
@@ -36,6 +40,7 @@ export function RelieverCard({
     phone: reliever.phone,
     email: reliever.email ?? "",
     startDate: reliever.startDate ?? "",
+    branchesCovered: reliever.branchesCovered,
   });
 
   // Sync form if reliever prop changes
@@ -46,6 +51,7 @@ export function RelieverCard({
       phone: reliever.phone,
       email: reliever.email ?? "",
       startDate: reliever.startDate ?? "",
+      branchesCovered: reliever.branchesCovered,
     });
   }, [reliever.id]);
 
@@ -56,12 +62,20 @@ export function RelieverCard({
       phone: form.phone.trim() || reliever.phone,
       email: form.email.trim() || undefined,
       startDate: form.startDate || undefined,
+      branchesCovered: form.branchesCovered,
     });
     setEditing(false);
   }
 
   function handleCancel() {
-    setForm({ name: reliever.name, role: reliever.role, phone: reliever.phone, email: reliever.email ?? "", startDate: reliever.startDate ?? "" });
+    setForm({
+      name: reliever.name,
+      role: reliever.role,
+      phone: reliever.phone,
+      email: reliever.email ?? "",
+      startDate: reliever.startDate ?? "",
+      branchesCovered: reliever.branchesCovered,
+    });
     setEditing(false);
   }
 
@@ -108,11 +122,19 @@ export function RelieverCard({
           <p className="text-muted-foreground">{reliever.role}</p>
         )}
 
-        <div className="flex flex-wrap gap-1">
-          {reliever.branchesCovered.map((branch) => (
-            <Badge key={branch} variant="outline">{branch}</Badge>
-          ))}
-        </div>
+        {editing ? (
+          <BranchMultiSelect
+            branches={branches}
+            selected={form.branchesCovered}
+            onChange={(next) => setForm((p) => ({ ...p, branchesCovered: next }))}
+          />
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {reliever.branchesCovered.map((branch) => (
+              <Badge key={branch} variant="outline">{branch}</Badge>
+            ))}
+          </div>
+        )}
 
         {editing ? (
           <div className="grid grid-cols-2 gap-2">

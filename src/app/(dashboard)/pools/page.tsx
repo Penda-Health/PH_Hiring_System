@@ -69,6 +69,7 @@ export default function PoolsPage() {
                 <RelieverListItem
                   key={reliever.id}
                   reliever={reliever}
+                  branches={branches}
                   canEdit={canEdit}
                   canDelete={canDelete}
                   onUpdate={(patch) => updateReliever(reliever.id, patch)}
@@ -87,6 +88,7 @@ export default function PoolsPage() {
                 <RelieverCard
                   key={reliever.id}
                   reliever={reliever}
+                  branches={branches}
                   canEdit={canEdit}
                   canDelete={canDelete}
                   onUpdate={(patch) => updateReliever(reliever.id, patch)}

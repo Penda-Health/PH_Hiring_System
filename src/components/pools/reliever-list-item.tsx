@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { Phone, Pencil, Trash2, Check, X } from "lucide-react";
-import { Reliever } from "@/types";
+import { Branch, Reliever } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RELIEVER_CADRES } from "@/lib/mock-data/clusters";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BranchMultiSelect } from "./branch-multi-select";
 
 const STATUS_STYLES: Record<Reliever["status"], string> = {
   Active: "bg-penda-blue-light text-penda-blue-dark border-transparent",
@@ -17,12 +18,15 @@ const STATUS_STYLES: Record<Reliever["status"], string> = {
 
 export function RelieverListItem({
   reliever,
+  branches,
   canEdit,
   canDelete,
   onUpdate,
   onDelete,
 }: {
   reliever: Reliever;
+  /** Needed to render the "Branches Covered" picker in edit mode. */
+  branches: Branch[];
   canEdit?: boolean;
   canDelete?: boolean;
   onUpdate?: (patch: Partial<Reliever>) => void;
@@ -35,10 +39,17 @@ export function RelieverListItem({
     role: reliever.role,
     phone: reliever.phone,
     startDate: reliever.startDate ?? "",
+    branchesCovered: reliever.branchesCovered,
   });
 
   React.useEffect(() => {
-    setForm({ name: reliever.name, role: reliever.role, phone: reliever.phone, startDate: reliever.startDate ?? "" });
+    setForm({
+      name: reliever.name,
+      role: reliever.role,
+      phone: reliever.phone,
+      startDate: reliever.startDate ?? "",
+      branchesCovered: reliever.branchesCovered,
+    });
   }, [reliever.id]);
 
   function handleSave() {
@@ -47,6 +58,7 @@ export function RelieverListItem({
       role: form.role,
       phone: form.phone.trim() || reliever.phone,
       startDate: form.startDate || undefined,
+      branchesCovered: form.branchesCovered,
     });
     setEditing(false);
   }
@@ -54,18 +66,25 @@ export function RelieverListItem({
   if (editing) {
     return (
       <Card>
-        <CardContent className="p-3 flex items-center gap-3 flex-wrap">
-          <Input className="h-7 text-sm w-36 shrink-0" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} autoFocus />
-          <Select value={form.role} onValueChange={(v) => setForm((p) => ({ ...p, role: v }))}>
-            <SelectTrigger className="h-7 text-xs w-36 shrink-0"><SelectValue /></SelectTrigger>
-            <SelectContent>{RELIEVER_CADRES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-          </Select>
-          <Input className="h-7 text-xs w-28 shrink-0" type="tel" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="Phone" />
-          <Input className="h-7 text-xs w-32 shrink-0" type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))} />
-          <div className="flex gap-1 ml-auto">
-            <button onClick={handleSave} className="p-1 rounded hover:bg-muted text-penda-blue" title="Save"><Check className="h-4 w-4" /></button>
-            <button onClick={() => setEditing(false)} className="p-1 rounded hover:bg-muted text-muted-foreground" title="Cancel"><X className="h-4 w-4" /></button>
+        <CardContent className="p-3 space-y-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Input className="h-7 text-sm w-36 shrink-0" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} autoFocus />
+            <Select value={form.role} onValueChange={(v) => setForm((p) => ({ ...p, role: v }))}>
+              <SelectTrigger className="h-7 text-xs w-36 shrink-0"><SelectValue /></SelectTrigger>
+              <SelectContent>{RELIEVER_CADRES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
+            <Input className="h-7 text-xs w-28 shrink-0" type="tel" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="Phone" />
+            <Input className="h-7 text-xs w-32 shrink-0" type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))} />
+            <div className="flex gap-1 ml-auto">
+              <button onClick={handleSave} className="p-1 rounded hover:bg-muted text-penda-blue" title="Save"><Check className="h-4 w-4" /></button>
+              <button onClick={() => setEditing(false)} className="p-1 rounded hover:bg-muted text-muted-foreground" title="Cancel"><X className="h-4 w-4" /></button>
+            </div>
           </div>
+          <BranchMultiSelect
+            branches={branches}
+            selected={form.branchesCovered}
+            onChange={(next) => setForm((p) => ({ ...p, branchesCovered: next }))}
+          />
         </CardContent>
       </Card>
     );
