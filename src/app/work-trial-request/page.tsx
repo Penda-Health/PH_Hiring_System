@@ -187,14 +187,16 @@ function WorkTrialRequestForm() {
     setPhoneLocal(e.target.value.replace(/\D/g, "").slice(0, 9));
   }
 
-  const phoneValid = phoneLocal.length === 9 && phoneLocal[0] === "7";
+  // Kenyan mobile local numbers (9 digits, no leading 0): traditional lines
+  // start with 7 (07xx), newer ranges issued since ~2018 start with 1 (01xx).
+  const phoneValid = phoneLocal.length === 9 && (phoneLocal[0] === "7" || phoneLocal[0] === "1");
   const emailValid = EMAIL_RE.test(email.trim());
 
   async function handleIdentify(e: React.FormEvent) {
     e.preventDefault();
     setIdentifyError(null);
     if (!phoneValid) {
-      setIdentifyError("Enter your 9-digit number starting with 7 (e.g. 712 345 678).");
+      setIdentifyError("Enter your 9-digit number starting with 7 or 1 (e.g. 712 345 678 or 112 345 678).");
       return;
     }
     if (!emailValid) {
@@ -399,11 +401,11 @@ function WorkTrialRequestForm() {
             </div>
             {phoneLocal && !phoneValid ? (
               <p className="text-xs text-destructive">
-                Must be 9 digits and start with 7 — e.g. <strong>712 345 678</strong>
+                Must be 9 digits and start with 7 or 1 — e.g. <strong>712 345 678</strong> or <strong>112 345 678</strong>
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Enter your 9-digit number starting with 7 — e.g. <strong>712 345 678</strong>
+                Enter your 9-digit number starting with 7 or 1 — e.g. <strong>712 345 678</strong> or <strong>112 345 678</strong>
               </p>
             )}
           </div>

@@ -116,7 +116,9 @@ export async function GET(request: NextRequest) {
 const identifySchema = z.object({
   step: z.literal("identify"),
   name: z.string().trim().min(2).max(120),
-  phone: z.string().regex(/^7\d{8}$/, "Phone must be 9 digits starting with 7"),
+  // Kenyan mobile local numbers (9 digits, no leading 0): traditional lines
+  // start with 7 (07xx), newer ranges issued since ~2018 start with 1 (01xx).
+  phone: z.string().regex(/^[71]\d{8}$/, "Phone must be 9 digits starting with 7 or 1"),
   email: z.string().trim().toLowerCase().email().max(255),
 });
 
