@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
 import { DatePickerCalendar } from "@/components/forms/date-picker-calendar";
 import { MapPin, Phone, Calendar, CheckCircle2 } from "lucide-react";
+import { minBookableDate, MIN_LEAD_HOURS } from "@/lib/work-trial-timing";
 
 const BRAND: FormShellBrand = {
   headline: "You're one step from your work trial.",
@@ -136,13 +137,13 @@ function WorkTrialRequestForm() {
   const [confirmedBmPhone, setConfirmedBmPhone] = React.useState("");
   const [confirmedDate, setConfirmedDate] = React.useState("");
 
-  // Earliest selectable date: tomorrow
-  const minDate = React.useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
+  // Earliest selectable date — normally "tomorrow", but pushes out further
+  // late at night so the trial's 9 AM start still gets its minimum lead time.
+  // Deliberately NOT memoized with an empty dep array: this page can sit open
+  // for a while (candidate reading the form, BM leaving a tab up), and a
+  // value frozen at mount time was letting same-day/too-soon dates slip past
+  // the calendar's own greying-out. It's cheap to recompute on every render.
+  const minDate = minBookableDate();
 
   // Latest: 2 weeks out
   const maxDate = React.useMemo(() => {
@@ -285,6 +286,8 @@ function WorkTrialRequestForm() {
           ? "Sundays are not available. Please pick a different day."
           : bodyErr === "reschedule_cutoff_passed"
           ? "Changes are no longer possible — your work trial is tomorrow or today. Contact careers@pendahealth.com if you have an urgent issue."
+          : bodyErr === "too_soon"
+          ? `That date is too soon — please pick a date at least ${MIN_LEAD_HOURS} hours out.`
           : bodyErr === "invalid_branch_for_specialty"
           ? `That branch doesn't offer ${selectedRole || "specialist"} work trials. Please select a different branch.`
           : bodyErr === "invalid_day_for_specialty"

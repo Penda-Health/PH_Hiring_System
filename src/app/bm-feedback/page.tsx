@@ -157,6 +157,26 @@ function BmFeedbackForm() {
       .catch((err) => setLoadError(err.message));
   }, [token]);
 
+  // Re-fetch the record's true state from Airtable. Used to reconcile after a
+  // submission throws: the server writes the score/arrival/approval BEFORE it
+  // forms a response, so a dropped connection or slow round-trip can complete
+  // the write yet still throw client-side. A BM who saw that error and just
+  // closed the tab (never reloading) had no way to learn her submission had
+  // actually landed — this lets each submit handler check for that instead of
+  // reporting a false failure.
+  async function refetchFormData(): Promise<FormData | null> {
+    if (!token) return null;
+    try {
+      const res = await fetch(`/api/public/bm-feedback?token=${encodeURIComponent(token)}`);
+      if (!res.ok) return null;
+      const fresh: FormData = await res.json();
+      setData(fresh);
+      return fresh;
+    } catch {
+      return null;
+    }
+  }
+
   if (loadError === "missing_token" || loadError === "expired") {
     return (
       <FormShell brand={BRAND} title="Link expired" subtitle="This feedback link is no longer valid.">
@@ -207,7 +227,13 @@ function BmFeedbackForm() {
         setData((d) => d ? { ...d, arrivalMarked: false } : d);
       }
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
+      const fresh = await refetchFormData();
+      if (fresh && fresh.arrivalMarked !== null) {
+        // The write actually landed despite the error — follow the real state.
+        setStep(fresh.arrivalMarked ? "role-select" : "done");
+      } else {
+        setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
+      }
     } finally {
       setArrivalSubmitting(false);
     }
@@ -249,7 +275,16 @@ function BmFeedbackForm() {
       setScoreResult({ total: body.total, passFail: body.passFail, submittedByRole: body.submittedByRole });
       setStep("done");
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
+      const fresh = await refetchFormData();
+      if (fresh?.pendingApproval) {
+        // The write actually landed despite the error — follow the real state.
+        setStep("pending-approval");
+      } else if (fresh?.alreadyScored && fresh.total !== null && fresh.passFail !== "Pending" && fresh.submittedByRole) {
+        setScoreResult({ total: fresh.total, passFail: fresh.passFail, submittedByRole: fresh.submittedByRole });
+        setStep("done");
+      } else {
+        setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
+      }
     } finally {
       setScoreSubmitting(false);
     }
@@ -290,7 +325,16 @@ function BmFeedbackForm() {
       setScoreResult({ total: body.total, passFail: body.passFail, submittedByRole: body.submittedByRole });
       setStep("done");
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
+      const fresh = await refetchFormData();
+      if (fresh?.pendingApproval) {
+        // The write actually landed despite the error — follow the real state.
+        setStep("pending-approval");
+      } else if (fresh?.alreadyScored && fresh.total !== null && fresh.passFail !== "Pending" && fresh.submittedByRole) {
+        setScoreResult({ total: fresh.total, passFail: fresh.passFail, submittedByRole: fresh.submittedByRole });
+        setStep("done");
+      } else {
+        setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
+      }
     } finally {
       setUploadSubmitting(false);
     }
@@ -310,7 +354,14 @@ function BmFeedbackForm() {
       setApprovalResult({ total: body.total, passFail: body.passFail });
       setStep("approved");
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
+      const fresh = await refetchFormData();
+      if (fresh?.bmApprovedAt && fresh.total !== null && fresh.passFail !== "Pending") {
+        // The write actually landed despite the error — follow the real state.
+        setApprovalResult({ total: fresh.total, passFail: fresh.passFail });
+        setStep("approved");
+      } else {
+        setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
+      }
     } finally {
       setApprovalSubmitting(false);
     }

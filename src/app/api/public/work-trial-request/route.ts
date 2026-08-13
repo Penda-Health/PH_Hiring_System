@@ -14,6 +14,7 @@ import {
   specialtyConfigFromAirtable,
 } from "@/lib/airtable/mappers";
 import { rateLimit } from "@/lib/rate-limit";
+import { isDateBookable } from "@/lib/work-trial-timing";
 
 // ── Phone helpers ─────────────────────────────────────────────────────────────
 
@@ -275,6 +276,15 @@ export async function POST(request: NextRequest) {
   const dayOfWeek = new Date(`${date}T00:00:00`).getDay();
   if (dayOfWeek === 0) {
     return NextResponse.json({ error: "sunday_date" }, { status: 400 });
+  }
+
+  // Minimum lead time on the date actually being submitted. This used to be
+  // enforced only client-side (a `minDate` computed once when the page
+  // loaded) — a long-open tab, or the reschedule flow's cutoff check (which
+  // only looked at the *old* trial date, not the new one), could both let a
+  // same-day or too-soon date through. Enforce the real floor here too.
+  if (!isDateBookable(date)) {
+    return NextResponse.json({ error: "too_soon" }, { status: 400 });
   }
 
   // Day names matching Airtable Available Days choices
