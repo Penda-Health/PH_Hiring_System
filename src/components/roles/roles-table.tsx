@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { RoleStatusBadge } from "./role-status-badge";
 import { headcountPct, ACTIVE_CANDIDATE_STAGE_EXCLUSIONS } from "@/lib/roles-helpers";
+import { headcountRemaining } from "@/lib/pipeline-helpers";
 
 export function RolesTable({
   roles,
@@ -68,12 +69,20 @@ export function RolesTable({
             <TableCell>
               <RoleStatusBadge status={role.status} />
             </TableCell>
-            <TableCell className="w-36">
+            <TableCell className="w-40">
               <div className="flex items-center gap-2">
                 <Progress value={headcountPct(role)} className="h-2 w-20" />
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
                   {role.hcFilled}/{role.hcApproved}
                 </span>
+                {/* Gap isn't visible from the fraction alone — e.g. 1/1.5 easily
+                    reads as "filled" at a glance, so call out the remainder
+                    explicitly (0.5s from clustered-branch roles included). */}
+                {headcountRemaining(role) > 0 && (
+                  <span className="text-xs font-medium text-penda-blue whitespace-nowrap">
+                    ({headcountRemaining(role)} open)
+                  </span>
+                )}
               </div>
             </TableCell>
             <TableCell>{activeCountByRoleId.get(role.id) ?? 0}</TableCell>
