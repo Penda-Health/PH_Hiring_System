@@ -12,6 +12,15 @@ import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
  * renders while closed, before a role is selected) — all savers become
  * no-ops until a role is present.
  */
+// Shared by every +/- HC stepper (RoleCandidatesDialog, RoleBreakdown) so
+// they can't drift apart on step size.
+export const HC_STEP = 0.5;
+
+/** "2" for a whole number, "1.5" for a half — never a trailing ".0". */
+export function formatHc(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
 export function useRoleEditState(role: OpenRole | null) {
   const { updateOpenRole, canEdit, canManageRoles } = useRecruitmentData();
 
@@ -34,10 +43,16 @@ export function useRoleEditState(role: OpenRole | null) {
   React.useEffect(() => { setLocalHcFilled(role?.hcFilled ?? 0); }, [role?.hcFilled]);
   React.useEffect(() => { setLocalHcApproved(role?.hcApproved ?? 1); }, [role?.hcApproved]);
 
+  // Some roles are split across two clustered branches, so a single branch's
+  // slice of the headcount can be a half (0.5) rather than a whole number —
+  // round to the nearest half to guard against any stray floating-point
+  // drift from repeated +/- 0.5 stepping.
+  const roundToHalf = (n: number) => Math.round(n * 2) / 2;
+
   function applyHcChange(newFilled: number, newApproved: number) {
     if (!role || !canEdit) return;
-    const approved = Math.max(1, newApproved);
-    const filled = Math.max(0, Math.min(newFilled, approved));
+    const approved = Math.max(0.5, roundToHalf(newApproved));
+    const filled = Math.max(0, Math.min(roundToHalf(newFilled), approved));
     setLocalHcFilled(filled);
     setLocalHcApproved(approved);
     const newStatus: OpenRole["status"] =

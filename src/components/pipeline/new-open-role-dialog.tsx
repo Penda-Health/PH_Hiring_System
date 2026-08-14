@@ -283,7 +283,8 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
             <Label>HC Approved</Label>
             <Input
               type="number"
-              min={1}
+              min={0.5}
+              step={0.5}
               value={form.hcApproved}
               onChange={(e) => set("hcApproved", Number(e.target.value))}
               required

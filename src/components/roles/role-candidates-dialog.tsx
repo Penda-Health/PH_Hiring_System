@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Minus, Plus, Pencil, Check, X } from "lucide-react";
 import { daysInStage } from "@/lib/pipeline-helpers";
 import { candidatesForRole } from "@/lib/roles-helpers";
-import { useRoleEditState } from "@/hooks/use-role-edit-state";
+import { useRoleEditState, HC_STEP, formatHc } from "@/hooks/use-role-edit-state";
 
 const ALL_STAGES: CandidateStage[] = [
   "First Interview",
@@ -159,25 +159,25 @@ export function RoleCandidatesDialog({
                 {/* HC filled / approved steppers */}
                 <div className="flex items-center gap-0 rounded-md border border-border px-2 py-0.5 ml-auto text-sm">
                   <span className="text-xs text-muted-foreground mr-1.5">HC</span>
-                  <button type="button" onClick={() => setHcFilled(localHcFilled - 1)}
+                  <button type="button" onClick={() => setHcFilled(localHcFilled - HC_STEP)}
                     disabled={!canEdit || localHcFilled <= 0}
                     className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
                     <Minus className="h-3 w-3" />
                   </button>
-                  <span className="min-w-[2ch] text-center font-semibold tabular-nums text-foreground">{localHcFilled}</span>
-                  <button type="button" onClick={() => setHcFilled(localHcFilled + 1)}
+                  <span className="min-w-[3ch] text-center font-semibold tabular-nums text-foreground">{formatHc(localHcFilled)}</span>
+                  <button type="button" onClick={() => setHcFilled(localHcFilled + HC_STEP)}
                     disabled={!canEdit || localHcFilled >= localHcApproved}
                     className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
                     <Plus className="h-3 w-3" />
                   </button>
                   <span className="mx-1.5 text-muted-foreground">/</span>
-                  <button type="button" onClick={() => setHcApproved(localHcApproved - 1)}
-                    disabled={!canEdit || localHcApproved <= 1}
+                  <button type="button" onClick={() => setHcApproved(localHcApproved - HC_STEP)}
+                    disabled={!canEdit || localHcApproved <= HC_STEP}
                     className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
                     <Minus className="h-3 w-3" />
                   </button>
-                  <span className="min-w-[2ch] text-center font-semibold tabular-nums text-foreground">{localHcApproved}</span>
-                  <button type="button" onClick={() => setHcApproved(localHcApproved + 1)}
+                  <span className="min-w-[3ch] text-center font-semibold tabular-nums text-foreground">{formatHc(localHcApproved)}</span>
+                  <button type="button" onClick={() => setHcApproved(localHcApproved + HC_STEP)}
                     disabled={!canEdit}
                     className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
                     <Plus className="h-3 w-3" />

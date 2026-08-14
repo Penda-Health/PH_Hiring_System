@@ -92,8 +92,11 @@ export const openRoleSchema = z.object({
   branchId: z.string().max(100).optional(),
   priority,
   status: z.enum(["Open", "Allocated", "Filled", "On Hold", "Cancelled"]),
-  hcApproved: z.number().int().min(0).max(500),
-  hcFilled: z.number().int().min(0).max(500),
+  // 0.5 increments, not just whole numbers — some roles are shared across
+  // two clustered branches, so a single branch's slice of the headcount can
+  // legitimately be e.g. 0.5.
+  hcApproved: z.number().multipleOf(0.5).min(0).max(500),
+  hcFilled: z.number().multipleOf(0.5).min(0).max(500),
   recruiter: z.string().trim().min(1).max(150),
   hiringManager: z.string().trim().min(1).max(150),
   hiringManagerEmail: z.string().trim().max(255).email().optional(),

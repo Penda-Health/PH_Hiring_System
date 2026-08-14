@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
-import { useRoleEditState } from "@/hooks/use-role-edit-state";
+import { useRoleEditState, HC_STEP, formatHc } from "@/hooks/use-role-edit-state";
 import { daysOpen } from "@/lib/pipeline-helpers";
 import { CalendarDays, User, Briefcase, StickyNote, Minus, Plus } from "lucide-react";
 
@@ -85,25 +85,25 @@ export function RoleBreakdown({
           {/* HC filled / approved steppers */}
           <div className="flex items-center gap-0 rounded-md border border-border px-2 py-1 text-sm">
             <span className="text-xs text-muted-foreground mr-1.5">HC</span>
-            <button type="button" onClick={() => setHcFilled(localHcFilled - 1)}
+            <button type="button" onClick={() => setHcFilled(localHcFilled - HC_STEP)}
               disabled={!canEdit || localHcFilled <= 0}
               className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
               <Minus className="h-3 w-3" />
             </button>
-            <span className="min-w-[2ch] text-center font-semibold tabular-nums">{localHcFilled}</span>
-            <button type="button" onClick={() => setHcFilled(localHcFilled + 1)}
+            <span className="min-w-[3ch] text-center font-semibold tabular-nums">{formatHc(localHcFilled)}</span>
+            <button type="button" onClick={() => setHcFilled(localHcFilled + HC_STEP)}
               disabled={!canEdit || localHcFilled >= localHcApproved}
               className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
               <Plus className="h-3 w-3" />
             </button>
             <span className="mx-1.5 text-muted-foreground">/</span>
-            <button type="button" onClick={() => setHcApproved(localHcApproved - 1)}
-              disabled={!canEdit || localHcApproved <= 1}
+            <button type="button" onClick={() => setHcApproved(localHcApproved - HC_STEP)}
+              disabled={!canEdit || localHcApproved <= HC_STEP}
               className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
               <Minus className="h-3 w-3" />
             </button>
-            <span className="min-w-[2ch] text-center font-semibold tabular-nums">{localHcApproved}</span>
-            <button type="button" onClick={() => setHcApproved(localHcApproved + 1)}
+            <span className="min-w-[3ch] text-center font-semibold tabular-nums">{formatHc(localHcApproved)}</span>
+            <button type="button" onClick={() => setHcApproved(localHcApproved + HC_STEP)}
               disabled={!canEdit}
               className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
               <Plus className="h-3 w-3" />
