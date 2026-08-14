@@ -464,7 +464,7 @@ export default function WorkTrialsPage() {
                             className="h-7 w-7 p-0 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
                             title="Delete work trial"
                             onClick={() => {
-                              if (window.confirm(`Delete ${candidate?.name ?? "this"}'s work trial? This cannot be undone.`)) {
+                              if (window.confirm(`Delete ${candidate?.name ?? "this"}'s work trial? You'll have 30 seconds to undo before it's permanent.`)) {
                                 deleteWorkTrial(trial.id);
                               }
                             }}

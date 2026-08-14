@@ -553,6 +553,70 @@ alter publication supabase_realtime add table public.ips_meeting_notes;
 
 ---
 
+## 4.8 Deleted item archive (`deleted_items`)
+
+A backstop audit trail for hard deletes against any Airtable-backed resource
+(candidates, work trials, relievers, offers, etc.) — a snapshot of the record
+is written here right before it's deleted from Airtable, so a manager can
+manually reconstruct something that was deleted in error days later, even
+after the 30-second "Undo" toast (`src/components/ui/undo-toast.tsx`) has
+long expired. The toast is the primary undo path and never touches this
+table at all — it just delays the Airtable delete by 30s and skips it
+entirely if clicked. This table only ever fills in once that window has
+already passed. Run this once in the Supabase SQL Editor, after section 4.6's
+`profiles` table already exists:
+
+```sql
+create table public.deleted_items (
+  id uuid primary key default gen_random_uuid(),
+  -- The Airtable table name (e.g. "WorkTrials"), not the /api/* URL slug —
+  -- see makeItemHandlers()'s DELETE handler in src/lib/airtable/route-handlers.ts.
+  resource text not null,
+  record_id text not null,
+  -- The already-shaped app entity (post-fromAirtable), not raw Airtable
+  -- fields, so reading this later doesn't also require each table's
+  -- field-name mapping.
+  snapshot jsonb not null,
+  deleted_by uuid references public.profiles(id),
+  deleted_at timestamptz not null default now()
+);
+
+create index deleted_items_resource_idx on public.deleted_items (resource, deleted_at desc);
+
+alter table public.deleted_items enable row level security;
+
+-- Only recruitment_manager can delete records in the first place
+-- (canDeleteRecords() in src/lib/permissions.ts), so this mirrors that:
+-- nobody else needs to read or write this table.
+create policy deleted_items_manager_only on public.deleted_items for all
+  using (public.is_recruitment_manager()) with check (public.is_recruitment_manager());
+```
+
+### What this gives you
+
+- Every delete across all 11 Airtable-backed resources archives a snapshot
+  here automatically — the write lives in the shared `DELETE` handler
+  factory, not duplicated per resource.
+- The archive write is best-effort: if Supabase is unreachable or not yet
+  provisioned, the delete still goes through and the failure is just logged
+  server-side, never surfaced to the user as a blocked delete.
+- **Settings → Deleted items** (`recruitment_manager` only, same gate as the
+  rest of `/settings`) lists everything deleted in the last 7 days —
+  resource, a best-effort label, who deleted it, and when. Expanding a row
+  shows the full JSON snapshot. There's still no one-click "restore" button:
+  recovering a record means reading its snapshot here and re-creating it via
+  the app (or `POST /api/<resource>`) by hand, same as the manual restore
+  this table was built after — this just saves the trip to the Supabase
+  table editor to find it.
+- The 7-day window is a query-side filter (`deleted_at >= now() - 7 days`),
+  not a retention/purge policy — rows older than 7 days still exist, they
+  just stop showing up in the Settings list. Deliberately simple: this app
+  has no cron/pg_cron set up anywhere yet, and the audit trail being a
+  little larger than the UI window shows is harmless. Delete old rows by
+  hand in the Supabase table editor if that ever needs tightening.
+
+---
+
 ## 4.5 Public forms (work-trial branch selection, BM feedback, referee check)
 
 Three no-login forms exist so far, all token-protected instead of behind
@@ -662,6 +726,24 @@ The uploaded file is sent straight to Airtable's attachment-upload endpoint
 `src/lib/airtable/client.ts`) as base64 — no separate file host is needed,
 and the existing `data.records:write` PAT scope from 1.2 already covers it.
 Max file size is 10MB; PDF/JPG/PNG only.
+
+### 4.5.5 Autosave / draft resume on the BM feedback form
+
+`/bm-feedback` autosaves the role choice, scores, and written comments to
+the browser's `localStorage` (debounced ~500ms) while the BM/In-Charge is on
+the method, scoring, feedback, or upload step — see
+`src/lib/forms/bm-feedback-draft.ts`. If they close the tab or lose
+connection mid-fill and reopen the same link, the form restores where they
+left off and shows a "we restored what you filled in last time" banner with
+a "Start over" option.
+
+This is purely client-side (keyed by the form token, no new Airtable/Supabase
+field) — nothing to configure. It doesn't follow the BM across devices, and
+the uploaded file itself can't be restored (File objects aren't
+serialisable), so the upload step's file input always needs re-attaching
+after a restore. The draft is cleared automatically once the assessment is
+actually submitted, or if the link is reopened after someone else already
+submitted/approved it.
 
 ---
 

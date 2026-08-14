@@ -3,9 +3,10 @@
 // handling 11 times.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { listRecords, createRecord, updateRecord, deleteRecord, AirtableRecord } from "./client";
+import { listRecords, createRecord, updateRecord, deleteRecord, getRecord, AirtableRecord } from "./client";
 import { getCurrentUserRole } from "@/lib/supabase/server";
 import { canSeeSalary } from "@/lib/permissions";
+import { archiveDeletedRecord } from "@/lib/supabase/deleted-items";
 
 type FromAirtable<T> = (record: AirtableRecord) => T;
 type ToAirtable<T> = (entity: Partial<T>) => Record<string, unknown>;
@@ -145,6 +146,12 @@ export function makeItemHandlers<T>(
 
   async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
     try {
+      // Snapshot before deleting so there's something to archive — best-effort,
+      // and deliberately not allowed to block the delete itself (see
+      // archiveDeletedRecord). A record that 404s here (already gone) just
+      // skips the archive and falls through to deleteRecord as before.
+      const record = await getRecord(tableName, params.id);
+      if (record) await archiveDeletedRecord(tableName, params.id, fromAirtable(record));
       await deleteRecord(tableName, params.id);
       return new NextResponse(null, { status: 204 });
     } catch (err) {

@@ -35,6 +35,7 @@ import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
 import { listResource, createResource, updateResource, deleteResource } from "@/lib/airtable/browser-api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canEditRecruitmentData, canDeleteRecords, canManageRoles, canSeeSalary } from "@/lib/permissions";
+import { useUndoToast, DEFAULT_UNDO_WINDOW_MS } from "@/components/ui/undo-toast";
 
 type RecruitmentDataContextValue = {
   loading: boolean;
@@ -130,6 +131,7 @@ function guardEdit(canEdit: boolean, action: string): boolean {
 
 export function RecruitmentDataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { scheduleDelete } = useUndoToast();
   const canEdit = canEditRecruitmentData(user?.role);
   const canDelete = canDeleteRecords(user?.role);
   const canManageRolesValue = canManageRoles(user?.role);
@@ -211,9 +213,16 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     };
   }, []);
 
+  // Timestamp (ms) before which background refreshes are suppressed.
+  // Set by operations that fire-and-forget an Airtable write (e.g. delete)
+  // to prevent the focus-triggered refresh from overwriting the optimistic
+  // state before the write has propagated to Airtable.
+  const suppressRefreshUntilRef = React.useRef<number>(0);
+
   // Keep data in sync with Airtable changes made outside the UI.
   // Refreshes on a 60s interval and whenever the browser tab regains focus.
   const refreshCoreData = React.useCallback(async () => {
+    if (Date.now() < suppressRefreshUntilRef.current) return;
     try {
       const [rolesRes, candidatesRes, interviewsRes, offersRes, workTrialsRes, refChecksRes] = await Promise.all([
         listResource<OpenRole>("open-roles"),
@@ -373,12 +382,29 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       // canDeleteRecords() in permissions.ts. The server enforces this too
       // (middleware.ts); this guard is just the matching client-side check.
       if (!guardEdit(canDelete, "deleteWorkTrial")) return;
+      // Suppress focus-triggered background refreshes for the full undo
+      // window (plus slack for the candidate-stage update the card also
+      // fires) so refreshCoreData can't refetch the still-live Airtable
+      // record — the real delete doesn't fire until the toast commits — and
+      // resurrect it in local state before then. window.confirm() steals
+      // focus; dismissing it fires the "focus" event immediately, so this
+      // guard has always been needed, just for a shorter window than now.
+      suppressRefreshUntilRef.current = Date.now() + DEFAULT_UNDO_WINDOW_MS + 5_000;
+      const removed = workTrials.find((t) => t.id === id);
+      const candidateName = removed ? candidates.find((c) => c.id === removed.candidateId)?.name : undefined;
       setWorkTrials((prev) => prev.filter((t) => t.id !== id));
-      deleteResource("work-trials", id).catch((err) =>
-        console.error("Failed to delete work trial from Airtable:", err)
-      );
+      scheduleDelete({
+        label: `${candidateName ?? "Work trial"}'s work trial`,
+        onCommit: () =>
+          deleteResource("work-trials", id).catch((err) =>
+            console.error("Failed to delete work trial from Airtable:", err)
+          ),
+        onUndo: () => {
+          if (removed) setWorkTrials((prev) => [removed, ...prev]);
+        },
+      });
     },
-    [canDelete]
+    [canDelete, workTrials, candidates, scheduleDelete]
   );
 
   const submitWorkTrialScores = React.useCallback(
@@ -543,12 +569,20 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   const deleteReliever = React.useCallback(
     (id: string) => {
       if (!guardEdit(canDelete, "deleteReliever")) return;
+      const removed = relievers.find((r) => r.id === id);
       setRelievers((prev) => prev.filter((r) => r.id !== id));
-      deleteResource("relievers", id).catch((err) => {
-        console.error(`Failed to delete reliever ${id} from Airtable:`, err);
+      scheduleDelete({
+        label: removed?.name ?? "Reliever",
+        onCommit: () =>
+          deleteResource("relievers", id).catch((err) => {
+            console.error(`Failed to delete reliever ${id} from Airtable:`, err);
+          }),
+        onUndo: () => {
+          if (removed) setRelievers((prev) => [removed, ...prev]);
+        },
       });
     },
-    [canDelete]
+    [canDelete, relievers, scheduleDelete]
   );
 
   const updateLocum = React.useCallback(
@@ -563,12 +597,20 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   const deleteLocum = React.useCallback(
     (id: string) => {
       if (!guardEdit(canDelete, "deleteLocum")) return;
+      const removed = locums.find((l) => l.id === id);
       setLocums((prev) => prev.filter((l) => l.id !== id));
-      deleteResource("locums", id).catch((err) => {
-        console.error(`Failed to delete locum ${id} from Airtable:`, err);
+      scheduleDelete({
+        label: removed?.name ?? "Locum",
+        onCommit: () =>
+          deleteResource("locums", id).catch((err) => {
+            console.error(`Failed to delete locum ${id} from Airtable:`, err);
+          }),
+        onUndo: () => {
+          if (removed) setLocums((prev) => [removed, ...prev]);
+        },
       });
     },
-    [canDelete]
+    [canDelete, locums, scheduleDelete]
   );
 
   const updateCandidateStage = React.useCallback(
@@ -687,12 +729,24 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     (id: string) => {
       // Manager-only tier — see the comment on deleteWorkTrial above.
       if (!guardEdit(canDelete, "deleteCandidate")) return;
+      // refreshCoreData refetches candidates too (see below) — same
+      // resurrection risk as deleteWorkTrial while the undo toast is
+      // pending, so suppress for the same window.
+      suppressRefreshUntilRef.current = Date.now() + DEFAULT_UNDO_WINDOW_MS + 5_000;
+      const removed = candidates.find((c) => c.id === id);
       setCandidates((prev) => prev.filter((c) => c.id !== id));
-      deleteResource("candidates", id).catch((err) => {
-        console.error(`Failed to delete candidate ${id} from Airtable:`, err);
+      scheduleDelete({
+        label: removed?.name ?? "Candidate",
+        onCommit: () =>
+          deleteResource("candidates", id).catch((err) => {
+            console.error(`Failed to delete candidate ${id} from Airtable:`, err);
+          }),
+        onUndo: () => {
+          if (removed) setCandidates((prev) => [removed, ...prev]);
+        },
       });
     },
-    [canDelete]
+    [canDelete, candidates, scheduleDelete]
   );
 
   const value = React.useMemo<RecruitmentDataContextValue>(

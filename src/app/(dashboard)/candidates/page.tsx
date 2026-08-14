@@ -73,7 +73,7 @@ export default function CandidatesPage() {
   }
 
   function handleDelete(candidate: Candidate) {
-    if (!window.confirm(`Permanently delete ${candidate.name || "this candidate"}? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete ${candidate.name || "this candidate"}? You'll have 30 seconds to undo before it's permanent.`)) return;
     deleteCandidate(candidate.id);
   }
 

@@ -14,6 +14,12 @@ import {
   isTechnicalAutoFail,
   PASS_THRESHOLD,
 } from "@/lib/work-trial-helpers";
+import {
+  loadDraft,
+  saveDraft,
+  clearDraft,
+  type BmFeedbackDraftStep,
+} from "@/lib/forms/bm-feedback-draft";
 
 const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · Work Trial Assessment",
@@ -66,6 +72,24 @@ const CATEGORIES = [
 ] as const;
 
 type ScoreKey = (typeof CATEGORIES)[number]["key"];
+
+function DraftRestoredBanner({ step, onDiscard }: { step: "method" | "scoring" | "feedback" | "upload"; onDiscard: () => void }) {
+  return (
+    <div className="rounded-lg border border-penda-blue/30 bg-penda-blue/5 p-3 text-sm text-foreground flex items-start justify-between gap-3">
+      <p>
+        We restored what you filled in last time.
+        {step === "upload" && " You'll need to re-attach the file — it isn't saved."}
+      </p>
+      <button
+        type="button"
+        onClick={onDiscard}
+        className="shrink-0 text-penda-blue underline hover:no-underline whitespace-nowrap"
+      >
+        Start over
+      </button>
+    </div>
+  );
+}
 
 function RatingInput({
   value,
@@ -132,6 +156,12 @@ function BmFeedbackForm() {
   const [uploadRecommendation, setUploadRecommendation] = React.useState("");
   const [uploadSubmitting, setUploadSubmitting] = React.useState(false);
 
+  // Whether the current in-progress state came from a restored autosave
+  // draft (see bm-feedback-draft.ts) rather than a fresh start — drives the
+  // "we restored your answers" banner on the method/scoring/feedback/upload
+  // steps below.
+  const [draftRestored, setDraftRestored] = React.useState(false);
+
   React.useEffect(() => {
     if (!token) { setLoadError("missing_token"); return; }
     fetch(`/api/public/bm-feedback?token=${encodeURIComponent(token)}`)
@@ -146,16 +176,71 @@ function BmFeedbackForm() {
         setData(d);
         if (d.pendingApproval) {
           setStep("pending-approval");
+          clearDraft(token); // Scores already submitted — any local draft is stale.
         } else if (d.alreadyScored) {
           setStep("done");
+          clearDraft(token);
         } else if (d.arrivalMarked === true) {
-          setStep("role-select");
+          // Before defaulting to role-select, see if there's an unfinished
+          // draft for this token worth resuming into instead.
+          const draft = loadDraft(token);
+          if (draft) {
+            setSelectedRole(draft.selectedRole);
+            setScores(draft.scores);
+            setComments(draft.comments);
+            setUploadRecommendation(draft.uploadRecommendation);
+            setStep(draft.step);
+            setDraftRestored(true);
+          } else {
+            setStep("role-select");
+          }
         } else if (d.arrivalMarked === false) {
           setStep("done");
+          clearDraft(token);
         }
       })
       .catch((err) => setLoadError(err.message));
   }, [token]);
+
+  // Debounced autosave — fires while a BM/Incharge is actively working
+  // through method/scoring/feedback/upload, so a closed tab or dropped
+  // connection loses at most a fraction of a second of typing, not the
+  // whole assessment. Earlier steps (arrival, role-select) have nothing
+  // worth restoring; later ones (pending-approval, approved, done) are
+  // terminal, and successful submits clear the draft themselves.
+  React.useEffect(() => {
+    if (!token) return;
+    const resumableSteps: BmFeedbackDraftStep[] = ["method", "scoring", "feedback", "upload"];
+    if (!resumableSteps.includes(step as BmFeedbackDraftStep)) return;
+    const handle = setTimeout(() => {
+      saveDraft(token, {
+        step: step as BmFeedbackDraftStep,
+        selectedRole,
+        scores,
+        comments,
+        uploadRecommendation,
+      });
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [token, step, selectedRole, scores, comments, uploadRecommendation]);
+
+  function discardDraftAndRestart() {
+    if (token) clearDraft(token);
+    setDraftRestored(false);
+    setSelectedRole(null);
+    setScores({ technical: 0, patient: 0, culture: 0 });
+    setComments({
+      commentCulture: "",
+      commentPatient: "",
+      commentTechnical: "",
+      strengths: "",
+      areasOfDevelopment: "",
+      overallRecommendation: "",
+    });
+    setUploadFile(null);
+    setUploadRecommendation("");
+    setStep("role-select");
+  }
 
   // Re-fetch the record's true state from Airtable. Used to reconcile after a
   // submission throws: the server writes the score/arrival/approval BEFORE it
@@ -274,14 +359,17 @@ function BmFeedbackForm() {
       const body = await res.json();
       setScoreResult({ total: body.total, passFail: body.passFail, submittedByRole: body.submittedByRole });
       setStep("done");
+      if (token) clearDraft(token);
     } catch (err) {
       const fresh = await refetchFormData();
       if (fresh?.pendingApproval) {
         // The write actually landed despite the error — follow the real state.
         setStep("pending-approval");
+        if (token) clearDraft(token);
       } else if (fresh?.alreadyScored && fresh.total !== null && fresh.passFail !== "Pending" && fresh.submittedByRole) {
         setScoreResult({ total: fresh.total, passFail: fresh.passFail, submittedByRole: fresh.submittedByRole });
         setStep("done");
+        if (token) clearDraft(token);
       } else {
         setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
       }
@@ -324,14 +412,17 @@ function BmFeedbackForm() {
       const body = await res.json();
       setScoreResult({ total: body.total, passFail: body.passFail, submittedByRole: body.submittedByRole });
       setStep("done");
+      if (token) clearDraft(token);
     } catch (err) {
       const fresh = await refetchFormData();
       if (fresh?.pendingApproval) {
         // The write actually landed despite the error — follow the real state.
         setStep("pending-approval");
+        if (token) clearDraft(token);
       } else if (fresh?.alreadyScored && fresh.total !== null && fresh.passFail !== "Pending" && fresh.submittedByRole) {
         setScoreResult({ total: fresh.total, passFail: fresh.passFail, submittedByRole: fresh.submittedByRole });
         setStep("done");
+        if (token) clearDraft(token);
       } else {
         setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
       }
@@ -451,6 +542,7 @@ function BmFeedbackForm() {
     return (
       <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-5">
+          {draftRestored && <DraftRestoredBanner step="method" onDiscard={discardDraftAndRestart} />}
           <p className="text-sm font-medium">Step 3 of 5 — How would you like to submit this assessment?</p>
           <div className="grid grid-cols-1 gap-3">
             <button
@@ -485,6 +577,7 @@ function BmFeedbackForm() {
     return (
       <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-6">
+          {draftRestored && <DraftRestoredBanner step="scoring" onDiscard={discardDraftAndRestart} />}
           <p className="text-sm font-medium text-muted-foreground">
             Step 4 of 5 — Score each area (1 = Poor · 5 = Good · 10 = Excellent)
           </p>
@@ -569,6 +662,7 @@ function BmFeedbackForm() {
     return (
       <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <form onSubmit={handleScoreSubmit} className="space-y-6">
+          {draftRestored && <DraftRestoredBanner step="feedback" onDiscard={discardDraftAndRestart} />}
           <p className="text-sm font-medium text-muted-foreground">
             Step 5 of 5 — Qualitative feedback
           </p>
@@ -676,6 +770,7 @@ function BmFeedbackForm() {
     return (
       <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <form onSubmit={handleUploadSubmit} className="space-y-6">
+          {draftRestored && <DraftRestoredBanner step="upload" onDiscard={discardDraftAndRestart} />}
           <p className="text-sm font-medium text-muted-foreground">
             Step 4 of 4 — Scores, uploaded form, and overall recommendation
           </p>
