@@ -30,7 +30,7 @@ import {
 } from "@/lib/work-trial-helpers";
 import { ScoreEntryDialog } from "./score-entry-dialog";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
-import { Check, ChevronDown, ClipboardCheck, Copy, Pencil, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ClipboardCheck, Copy, Download, Pencil, Trash2 } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
   "Awaiting Arrival": "bg-muted text-muted-foreground border-transparent",
@@ -401,6 +401,7 @@ export function WorkTrialCard({
   const [reviewDialogOpen, setReviewDialogOpen] = React.useState(false);
   const [copied, setCopied] = React.useState<string | null>(null);
   const [linkError, setLinkError] = React.useState<string | null>(null);
+  const [downloadingReport, setDownloadingReport] = React.useState(false);
 
   const candidate = getCandidateForTrial(trial, candidates);
   const branch    = getBranchForTrial(trial, branches);
@@ -411,6 +412,10 @@ export function WorkTrialCard({
   const pendingApproval = trial.formSubmittedAt && trial.submittedByRole === "Incharge" && !trial.bmApprovedAt;
   const cultureAutoFail = trial.scoreCulture !== null && trial.scoreCulture < CULTURE_AUTO_FAIL_BELOW;
   const technicalAutoFail = trial.scoreTechnical !== null && trial.scoreTechnical < TECHNICAL_AUTO_FAIL_BELOW;
+  // A report only makes sense once there's a final result — "Pending" means
+  // an Incharge submitted but the BM hasn't approved yet (see pendingApproval
+  // above), so there's no finished pass/fail to put in a report.
+  const reportReady = trial.total !== null && trial.passFail !== "Pending";
 
   async function copyLink(type: "work-trial" | "bm-feedback") {
     setLinkError(null);
@@ -422,6 +427,38 @@ export function WorkTrialCard({
     } catch (err) {
       setLinkError(err instanceof Error ? err.message : "Failed to copy link");
       setTimeout(() => setLinkError(null), 4000);
+    }
+  }
+
+  async function downloadReport() {
+    setLinkError(null);
+    setDownloadingReport(true);
+    try {
+      const res = await fetch(`/api/work-trials/${trial.id}/report`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          err.error === "not_complete"
+            ? "This work trial doesn't have a final result yet."
+            : "Failed to generate report."
+        );
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition") ?? "";
+      const filename = disposition.match(/filename="(.+)"/)?.[1] ?? `Work Trial Report - ${candidate?.name ?? trial.wtId}.pdf`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : "Failed to download report");
+      setTimeout(() => setLinkError(null), 4000);
+    } finally {
+      setDownloadingReport(false);
     }
   }
 
@@ -594,6 +631,12 @@ export function WorkTrialCard({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                {reportReady && (
+                  <Button size="sm" variant="outline" onClick={downloadReport} disabled={downloadingReport} className="gap-1">
+                    <Download className="h-3.5 w-3.5" />
+                    {downloadingReport ? "Preparing…" : "Download Report"}
+                  </Button>
+                )}
               </div>
             </>
           )}

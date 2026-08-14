@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, ClipboardCheck, Copy, LayoutList, Columns3, RefreshCw, Trash2 } from "lucide-react";
+import { Check, ClipboardCheck, Copy, Download, LayoutList, Columns3, RefreshCw, Trash2 } from "lucide-react";
 import { getDisplayStatus, getCandidateForTrial, getBranchForTrial } from "@/lib/work-trial-helpers";
 import { ManualReviewDialog } from "@/components/work-trials/work-trial-card";
 
@@ -54,6 +54,7 @@ export default function WorkTrialsPage() {
   const [linkCopied, setLinkCopied] = React.useState(false);
   const [scoreDialogTrialId, setScoreDialogTrialId] = React.useState<string | null>(null);
   const [copiedLinkId, setCopiedLinkId] = React.useState<string | null>(null);
+  const [downloadingReportId, setDownloadingReportId] = React.useState<string | null>(null);
   const [linkError, setLinkError] = React.useState<string | null>(null);
   const [reviewTrialId, setReviewTrialId] = React.useState<string | null>(null);
 
@@ -133,6 +134,38 @@ export default function WorkTrialsPage() {
     } catch (err) {
       setLinkError(err instanceof Error ? err.message : "Failed to copy link");
       setTimeout(() => setLinkError(null), 4000);
+    }
+  }
+
+  async function downloadReport(trial: WorkTrial, candidateName: string | undefined) {
+    setLinkError(null);
+    setDownloadingReportId(trial.id);
+    try {
+      const res = await fetch(`/api/work-trials/${trial.id}/report`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          err.error === "not_complete"
+            ? "This work trial doesn't have a final result yet."
+            : "Failed to generate report."
+        );
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition") ?? "";
+      const filename = disposition.match(/filename="(.+)"/)?.[1] ?? `Work Trial Report - ${candidateName ?? trial.wtId}.pdf`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : "Failed to download report");
+      setTimeout(() => setLinkError(null), 4000);
+    } finally {
+      setDownloadingReportId(null);
     }
   }
 
@@ -410,6 +443,18 @@ export default function WorkTrialsPage() {
                             {copiedLinkId === trial.id
                               ? <Check className="h-3.5 w-3.5 text-penda-blue" />
                               : <Copy className="h-3.5 w-3.5" />}
+                          </Button>
+                        )}
+                        {trial.total !== null && trial.passFail !== "Pending" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            title="Download report"
+                            disabled={downloadingReportId === trial.id}
+                            onClick={() => downloadReport(trial, candidate?.name)}
+                          >
+                            <Download className="h-3.5 w-3.5" />
                           </Button>
                         )}
                         {canDelete && (
