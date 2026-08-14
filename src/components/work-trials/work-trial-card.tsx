@@ -429,7 +429,7 @@ export function WorkTrialCard({
     const candidateName = candidate?.name ?? "this candidate";
     const msg = candidate
       ? `Delete ${candidateName}'s work trial?\n\nThey will be moved back to First Interview so they don't reappear here. You can adjust their stage from the Candidates page.`
-      : "Delete this unlinked work trial record? This cannot be undone.";
+      : "Delete this unlinked work trial record? You'll have 30 seconds to undo before it's permanent.";
     if (!window.confirm(msg)) return;
     onDelete?.(trial.id);
     // Move the candidate out of Work Trial stage — without this the auto-sync
@@ -445,9 +445,15 @@ export function WorkTrialCard({
             <CardTitle className="text-base">
               {candidate?.name ?? <span className="text-destructive/80">Unlinked record</span>}
             </CardTitle>
-            {role && (
+            {role ? (
               <p className="text-xs font-medium text-penda-blue/80">{role.title} · {role.department}</p>
-            )}
+            ) : trial.specialty ? (
+              // Self-booked candidates (public work-trial link) aren't linked to
+              // an OpenRoles record — `role` above is always null for them. The
+              // free-text Specialty they picked when booking is the only "role"
+              // info that exists for these, so show it instead of nothing.
+              <p className="text-xs font-medium text-penda-blue/80">{trial.specialty}</p>
+            ) : null}
             <p className="text-xs text-muted-foreground">
               {branch?.name ?? "No branch set"} · {trial.date || "No date set"}
             </p>
