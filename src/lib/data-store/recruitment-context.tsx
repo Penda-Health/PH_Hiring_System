@@ -61,7 +61,7 @@ type RecruitmentDataContextValue = {
   newEmployees: NewEmployee[];
 
   requisitions: Requisition[];
-  createRequisition: (req: Requisition) => Promise<void>;
+  createRequisition: (req: Requisition) => Promise<Requisition>;
   approveRequisition: (id: string) => void;
   rejectRequisition: (id: string) => void;
 
@@ -262,6 +262,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   const createRequisition = React.useCallback(async (req: Requisition) => {
     const created = await createResource<Requisition>("requisitions", req);
     setRequisitions((prev) => [created, ...prev]);
+    return created;
   }, []);
 
   const convertToOpenRole = React.useCallback(

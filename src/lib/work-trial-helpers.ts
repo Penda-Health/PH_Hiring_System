@@ -39,8 +39,10 @@ export const TECHNICAL_AUTO_FAIL_BELOW = 61;
 // Minimum length (trimmed) required for every free-text field on the BM
 // feedback form: the per-category observations (commentCulture,
 // commentPatient, commentTechnical) and the qualitative feedback fields
-// (strengths, areasOfDevelopment, overallRecommendation).
-export const WRITTEN_ASSESSMENT_MIN_LENGTH = 250;
+// (strengths, areasOfDevelopment, overallRecommendation). Lowered from 250
+// to 150 — 250 was pushing some BMs/Incharges toward padding rather than
+// writing sharper, shorter notes.
+export const WRITTEN_ASSESSMENT_MIN_LENGTH = 150;
 
 // When a physical/PDF form was uploaded instead of filled out online, the
 // six detailed WRITTEN_ASSESSMENT_MIN_LENGTH fields are skipped in favor of

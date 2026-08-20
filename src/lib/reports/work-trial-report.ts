@@ -31,10 +31,10 @@ export type WorkTrialReportData = {
   strengths?: string;
   areasOfDevelopment?: string;
   overallRecommendation?: string;
-  // Presence of files is what distinguishes the two report layouts — see
-  // generateWorkTrialReportPdf. There's no reliable "Submission Method"
-  // field in Airtable yet (see bm-feedback-form.ts's submitUploadedScores),
-  // so "was a form uploaded" is derived from whether a file exists.
+  // Which report layout to use — see generateWorkTrialReportPdf. Trials
+  // submitted before the Submission Method field existed have this as null;
+  // the PDF layer falls back to inferring from uploadedFormFiles for those.
+  submissionMethod: "Online" | "Uploaded" | null;
   uploadedFormFiles?: { url: string; filename: string }[];
 };
 
@@ -81,6 +81,7 @@ export async function loadWorkTrialReportData(workTrialId: string): Promise<Work
     strengths: trial.strengths,
     areasOfDevelopment: trial.areasOfDevelopment,
     overallRecommendation: trial.overallRecommendation,
+    submissionMethod: trial.submissionMethod,
     uploadedFormFiles: trial.uploadedFormFiles,
   };
 }

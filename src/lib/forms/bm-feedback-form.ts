@@ -117,6 +117,7 @@ export async function submitScores(
     [F.WorkTrials.PASS_FAIL]: submittedByRole === "BM" ? passFail : "Pending",
     [F.WorkTrials.FORM_SUBMITTED_AT]: new Date().toISOString(),
     [F.WorkTrials.SUBMITTED_BY_ROLE]: submittedByRole,
+    [F.WorkTrials.SUBMISSION_METHOD]: "Online",
     ...(comments?.commentCulture    ? { [F.WorkTrials.COMMENT_CULTURE]:       comments.commentCulture    } : {}),
     ...(comments?.commentPatient    ? { [F.WorkTrials.COMMENT_PATIENT]:       comments.commentPatient    } : {}),
     ...(comments?.commentTechnical  ? { [F.WorkTrials.COMMENT_TECHNICAL]:     comments.commentTechnical  } : {}),
@@ -129,7 +130,7 @@ export async function submitScores(
 
 // The "upload a completed form" path: numeric scores are still entered and
 // scored with the exact same weighted-total/auto-fail rules as submitScores
-// above, but the six detailed 250-char fields are skipped in favor of one
+// above, but the six detailed WRITTEN_ASSESSMENT_MIN_LENGTH-char fields are skipped in favor of one
 // shorter overallRecommendation, and the uploaded file itself is attached to
 // the record. Deliberately reuses computeWeightedTotal/computePassFail
 // rather than reimplementing them, so "uploaded" and "online" work trials
@@ -143,6 +144,18 @@ export async function submitUploadedScores(
 ): Promise<{ total: number; passFail: "Pass" | "Fail" }> {
   const total = computeWeightedTotal(scores);
   const passFail = computePassFail(scores);
+  // Upload the attachment FIRST, before writing formSubmittedAt/scores. This
+  // used to be the other way round (scores written, then the attachment) on
+  // the theory that a failed upload shouldn't cost the BM their numeric
+  // scores — but that made a failed upload invisible: formSubmittedAt+total
+  // being set is exactly what loadBmFeedbackFormData/the report treat as "a
+  // complete, successful submission", so the caller (and the client's own
+  // error-recovery re-fetch) both quietly reported success while the actual
+  // scanned/PDF form silently never made it into Airtable. Uploading first
+  // means a failed attachment throws before any field is written — the BM
+  // gets a real error and can retry, instead of a record that looks done
+  // but is missing its source document.
+  await uploadAttachment(TABLE_NAMES.WorkTrials, workTrialId, F.WorkTrials.UPLOADED_FORM, file);
   await updateRecord(TABLE_NAMES.WorkTrials, workTrialId, {
     [F.WorkTrials.SCORE_TECHNICAL]: scores.technical,
     [F.WorkTrials.SCORE_PATIENT]: scores.patient,
@@ -154,15 +167,9 @@ export async function submitUploadedScores(
     [F.WorkTrials.PASS_FAIL]: submittedByRole === "BM" ? passFail : "Pending",
     [F.WorkTrials.FORM_SUBMITTED_AT]: new Date().toISOString(),
     [F.WorkTrials.SUBMITTED_BY_ROLE]: submittedByRole,
-    // SUBMISSION_METHOD omitted — field not yet in the Airtable base.
-    // Add a "Submission Method" single-select field (options: Online, Uploaded)
-    // to Work Trials and uncomment: [F.WorkTrials.SUBMISSION_METHOD]: "Uploaded"
+    [F.WorkTrials.SUBMISSION_METHOD]: "Uploaded",
     [F.WorkTrials.OVERALL_RECOMMENDATION]: overallRecommendation,
   });
-  // Separate API call (different Airtable host/endpoint) — do this after the
-  // field update succeeds so a failed upload doesn't leave scores half-saved
-  // without at least the numbers being recorded.
-  await uploadAttachment(TABLE_NAMES.WorkTrials, workTrialId, F.WorkTrials.UPLOADED_FORM, file);
   return { total, passFail };
 }
 

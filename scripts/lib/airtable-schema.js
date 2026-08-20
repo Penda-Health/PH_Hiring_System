@@ -46,8 +46,13 @@ const F = {
     REGIONAL_MANAGER: "Regional Manager",
     CAPACITY: "Capacity",
     ACTIVE: "Active",
+    // Was missing from this table's field list below (field-names.ts had it,
+    // this script didn't) — a fresh base built via this script alone would
+    // have been unable to write it. Added alongside EXPANSION_BRANCH.
+    WORK_TRIAL_ACTIVE: "Work Trial Active",
     ADDRESS: "Address",
     MAP_PIN_URL: "Map Pin URL",
+    EXPANSION_BRANCH: "Expansion Branch",
   },
   Requisitions: {
     REQ_ID: "Req ID",
@@ -98,9 +103,14 @@ const F = {
     DATE_CLOSED: "Date Closed",
     EMPLOYMENT_TYPE: "Employment Type",
     NOTES: "Notes",
+    // Same drift as WORK_TRIAL_ACTIVE above — field-names.ts already had
+    // these, this script's table def didn't.
+    INTERNAL_FILL: "Internal Fill",
+    INTERNAL_FILL_NAME: "Internal Fill Name",
     REQUISITION: "Requisition",
     REQ_SUBMITTER_NAME: "Requisition Submitter Name",
     REQ_SUBMITTER_EMAIL: "Requisition Submitter Email",
+    REPLACEMENT_REQUISITION: "Replacement Requisition",
   },
   Candidates: {
     CAND_ID: "Cand ID",
@@ -279,8 +289,10 @@ const TABLES = [
       { name: F.Branches.REGIONAL_MANAGER, type: "singleLineText" },
       { name: F.Branches.CAPACITY, type: "number", options: intOpts },
       { name: F.Branches.ACTIVE, type: "checkbox", options: checkboxOpts },
+      { name: F.Branches.WORK_TRIAL_ACTIVE, type: "checkbox", options: checkboxOpts },
       { name: F.Branches.ADDRESS, type: "multilineText" },
       { name: F.Branches.MAP_PIN_URL, type: "url" },
+      { name: F.Branches.EXPANSION_BRANCH, type: "checkbox", options: checkboxOpts },
     ],
   },
   {
@@ -361,9 +373,12 @@ const TABLES = [
         options: choices(["Full-time", "Part-time", "Contract", "Reliever", "Locum"]),
       },
       { name: F.OpenRoles.NOTES, type: "multilineText" },
+      { name: F.OpenRoles.INTERNAL_FILL, type: "checkbox", options: checkboxOpts },
+      { name: F.OpenRoles.INTERNAL_FILL_NAME, type: "singleLineText" },
       { name: F.OpenRoles.REQUISITION, type: "multipleRecordLinks", linkedTable: "Requisitions" },
       { name: F.OpenRoles.REQ_SUBMITTER_NAME, type: "singleLineText" },
       { name: F.OpenRoles.REQ_SUBMITTER_EMAIL, type: "email" },
+      { name: F.OpenRoles.REPLACEMENT_REQUISITION, type: "multipleRecordLinks", linkedTable: "Requisitions" },
     ],
   },
   {

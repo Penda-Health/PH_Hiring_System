@@ -96,6 +96,14 @@ export function useRoleEditState(role: OpenRole | null) {
     updateOpenRole(role.id, { internalFillName: trimmed || undefined });
   }
 
+  // Links this internally-filled role to the Requisition raised to backfill
+  // the seat it vacated elsewhere — saves immediately (a select, not a
+  // text field, so no blur-to-save debounce needed like the fields above).
+  function linkReplacementRequisition(requisitionId: string | undefined) {
+    if (!role || !canEdit) return;
+    updateOpenRole(role.id, { replacementRequisitionId: requisitionId });
+  }
+
   return {
     canEdit,
     canManageRoles,
@@ -110,6 +118,7 @@ export function useRoleEditState(role: OpenRole | null) {
     setInternalFillName,
     handleInternalFillToggle,
     saveInternalFillName,
+    linkReplacementRequisition,
     localHcFilled,
     localHcApproved,
     setHcFilled,

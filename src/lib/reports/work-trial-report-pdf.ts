@@ -164,6 +164,13 @@ function scoreLabel(v: number | null): string {
   return v === null ? "—" : `${v}/100`;
 }
 
+// e.g. "Culture Observations (90/100)" — pairs the written notes with the
+// numeric rating they explain (same "x/100" convention as the scores table
+// above), rather than leaving the reader to flip back up to connect the two.
+function ratedHeading(label: string, score: number | null): string {
+  return score === null ? label : `${label} (${scoreLabel(score)})`;
+}
+
 function drawScoresTable(ctx: Ctx, data: WorkTrialReportData) {
   const rows: { label: string; weight: string; value: string }[] = [
     { label: "Culture", weight: "40%", value: scoreLabel(data.scoreCulture) },
@@ -220,14 +227,27 @@ function drawScoresTable(ctx: Ctx, data: WorkTrialReportData) {
   ctx.y -= bannerH + 24;
 }
 
-function drawParagraphSection(ctx: Ctx, heading: string, text: string | undefined) {
-  if (!text || !text.trim()) return;
+// Always renders the heading, even when there's no text — a blank
+// section on an online-path report (where all six fields are required at
+// submit time) is itself a signal worth surfacing rather than hiding, e.g.
+// a legacy record from before a field existed, or data that didn't save
+// correctly. Silently omitting it made those cases indistinguishable from
+// "nothing to show here", which is what prompted this change.
+function drawParagraphSection(ctx: Ctx, heading: string, text: string | undefined, placeholder = "No written notes captured for this section.") {
   drawSectionHeading(ctx, heading);
-  const lines = wrapText(text.trim(), ctx.regular, 10, CONTENT_W);
+  const body = text && text.trim() ? text.trim() : placeholder;
+  const isPlaceholder = body === placeholder;
+  const lines = wrapText(body, ctx.regular, 10, CONTENT_W);
   const lineH = 14;
   for (const line of lines) {
     ensureSpace(ctx, lineH);
-    ctx.page.drawText(line, { x: MARGIN, y: ctx.y - 10, size: 10, font: ctx.regular, color: CHARCOAL });
+    ctx.page.drawText(line, {
+      x: MARGIN,
+      y: ctx.y - 10,
+      size: 10,
+      font: ctx.regular,
+      color: isPlaceholder ? GREY : CHARCOAL,
+    });
     ctx.y -= lineH;
   }
   ctx.y -= 12;
@@ -295,9 +315,9 @@ async function generateOnlineReport(data: WorkTrialReportData): Promise<Uint8Arr
   const ctx = await buildCtx(doc);
 
   drawCoverContent(ctx, data);
-  drawParagraphSection(ctx, "Culture Observations", data.commentCulture);
-  drawParagraphSection(ctx, "Patient Experience Observations", data.commentPatient);
-  drawParagraphSection(ctx, "Technical Observations", data.commentTechnical);
+  drawParagraphSection(ctx, ratedHeading("Culture Observations", data.scoreCulture), data.commentCulture);
+  drawParagraphSection(ctx, ratedHeading("Patient Experience Observations", data.scorePatient), data.commentPatient);
+  drawParagraphSection(ctx, ratedHeading("Technical Observations", data.scoreTechnical), data.commentTechnical);
   drawParagraphSection(ctx, "Strengths", data.strengths);
   drawParagraphSection(ctx, "Areas of Development", data.areasOfDevelopment);
   drawParagraphSection(ctx, "Overall Recommendation", data.overallRecommendation);
@@ -323,6 +343,37 @@ async function generateUploadedReport(data: WorkTrialReportData): Promise<Uint8A
   drawParagraphSection(ctx, "Overall Recommendation", data.overallRecommendation);
   drawSignOff(ctx, data);
 
+  const file = data.uploadedFormFiles?.[0];
+
+  if (!file) {
+    // Submitted via the "upload a completed form" path, but no attachment
+    // is on record — most likely the attachment upload failed after the
+    // scores had already saved (see submitUploadedScores in
+    // bm-feedback-form.ts). Say so plainly rather than quietly rendering a
+    // report that just happens to have no source document attached — the
+    // detailed notes the BM wrote on the physical/PDF form aren't captured
+    // anywhere else in the system.
+    ensureSpace(ctx, 48);
+    const boxH = 40;
+    ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - boxH, width: CONTENT_W, height: boxH, color: rgb(1, 0.96, 0.9) });
+    ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - boxH, width: 3, height: boxH, color: RED });
+    const lines = wrapText(
+      "This trial was submitted with “upload a completed form”, but no attached file is on record — " +
+        "the source assessment form may be missing. Contact the branch to have it re-submitted.",
+      ctx.regular,
+      9,
+      CONTENT_W - 24
+    );
+    let ly = ctx.y - 14;
+    for (const line of lines) {
+      ctx.page.drawText(line, { x: MARGIN + 12, y: ly, size: 9, font: ctx.regular, color: CHARCOAL });
+      ly -= 12;
+    }
+    ctx.y -= boxH + 12;
+    drawFooter(ctx);
+    return doc.save();
+  }
+
   ensureSpace(ctx, 40);
   ctx.page.drawText("The uploaded assessment form follows this page.", {
     x: MARGIN,
@@ -333,8 +384,7 @@ async function generateUploadedReport(data: WorkTrialReportData): Promise<Uint8A
   });
   drawFooter(ctx);
 
-  const file = data.uploadedFormFiles?.[0];
-  if (file) {
+  {
     try {
       const res = await fetch(file.url);
       if (res.ok) {
@@ -374,6 +424,10 @@ function drawAttachmentFailureNote(ctx: Ctx, doc: PDFDocument, message: string) 
 }
 
 export async function generateWorkTrialReportPdf(data: WorkTrialReportData): Promise<Uint8Array> {
+  // submissionMethod is the authoritative signal (see bm-feedback-form.ts).
+  // Trials submitted before that field existed have it as null — fall back
+  // to inferring from file presence for those so old reports don't change.
   const hasUpload = Boolean(data.uploadedFormFiles && data.uploadedFormFiles.length > 0);
-  return hasUpload ? generateUploadedReport(data) : generateOnlineReport(data);
+  const method = data.submissionMethod ?? (hasUpload ? "Uploaded" : "Online");
+  return method === "Uploaded" ? generateUploadedReport(data) : generateOnlineReport(data);
 }

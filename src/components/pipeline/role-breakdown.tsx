@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { useRoleEditState, HC_STEP, formatHc } from "@/hooks/use-role-edit-state";
+import { ReplacementRequisitionPicker } from "@/components/roles/replacement-requisition-picker";
 import { daysOpen } from "@/lib/pipeline-helpers";
 import { CalendarDays, User, Briefcase, StickyNote, Minus, Plus } from "lucide-react";
 
@@ -45,7 +46,7 @@ export function RoleBreakdown({
   candidates: Candidate[];
   onSelectCandidate: (candidate: Candidate) => void;
 }) {
-  const { updateOpenRoleStatus } = useRecruitmentData();
+  const { updateOpenRoleStatus, requisitions, openRoles } = useRecruitmentData();
   const roleCandidates = candidates.filter((c) => c.roleId === role.id);
 
   const {
@@ -58,6 +59,7 @@ export function RoleBreakdown({
     setInternalFillName,
     handleInternalFillToggle,
     saveInternalFillName,
+    linkReplacementRequisition,
     localHcFilled,
     localHcApproved,
     setHcFilled,
@@ -162,14 +164,23 @@ export function RoleBreakdown({
             </Label>
           </div>
           {internalFill && (
-            <Input
-              value={internalFillName}
-              onChange={(e) => setInternalFillName(e.target.value)}
-              onBlur={saveInternalFillName}
-              placeholder="Name of person…"
-              className="text-sm h-8"
-              disabled={!canEdit}
-            />
+            <>
+              <Input
+                value={internalFillName}
+                onChange={(e) => setInternalFillName(e.target.value)}
+                onBlur={saveInternalFillName}
+                placeholder="Name of person…"
+                className="text-sm h-8"
+                disabled={!canEdit}
+              />
+              <ReplacementRequisitionPicker
+                role={role}
+                requisitions={requisitions}
+                openRoles={openRoles}
+                canEdit={canEdit}
+                onLink={linkReplacementRequisition}
+              />
+            </>
           )}
         </div>
       </div>

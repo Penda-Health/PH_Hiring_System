@@ -617,6 +617,57 @@ create policy deleted_items_manager_only on public.deleted_items for all
 
 ---
 
+## 4.9 Expansion Tracker (`/expansion`)
+
+A filtered view of the Open Roles Register scoped to branches flagged as
+expansion branches (currently Kinoo and G44), with a special way of showing
+whether a seat vacated by an internal move has a replacement raised yet.
+
+New Airtable columns — added automatically by `npm run airtable:schema` (see
+1.3), no manual Airtable setup needed:
+
+- **Branches** table: **Expansion Branch** (checkbox) — flips a branch's
+  roles into scope for `/expansion`. It's the flag that drives inclusion, not
+  the branch name, so any future expansion branch just needs this checked;
+  no code change required. Kinoo and G44 need their own rows in the
+  `Branches` table with this checked — they don't exist as real branches yet,
+  so run `npm run airtable:add-expansion-branches` once to create them as
+  placeholder rows (name + region only, safe to re-run — it skips any branch
+  name that already exists) until real branch details (manager, capacity,
+  etc.) are known.
+- **Open Roles** table: **Replacement Requisition** (link to `Requisitions`)
+  — set when an internally-filled expansion role's `Internal Fill` checkbox
+  is on and someone links (or raises, via "+ Raise the replacement
+  requisition" on the role) the requisition backfilling the seat that person
+  vacated.
+
+### How replacement status is derived
+
+Deliberately **not** a manually-set status field, to avoid it drifting out
+of sync with reality. `resolveReplacementStatus()`
+(`src/lib/expansion-helpers.ts`) computes it live, every render, from:
+
+1. Whether the role is internally filled at all (`Internal Fill` checkbox) —
+   if not, there's nothing to derive; the badge shows nothing.
+2. If internally filled but no requisition is linked yet → **Needs
+   Replacement**.
+3. Once linked, the linked requisition's own `status` → **Pending Approval**
+   / **Approved** / **Rejected**.
+4. Once that requisition is `Converted to Open Role`, the resulting backfill
+   `Open Role`'s own headcount (`headcountRemaining()`) → **In Pipeline**
+   (still short) or **Backfilled** (fully filled).
+
+`ReplacementStatusBadge` and `FillTypeBadge`
+(`src/components/roles/`) render this and the Internal/External/Unfilled
+split; `ReplacementRequisitionPicker` is the shared widget (used by both the
+role dialog and the pipeline breakdown panel, same convention as the rest of
+the internal-fill UI) for linking an existing eligible requisition or
+jumping to `/requisitions/new/ips` or `/requisitions/new/so` with a
+`linkRoleId` query param — submitting that form auto-links the new
+requisition back to the role and returns to `/expansion`.
+
+---
+
 ## 4.5 Public forms (work-trial branch selection, BM feedback, referee check)
 
 Three no-login forms exist so far, all token-protected instead of behind
@@ -708,17 +759,23 @@ now), and a `/forms/test` dev harness.
 ### 4.5.4 Work-trial form: online vs. uploaded
 
 On `/bm-feedback`, after picking BM/In-Charge, the submitter chooses **Fill
-out online** (the original flow — six detailed 250-char write-ups) or
-**Upload a completed form** (paper/PDF form already filled out). The upload
-path still requires the three numeric scores (scored identically — same
-weighted formula, same auto-fail rule, same Pass/Fail), but replaces the six
-detailed fields with one shorter "Overall Recommendation" (100+ characters)
-plus the uploaded file itself.
+out online** (the original flow — six detailed write-ups, 150+ characters
+each — lowered from 250 to reduce padding and abandonment) or **Upload a
+completed form** (paper/PDF form already filled out). The upload path still
+requires the three numeric scores (scored identically — same weighted
+formula, same auto-fail rule, same Pass/Fail), but replaces the six detailed
+fields with one shorter "Overall Recommendation" (100+ characters) plus the
+uploaded file itself.
 
 Two new fields on the `Work Trials` table back this — added automatically by
 `npm run airtable:schema` (see 1.3), no manual Airtable setup needed:
 
-- **Submission Method** (single select: `Online` / `Uploaded`)
+- **Submission Method** (single select: `Online` / `Uploaded`) — set by
+  `submitScores`/`submitUploadedScores` in `bm-feedback-form.ts` and read by
+  `generateWorkTrialReportPdf` (`src/lib/reports/work-trial-report-pdf.ts`) to
+  pick a report layout. Trials submitted before this field was wired up read
+  as blank; the report falls back to inferring the method from whether an
+  uploaded file is present.
 - **Uploaded Form** (attachment)
 
 The uploaded file is sent straight to Airtable's attachment-upload endpoint
@@ -726,6 +783,14 @@ The uploaded file is sent straight to Airtable's attachment-upload endpoint
 `src/lib/airtable/client.ts`) as base64 — no separate file host is needed,
 and the existing `data.records:write` PAT scope from 1.2 already covers it.
 Max file size is 10MB; PDF/JPG/PNG only.
+
+The attachment is uploaded **before** the scores/`Form Submitted At` are
+written, deliberately — an earlier version did this the other way round, so
+a failed attachment upload (network blip, Airtable hiccup) still left the
+trial looking fully and successfully submitted, with no attachment and no
+record anything went wrong. If the attachment step fails now, the whole
+submission fails and the BM/Incharge sees a real error to retry, instead of
+a record that silently has scores but no source document.
 
 ### 4.5.5 Autosave / draft resume on the BM feedback form
 
@@ -920,3 +985,4 @@ change silently failing.
 | Make.com scenario blueprints | ⏳ next phase |
 | Africa's Talking SMS | ⏳ next phase |
 | AI assistant ("Penny") — Groq/Gemini/Cloudflare, agentic actions | ✅ section 7 (app side) / ⏳ you add the API keys |
+| Expansion Tracker (Kinoo, G44) | ✅ section 4.9 (app side) / ⏳ run `npm run airtable:add-expansion-branches` once to create the two branch rows |

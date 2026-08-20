@@ -71,6 +71,9 @@ const config: Config = {
         so: { bg: "#E6F1FB", fg: "#0C447C" },
         critical: { bg: "#FCEBEB", fg: "#A32D2D" },
         high: { bg: "#FAEEDA", fg: "#633806" },
+        // Resolved/positive state — currently only used for "Backfilled" on
+        // the Expansion Tracker's replacement-status badge.
+        success: { bg: "#E3F5E9", fg: "#1B6B3C" },
       },
       borderRadius: {
         lg: "var(--radius)",

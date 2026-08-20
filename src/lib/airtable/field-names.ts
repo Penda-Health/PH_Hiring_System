@@ -33,6 +33,7 @@ export const F = {
     WORK_TRIAL_ACTIVE: "Work Trial Active",
     ADDRESS: "Address",
     MAP_PIN_URL: "Map Pin URL",
+    EXPANSION_BRANCH: "Expansion Branch",
   },
   Requisitions: {
     REQ_ID: "Req ID",
@@ -88,6 +89,7 @@ export const F = {
     REQUISITION: "Requisition",
     REQ_SUBMITTER_NAME: "Requisition Submitter Name",
     REQ_SUBMITTER_EMAIL: "Requisition Submitter Email",
+    REPLACEMENT_REQUISITION: "Replacement Requisition",
   },
   Candidates: {
     CAND_ID: "Cand ID",

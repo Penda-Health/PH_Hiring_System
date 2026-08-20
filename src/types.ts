@@ -81,6 +81,8 @@ export interface Branch {
   workTrialActive: boolean;
   address: string;
   mapPinUrl: string;
+  /** True while this branch is in the expansion phase (e.g. Kinoo, G44) — drives the Expansion Tracker's branch scoping. */
+  expansionBranch?: boolean;
 }
 
 /** Day-of-week names matching the Airtable multipleSelects choices. */
@@ -181,6 +183,14 @@ export interface OpenRole {
   notes?: string;
   internalFill?: boolean;
   internalFillName?: string;
+  /**
+   * Set when this role was filled internally: points at the Requisition
+   * raised to backfill the vacancy that internal move created elsewhere.
+   * Its status (and, once converted, the resulting OpenRole's headcount)
+   * is what the Expansion Tracker's "pending replacement" badge derives
+   * from — see resolveReplacementStatus() in expansion-helpers.ts.
+   */
+  replacementRequisitionId?: string;
   requisitionId?: string;
   requisitionSubmitterName?: string;
   requisitionSubmitterEmail?: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { GapReason, EmploymentType, Priority, Requisition } from "@/types";
@@ -27,16 +27,33 @@ const EMPLOYMENT_TYPES: EmploymentType[] = ["Full-time", "Part-time", "Contract"
 const URGENCIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 
 export default function NewIpsGapRequisitionPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <NewIpsGapRequisitionForm />
+    </React.Suspense>
+  );
+}
+
+function NewIpsGapRequisitionForm() {
   const router = useRouter();
   const { user } = useAuth();
-  const { createRequisition, branches, openRoles } = useRecruitmentData();
+  const { createRequisition, updateOpenRole, branches, openRoles } = useRecruitmentData();
+  const searchParams = useSearchParams();
+  // Set when this requisition is being raised to backfill a seat vacated by
+  // an internal move into an expansion role — see ReplacementRequisitionPicker.
+  // On submit we link it back to that role and land on the Expansion Tracker
+  // instead of the generic Requisition Intake list.
+  const linkRoleId = searchParams.get("linkRoleId");
 
   const roleTitleSuggestions = React.useMemo(() => {
     const existing = openRoles.filter((r) => r.segment === "IPS").map((r) => r.title);
     return Array.from(new Set([...IPS_ROLES, ...existing])).sort((a, b) => a.localeCompare(b));
   }, [openRoles]);
 
-  const [gapReason, setGapReason] = React.useState<GapReason>("New Addition");
+  const gapReasonParam = searchParams.get("gapReason");
+  const initialGapReason: GapReason =
+    gapReasonParam === "Transfer" || gapReasonParam === "Promotion" ? gapReasonParam : "New Addition";
+  const [gapReason, setGapReason] = React.useState<GapReason>(initialGapReason);
   const [roleTitle, setRoleTitle] = React.useState("");
   const [department, setDepartment] = React.useState("");
   const [branchId, setBranchId] = React.useState(branches[0]?.id ?? "");
@@ -80,8 +97,13 @@ export default function NewIpsGapRequisitionPage() {
     };
     setSubmitting(true);
     try {
-      await createRequisition(req);
-      router.push("/requisitions");
+      const created = await createRequisition(req);
+      if (linkRoleId) {
+        updateOpenRole(linkRoleId, { replacementRequisitionId: created.id });
+        router.push("/expansion");
+      } else {
+        router.push("/requisitions");
+      }
     } catch {
       setError("Something went wrong submitting this requisition. Please try again.");
     } finally {
@@ -95,6 +117,12 @@ export default function NewIpsGapRequisitionPage() {
         <h1 className="text-2xl font-semibold">IPS Gap Requisition</h1>
         <p className="text-sm text-muted-foreground">Request a replacement or new headcount for an in-patient services role.</p>
       </div>
+
+      {linkRoleId && (
+        <div className="rounded-md border border-penda-blue/30 bg-penda-blue/5 px-3 py-2 text-sm text-penda-blue">
+          Submitting this will automatically link it as the replacement requisition on the Expansion Tracker role you came from.
+        </div>
+      )}
 
       <Card>
         <CardHeader>

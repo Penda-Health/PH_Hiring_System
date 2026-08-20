@@ -17,6 +17,8 @@ import { Minus, Plus, Pencil, Check, X } from "lucide-react";
 import { daysInStage } from "@/lib/pipeline-helpers";
 import { candidatesForRole } from "@/lib/roles-helpers";
 import { useRoleEditState, HC_STEP, formatHc } from "@/hooks/use-role-edit-state";
+import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
+import { ReplacementRequisitionPicker } from "@/components/roles/replacement-requisition-picker";
 
 const ALL_STAGES: CandidateStage[] = [
   "First Interview",
@@ -45,6 +47,7 @@ export function RoleCandidatesDialog({
   onOpenChange: (open: boolean) => void;
   onSelectCandidate: (candidate: Candidate) => void;
 }) {
+  const { requisitions, openRoles } = useRecruitmentData();
   const roleCandidates = role ? candidatesForRole(role.id, candidates) : [];
 
   // Candidates with no role assigned, in the same department, still active in pipeline
@@ -71,6 +74,7 @@ export function RoleCandidatesDialog({
     setInternalFillName,
     handleInternalFillToggle: saveInternalFill,
     saveInternalFillName,
+    linkReplacementRequisition,
     localHcFilled,
     localHcApproved,
     setHcFilled,
@@ -216,17 +220,26 @@ export function RoleCandidatesDialog({
               </div>
 
               {internalFill && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Name of person</Label>
-                  <Input
-                    value={internalFillName}
-                    onChange={(e) => setInternalFillName(e.target.value)}
-                    onBlur={saveInternalFillName}
-                    placeholder="Enter name…"
-                    className="text-sm h-8"
-                    disabled={!canEdit}
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Name of person</Label>
+                    <Input
+                      value={internalFillName}
+                      onChange={(e) => setInternalFillName(e.target.value)}
+                      onBlur={saveInternalFillName}
+                      placeholder="Enter name…"
+                      className="text-sm h-8"
+                      disabled={!canEdit}
+                    />
+                  </div>
+                  <ReplacementRequisitionPicker
+                    role={role}
+                    requisitions={requisitions}
+                    openRoles={openRoles}
+                    canEdit={canEdit}
+                    onLink={linkReplacementRequisition}
                   />
-                </div>
+                </>
               )}
             </div>
 

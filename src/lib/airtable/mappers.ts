@@ -63,6 +63,7 @@ export function branchFromAirtable(r: AirtableRecord): Branch {
     workTrialActive: bool(f[F.Branches.WORK_TRIAL_ACTIVE]),
     address: str(f[F.Branches.ADDRESS]),
     mapPinUrl: str(f[F.Branches.MAP_PIN_URL]),
+    expansionBranch: f[F.Branches.EXPANSION_BRANCH] === true,
   };
 }
 export function branchToAirtable(b: Partial<Branch>) {
@@ -77,8 +78,12 @@ export function branchToAirtable(b: Partial<Branch>) {
     [F.Branches.REGIONAL_MANAGER]: b.regionalManager,
     [F.Branches.CAPACITY]: b.capacity,
     [F.Branches.ACTIVE]: b.active,
+    // Was missing here even though it's read in branchFromAirtable above —
+    // workTrialActive could never actually be written back via the API.
+    [F.Branches.WORK_TRIAL_ACTIVE]: b.workTrialActive,
     [F.Branches.ADDRESS]: b.address,
     [F.Branches.MAP_PIN_URL]: b.mapPinUrl,
+    [F.Branches.EXPANSION_BRANCH]: b.expansionBranch,
   });
 }
 
@@ -176,6 +181,7 @@ export function openRoleFromAirtable(r: AirtableRecord): OpenRole {
     notes: opt(f[F.OpenRoles.NOTES]),
     internalFill: f[F.OpenRoles.INTERNAL_FILL] === true,
     internalFillName: opt(f[F.OpenRoles.INTERNAL_FILL_NAME]),
+    replacementRequisitionId: firstLink(f[F.OpenRoles.REPLACEMENT_REQUISITION]),
     requisitionId: firstLink(f[F.OpenRoles.REQUISITION]),
     requisitionSubmitterName: opt(f[F.OpenRoles.REQ_SUBMITTER_NAME]),
     requisitionSubmitterEmail: opt(f[F.OpenRoles.REQ_SUBMITTER_EMAIL]),
@@ -202,6 +208,8 @@ export function openRoleToAirtable(r: Partial<OpenRole>) {
     [F.OpenRoles.NOTES]: r.notes,
     [F.OpenRoles.INTERNAL_FILL]: r.internalFill,
     [F.OpenRoles.INTERNAL_FILL_NAME]: r.internalFillName,
+    [F.OpenRoles.REPLACEMENT_REQUISITION]:
+      r.replacementRequisitionId !== undefined ? link(r.replacementRequisitionId) : undefined,
     [F.OpenRoles.REQUISITION]: r.requisitionId !== undefined ? link(r.requisitionId) : undefined,
     [F.OpenRoles.REQ_SUBMITTER_NAME]: r.requisitionSubmitterName,
     [F.OpenRoles.REQ_SUBMITTER_EMAIL]: r.requisitionSubmitterEmail,

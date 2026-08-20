@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "airtable:schema": "node scripts/build-airtable-schema.js",
-    "airtable:seed": "tsx scripts/seed-airtable.js"
+    "airtable:seed": "tsx scripts/seed-airtable.js",
+    "airtable:add-expansion-branches": "node scripts/add-expansion-branches.js"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.2",

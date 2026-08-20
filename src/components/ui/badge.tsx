@@ -17,6 +17,7 @@ const badgeVariants = cva(
         so: "border-transparent bg-so-bg text-so-fg",
         critical: "border-transparent bg-critical-bg text-critical-fg",
         high: "border-transparent bg-high-bg text-high-fg",
+        success: "border-transparent bg-success-bg text-success-fg",
       },
     },
     defaultVariants: {

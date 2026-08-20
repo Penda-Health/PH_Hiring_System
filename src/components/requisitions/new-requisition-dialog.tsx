@@ -27,7 +27,7 @@ export function NewRequisitionDialog({
   submittedBy,
   branches,
 }: {
-  onCreate: (req: Requisition) => Promise<void>;
+  onCreate: (req: Requisition) => Promise<Requisition>;
   submittedBy: string;
   branches: Branch[];
 }) {

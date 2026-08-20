@@ -16,6 +16,8 @@ export const branchSchema = z.object({
   regionalManager: z.string().trim().min(1).max(150),
   capacity: z.number().int().min(0).max(1000),
   active: z.boolean(),
+  workTrialActive: z.boolean().optional(),
+  expansionBranch: z.boolean().optional(),
 });
 
 export const requisitionSchema = z.object({
@@ -106,6 +108,7 @@ export const openRoleSchema = z.object({
   notes: z.string().trim().max(2000).optional(),
   internalFill: z.boolean().optional(),
   internalFillName: z.string().trim().max(150).optional(),
+  replacementRequisitionId: z.string().max(50).optional(),
   requisitionId: z.string().max(50).optional(),
   requisitionSubmitterName: z.string().trim().max(150).optional(),
   requisitionSubmitterEmail: z.string().trim().max(255).optional(),

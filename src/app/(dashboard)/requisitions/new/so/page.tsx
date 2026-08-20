@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { RequisitionType, RequisitionLevel, VacancyReasonType, Priority, Requisition } from "@/types";
@@ -28,16 +28,29 @@ const NEW_ROLE_CHAIN = ["Hiring Manager", "HOD", "HRBP", "HR Ops", "Director of 
 const REPLACEMENT_CHAIN = ["Hiring Manager", "HOD", "Director of People"];
 
 export default function NewSoRequisitionPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <NewSoRequisitionForm />
+    </React.Suspense>
+  );
+}
+
+function NewSoRequisitionForm() {
   const router = useRouter();
   const { user } = useAuth();
-  const { createRequisition, openRoles } = useRecruitmentData();
+  const { createRequisition, updateOpenRole, openRoles } = useRecruitmentData();
+  const searchParams = useSearchParams();
+  // See the IPS Gap requisition page for the matching half of this flow —
+  // ReplacementRequisitionPicker sends recruiters here to raise the backfill
+  // for a seat an internal move vacated, and expects to be linked back.
+  const linkRoleId = searchParams.get("linkRoleId");
 
   const roleTitleSuggestions = React.useMemo(
     () => Array.from(new Set(openRoles.filter((r) => r.segment === "SO").map((r) => r.title))).sort((a, b) => a.localeCompare(b)),
     [openRoles]
   );
 
-  const [type, setType] = React.useState<RequisitionType>("SO New Role");
+  const [type, setType] = React.useState<RequisitionType>(linkRoleId ? "SO Replacement" : "SO New Role");
   const [roleTitle, setRoleTitle] = React.useState("");
   const [department, setDepartment] = React.useState("");
   const [headcount, setHeadcount] = React.useState(1);
@@ -50,7 +63,9 @@ export default function NewSoRequisitionPage() {
   const [urgency, setUrgency] = React.useState<Priority>("Medium");
   const [expectedStartDate, setExpectedStartDate] = React.useState("");
 
-  const [reasonType, setReasonType] = React.useState<VacancyReasonType>("Resignation");
+  const [reasonType, setReasonType] = React.useState<VacancyReasonType>(
+    linkRoleId ? "Internal Promotion" : "Resignation"
+  );
   const [jdStillCurrent, setJdStillCurrent] = React.useState(true);
   const [context, setContext] = React.useState("");
 
@@ -93,8 +108,13 @@ export default function NewSoRequisitionPage() {
     };
     setSubmitting(true);
     try {
-      await createRequisition(req);
-      router.push("/requisitions");
+      const created = await createRequisition(req);
+      if (linkRoleId) {
+        updateOpenRole(linkRoleId, { replacementRequisitionId: created.id });
+        router.push("/expansion");
+      } else {
+        router.push("/requisitions");
+      }
     } catch {
       setError("Something went wrong submitting this requisition. Please try again.");
     } finally {
@@ -108,6 +128,12 @@ export default function NewSoRequisitionPage() {
         <h1 className="text-2xl font-semibold">Support Office Requisition</h1>
         <p className="text-sm text-muted-foreground">Request a new support-office role or a replacement for one that&apos;s left.</p>
       </div>
+
+      {linkRoleId && (
+        <div className="rounded-md border border-penda-blue/30 bg-penda-blue/5 px-3 py-2 text-sm text-penda-blue">
+          Submitting this will automatically link it as the replacement requisition on the Expansion Tracker role you came from.
+        </div>
+      )}
 
       <Card>
         <CardHeader>

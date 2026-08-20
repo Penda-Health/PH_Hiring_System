@@ -10,6 +10,7 @@ import {
   Users,
   Settings,
   CalendarRange,
+  TrendingUp,
 } from "lucide-react";
 import { UserRoleName } from "@/types";
 
@@ -30,6 +31,7 @@ export const sidebarNavItems: {
   { href: "/reference-checks", label: "Reference Checks", icon: PhoneCall },
   { href: "/offers", label: "Offer Tracker", icon: HandCoins },
   { href: "/pools", label: "Relievers & Locums", icon: Users },
+  { href: "/expansion", label: "Expansion Tracker", icon: TrendingUp, group: "Expansion" },
   { href: "/ips-meeting", label: "IPS Meeting Board", icon: CalendarRange, group: "IPS" },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["recruitment_manager"] },
 ];
