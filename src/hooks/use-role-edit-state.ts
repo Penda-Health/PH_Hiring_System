@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { OpenRole } from "@/types";
+import { Branch, OpenRole } from "@/types";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 
 /**
@@ -22,7 +22,7 @@ export function formatHc(n: number): string {
 }
 
 export function useRoleEditState(role: OpenRole | null) {
-  const { updateOpenRole, canEdit, canManageRoles } = useRecruitmentData();
+  const { updateOpenRole, createOpenRole, branches, canEdit, canManageRoles } = useRecruitmentData();
 
   const [title, setTitle] = React.useState(role?.title ?? "");
   const [notes, setNotes] = React.useState(role?.notes ?? "");
@@ -68,6 +68,73 @@ export function useRoleEditState(role: OpenRole | null) {
 
   function setHcFilled(n: number) { applyHcChange(n, localHcApproved); }
   function setHcApproved(n: number) { applyHcChange(localHcFilled, n); }
+
+  // A "group" role's headcount is split across more than one branch at
+  // once (location reads "Multiple Locations") — closing one of its gaps
+  // shouldn't just bump the shared HC Filled counter, because that loses
+  // *which* branch got filled. Instead the UI should prompt for a branch
+  // (see CloseGroupGapDialog) and call closeGroupGap below.
+  const isGroupRole = (role?.branchIds?.length ?? 0) > 1;
+  const groupBranches: Branch[] = role?.branchIds
+    ? branches.filter((b) => role.branchIds!.includes(b.id))
+    : [];
+
+  /**
+   * Carves one branch's seat out of a group role: creates a new
+   * single-branch role for it (Filled, HC = amount), and shrinks the
+   * group role's branch list / approved headcount by the same amount —
+   * mirroring the manual per-branch split the register already supports
+   * (see the Branch Manager · Kinoo/G44 cleanup). The group's own HC
+   * Filled is left untouched — the fill now lives on the split-off role,
+   * not on the shared counter.
+   */
+  async function closeGroupGap(branchId: string, amount: number) {
+    if (!role || !canEdit || !isGroupRole) return;
+    const branch = branches.find((b) => b.id === branchId);
+    if (!branch) return;
+
+    const remainingIds = (role.branchIds ?? []).filter((id) => id !== branchId);
+    const remainingBranches = branches.filter((b) => remainingIds.includes(b.id));
+    const newApproved = Math.max(0, roundToHalf(role.hcApproved - amount));
+    const now = new Date().toISOString();
+
+    await createOpenRole({
+      id: "",
+      roleId: "",
+      title: role.title,
+      segment: role.segment,
+      department: role.department,
+      location: branch.name,
+      branchId: branch.id,
+      branchIds: [branch.id],
+      priority: role.priority,
+      status: "Filled",
+      hcApproved: amount,
+      hcFilled: amount,
+      recruiter: role.recruiter,
+      hiringManager: branch.branchManager || role.hiringManager,
+      hiringManagerEmail: role.hiringManagerEmail,
+      datePosted: role.datePosted,
+      dateClosed: now,
+      employmentType: role.employmentType,
+      cadre: role.cadre,
+      notes: `Split from "${role.title}" (${role.roleId}, Multiple Locations) — ${branch.name} seat filled.`,
+    });
+
+    updateOpenRole(role.id, {
+      branchIds: remainingIds,
+      branchId: remainingIds[0],
+      location:
+        remainingBranches.length === 1
+          ? remainingBranches[0].name
+          : remainingBranches.length === 0
+            ? role.location
+            : "Multiple Locations",
+      hcApproved: newApproved,
+      status: newApproved <= 0 ? "Filled" : role.status,
+      ...(newApproved <= 0 ? { dateClosed: now } : {}),
+    });
+  }
 
   function saveTitle() {
     if (!role || !canManageRoles) return;
@@ -123,5 +190,8 @@ export function useRoleEditState(role: OpenRole | null) {
     localHcApproved,
     setHcFilled,
     setHcApproved,
+    isGroupRole,
+    groupBranches,
+    closeGroupGap,
   };
 }

@@ -199,6 +199,14 @@ export function link(recordId?: string | null): string[] | undefined {
   return recordId ? [recordId] : undefined;
 }
 
+// Multi-id counterpart to link() — for writing a full multipleRecordLinks
+// list back (e.g. OpenRole.branchIds), not just a single id. An empty array
+// is a deliberate "clear the link field" write, not "leave it alone" —
+// callers that mean the latter should pass undefined instead.
+export function links(recordIds?: string[]): string[] | undefined {
+  return recordIds;
+}
+
 export function firstLink(value: unknown): string | undefined {
   return Array.isArray(value) && value.length > 0 ? String(value[0]) : undefined;
 }

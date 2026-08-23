@@ -20,7 +20,7 @@ import {
   WorkTrialRoleCategory,
   StaffingProjection,
 } from "@/types";
-import { AirtableRecord, allLinks, cleanFields, firstLink, link } from "./client";
+import { AirtableRecord, allLinks, cleanFields, firstLink, link, links } from "./client";
 import { F } from "./field-names";
 
 function str(v: unknown): string {
@@ -201,7 +201,11 @@ export function openRoleToAirtable(r: Partial<OpenRole>) {
     [F.OpenRoles.SEGMENT]: r.segment,
     [F.OpenRoles.DEPARTMENT]: r.department,
     [F.OpenRoles.LOCATION]: r.location,
-    [F.OpenRoles.BRANCH]: r.branchId !== undefined ? link(r.branchId) : undefined,
+    // branchIds (the full multi-branch link list) wins when present — a
+    // group role writes its whole branch set through this path. Falls back
+    // to the single-branch link() write for every existing call site that
+    // only ever set branchId.
+    [F.OpenRoles.BRANCH]: r.branchIds !== undefined ? links(r.branchIds) : r.branchId !== undefined ? link(r.branchId) : undefined,
     [F.OpenRoles.PRIORITY]: r.priority,
     [F.OpenRoles.STATUS]: r.status,
     [F.OpenRoles.HC_APPROVED]: r.hcApproved,

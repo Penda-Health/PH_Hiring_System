@@ -94,6 +94,11 @@ export const openRoleSchema = z.object({
   department: z.string().trim().min(1).max(200),
   location: z.string().trim().min(1).max(300),
   branchId: z.string().max(100).optional(),
+  // Full multi-branch link list for a "group" role split across several
+  // branches at once — see OpenRole.branchIds. Optional/empty is valid: a
+  // normal single-branch role never sets this, and closing a group role's
+  // last gap clears it back to [].
+  branchIds: z.array(z.string().max(100)).optional(),
   priority,
   status: z.enum(["Open", "Allocated", "Filled", "On Hold", "Cancelled"]),
   // 0.5 increments, not just whole numbers — some roles are shared across

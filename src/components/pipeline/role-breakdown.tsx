@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { useRoleEditState, HC_STEP, formatHc } from "@/hooks/use-role-edit-state";
 import { ReplacementRequisitionPicker } from "@/components/roles/replacement-requisition-picker";
+import { CloseGroupGapDialog } from "@/components/roles/close-group-gap-dialog";
 import { daysOpen } from "@/lib/pipeline-helpers";
 import { CalendarDays, User, Briefcase, StickyNote, Minus, Plus } from "lucide-react";
 
@@ -64,7 +65,12 @@ export function RoleBreakdown({
     localHcApproved,
     setHcFilled,
     setHcApproved,
+    isGroupRole,
+    groupBranches,
+    closeGroupGap,
   } = useRoleEditState(role);
+
+  const [gapPromptOpen, setGapPromptOpen] = React.useState(false);
 
   const hasCandidates = roleCandidates.length > 0;
   const byStage = (stage: CandidateStage) => roleCandidates.filter((c) => c.stage === stage);
@@ -93,8 +99,10 @@ export function RoleBreakdown({
               <Minus className="h-3 w-3" />
             </button>
             <span className="min-w-[3ch] text-center font-semibold tabular-nums">{formatHc(localHcFilled)}</span>
-            <button type="button" onClick={() => setHcFilled(localHcFilled + HC_STEP)}
+            <button type="button"
+              onClick={() => isGroupRole ? setGapPromptOpen(true) : setHcFilled(localHcFilled + HC_STEP)}
               disabled={!canEdit || localHcFilled >= localHcApproved}
+              title={isGroupRole ? "Close a gap — you'll be asked which branch" : undefined}
               className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
               <Plus className="h-3 w-3" />
             </button>
@@ -208,6 +216,13 @@ export function RoleBreakdown({
           </p>
         </div>
       )}
+
+      <CloseGroupGapDialog
+        open={gapPromptOpen}
+        onOpenChange={setGapPromptOpen}
+        branches={groupBranches}
+        onConfirm={closeGroupGap}
+      />
     </div>
   );
 }

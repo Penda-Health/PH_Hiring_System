@@ -60,6 +60,12 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
   const [employmentType, setEmploymentType] = React.useState("");
   const [hiringManagerEmail, setHiringManagerEmail] = React.useState("");
   const [selectedBranch, setSelectedBranch] = React.useState<Branch | null>(null);
+  // "Group role" mode — one role's headcount split across several branches
+  // at once (location reads "Multiple Locations"), e.g. a Nurse In-Charge
+  // opening posted across a cluster of branches simultaneously. IPS only —
+  // SO roles use free-text location, there's no branch list to pick from.
+  const [multiBranch, setMultiBranch] = React.useState(false);
+  const [selectedBranchIds, setSelectedBranchIds] = React.useState<string[]>([]);
   // How this seat will be filled — "internal" means someone's being pulled
   // off an existing role/branch to take it, which opens a gap elsewhere
   // that needs its own backfill (e.g. adding a Pharmtech Incharge by
@@ -80,6 +86,8 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
     setEmploymentType("");
     setHiringManagerEmail("");
     setSelectedBranch(null);
+    setMultiBranch(false);
+    setSelectedBranchIds([]);
     setFillPlan("external");
   }
 
@@ -105,7 +113,37 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
     setEmploymentType("");
     setHiringManagerEmail("");
     setSelectedBranch(null);
+    setMultiBranch(false);
+    setSelectedBranchIds([]);
     setFillPlan("external");
+  }
+
+  // Toggling group-role mode on/off swaps which branch field(s) actually
+  // drive location — clear whichever isn't in use so a stale single/multi
+  // selection can't leak into the submitted role.
+  function handleMultiBranchToggle(on: boolean) {
+    setMultiBranch(on);
+    setSelectedBranch(null);
+    setSelectedBranchIds([]);
+    setForm((f) => ({ ...f, branchId: undefined, location: "" }));
+  }
+
+  function toggleGroupBranch(branchId: string) {
+    setSelectedBranchIds((prev) => {
+      const next = prev.includes(branchId) ? prev.filter((id) => id !== branchId) : [...prev, branchId];
+      const names = branches.filter((b) => next.includes(b.id)).map((b) => b.name);
+      setForm((f) => ({
+        ...f,
+        branchId: next[0],
+        location: next.length > 1 ? "Multiple Locations" : names[0] || "",
+        // Default HC Approved to "one opening per branch" — the common
+        // case — but only while the user hasn't already typed a different
+        // number in, so their edit isn't silently clobbered by a later
+        // checkbox click.
+        hcApproved: f.hcApproved === prev.length || f.hcApproved === 1 ? Math.max(1, next.length) : f.hcApproved,
+      }));
+      return next;
+    });
   }
 
   // Autocomplete suggestions — segment-scoped
@@ -144,6 +182,7 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
         notes: notes.trim() || undefined,
         employmentType: (employmentType as OpenRole["employmentType"]) || undefined,
         internalFill: fillPlan === "internal",
+        ...(multiBranch ? { branchIds: selectedBranchIds } : {}),
       };
       const created = await onCreate(role);
       setOpen(false);
@@ -301,43 +340,88 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
 
           {/* ── Branch / Location ─────────────────────────── */}
           <div className="space-y-1.5">
-            <Label>{segment === "IPS" ? "Branch" : "Location"}</Label>
-            {segment === "IPS" ? (
-              <>
-                <Select
-                  value={selectedBranch?.id ?? ""}
-                  onValueChange={handleBranchSelect}
+            <div className="flex items-center justify-between">
+              <Label>{segment === "IPS" ? "Branch" : "Location"}</Label>
+              {segment === "IPS" && (
+                <button
+                  type="button"
+                  onClick={() => handleMultiBranchToggle(!multiBranch)}
+                  className="text-xs font-medium text-penda-blue hover:underline"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select branch…" />
-                  </SelectTrigger>
-                  <SelectContent>
+                  {multiBranch ? "Switch to single branch" : "This is a group role (multiple branches)"}
+                </button>
+              )}
+            </div>
+            {segment === "IPS" ? (
+              multiBranch ? (
+                <>
+                  <div className="max-h-48 overflow-y-auto rounded-md border border-border divide-y">
                     {branches
                       .filter((b) => b.active && b.segment === "IPS")
                       .sort((a, b) => a.name.localeCompare(b.name))
                       .map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          <span className="font-medium">{b.name}</span>
+                        <label
+                          key={b.id}
+                          className="flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer hover:bg-muted"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedBranchIds.includes(b.id)}
+                            onChange={() => toggleGroupBranch(b.id)}
+                            className="h-3.5 w-3.5 cursor-pointer accent-penda-blue"
+                          />
+                          <span>{b.name}</span>
                           {b.city && b.city !== b.name && (
-                            <span className="ml-1.5 text-muted-foreground">· {b.city}</span>
+                            <span className="text-muted-foreground">· {b.city}</span>
                           )}
-                        </SelectItem>
+                        </label>
                       ))}
-                  </SelectContent>
-                </Select>
-                {selectedBranch && (
-                  <div className="flex items-center gap-4 rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <User className="h-3 w-3" />
-                      <span>BM: <span className="font-medium text-foreground">{selectedBranch.branchManager || "—"}</span></span>
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Building2 className="h-3 w-3" />
-                      <span>RM: <span className="font-medium text-foreground">{selectedBranch.regionalManager || "—"}</span></span>
-                    </span>
                   </div>
-                )}
-              </>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedBranchIds.length > 0
+                      ? `${selectedBranchIds.length} branch${selectedBranchIds.length === 1 ? "" : "es"} selected · Location will read "${form.location}"`
+                      : "Select every branch this posting is open at."}{" "}
+                    Closing a gap later will ask which one of these it was for, and split that branch out into its
+                    own closed role.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Select
+                    value={selectedBranch?.id ?? ""}
+                    onValueChange={handleBranchSelect}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select branch…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branches
+                        .filter((b) => b.active && b.segment === "IPS")
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            <span className="font-medium">{b.name}</span>
+                            {b.city && b.city !== b.name && (
+                              <span className="ml-1.5 text-muted-foreground">· {b.city}</span>
+                            )}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedBranch && (
+                    <div className="flex items-center gap-4 rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <User className="h-3 w-3" />
+                        <span>BM: <span className="font-medium text-foreground">{selectedBranch.branchManager || "—"}</span></span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Building2 className="h-3 w-3" />
+                        <span>RM: <span className="font-medium text-foreground">{selectedBranch.regionalManager || "—"}</span></span>
+                      </span>
+                    </div>
+                  )}
+                </>
+              )
             ) : (
               <Input
                 value={form.location}

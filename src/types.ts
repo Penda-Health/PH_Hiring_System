@@ -183,8 +183,10 @@ export interface OpenRole {
    * only the *first* of these — anything scoping by branch membership
    * (e.g. the Expansion Tracker) must check branchIds, not branchId, or it
    * will miss a role whenever the branch it cares about isn't first in the
-   * Airtable link order. Read-only: populated from Airtable, not written
-   * back (the app doesn't yet have UI to create/edit a multi-branch role).
+   * Airtable link order. Writable via NewOpenRoleDialog's "group role"
+   * mode and via closing a group role's gap (see useRoleEditState's
+   * closeGroupGap, which shrinks this list as each branch's seat is
+   * carved out into its own single-branch role).
    */
   branchIds?: string[];
   priority: Priority;

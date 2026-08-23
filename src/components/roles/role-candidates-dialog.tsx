@@ -19,6 +19,7 @@ import { candidatesForRole } from "@/lib/roles-helpers";
 import { useRoleEditState, HC_STEP, formatHc } from "@/hooks/use-role-edit-state";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { ReplacementRequisitionPicker } from "@/components/roles/replacement-requisition-picker";
+import { CloseGroupGapDialog } from "@/components/roles/close-group-gap-dialog";
 
 const ALL_STAGES: CandidateStage[] = [
   "First Interview",
@@ -79,7 +80,12 @@ export function RoleCandidatesDialog({
     localHcApproved,
     setHcFilled,
     setHcApproved,
+    isGroupRole,
+    groupBranches,
+    closeGroupGap,
   } = useRoleEditState(role);
+
+  const [gapPromptOpen, setGapPromptOpen] = React.useState(false);
 
   // Inline title editing state (manager only)
   const [editingTitle, setEditingTitle] = React.useState(false);
@@ -169,8 +175,10 @@ export function RoleCandidatesDialog({
                     <Minus className="h-3 w-3" />
                   </button>
                   <span className="min-w-[3ch] text-center font-semibold tabular-nums text-foreground">{formatHc(localHcFilled)}</span>
-                  <button type="button" onClick={() => setHcFilled(localHcFilled + HC_STEP)}
+                  <button type="button"
+                    onClick={() => isGroupRole ? setGapPromptOpen(true) : setHcFilled(localHcFilled + HC_STEP)}
                     disabled={!canEdit || localHcFilled >= localHcApproved}
+                    title={isGroupRole ? "Close a gap — you'll be asked which branch" : undefined}
                     className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed">
                     <Plus className="h-3 w-3" />
                   </button>
@@ -301,6 +309,13 @@ export function RoleCandidatesDialog({
                 </div>
               </div>
             )}
+
+            <CloseGroupGapDialog
+              open={gapPromptOpen}
+              onOpenChange={setGapPromptOpen}
+              branches={groupBranches}
+              onConfirm={closeGroupGap}
+            />
           </>
         )}
       </DialogContent>
