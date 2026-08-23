@@ -18,13 +18,20 @@ export function roleBranchIds(role: OpenRole): string[] {
 }
 
 /**
- * True if ANY branch this role is linked to is an expansion branch — a
- * clustered role split across Kinoo and a non-expansion branch still counts,
- * since part of its headcount is genuinely expansion headcount.
+ * True if this role is genuinely expansion headcount — every branch it's
+ * linked to must be an expansion branch (Kinoo/G44-only, or split only
+ * between expansion branches). Deliberately NOT "any" — several real
+ * Open Roles are bulk, network-wide postings split across a dozen existing
+ * branches (e.g. "Nurse In-Charge · 8 open" across 8 branches) that
+ * happen to include Kinoo as one of many; counting those as expansion
+ * headcount would show their full open count on the Expansion Tracker for
+ * a role that's barely, if at all, about the expansion branches. A role
+ * with no branch links at all never counts (nothing to scope by).
  */
 export function isExpansionRole(role: OpenRole, branches: Branch[]): boolean {
   const expansionIds = new Set(expansionBranches(branches).map((b) => b.id));
-  return roleBranchIds(role).some((id) => expansionIds.has(id));
+  const ids = roleBranchIds(role);
+  return ids.length > 0 && ids.every((id) => expansionIds.has(id));
 }
 
 export type FillType = "Internal" | "External" | "Unfilled";

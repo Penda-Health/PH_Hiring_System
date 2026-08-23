@@ -28,9 +28,11 @@ export default function ExpansionPage() {
   const [selectedRole, setSelectedRole] = React.useState<OpenRole | null>(null);
   const [selectedCandidate, setSelectedCandidate] = React.useState<Candidate | null>(null);
 
-  // A role counts as in-scope if ANY of its linked branches is an expansion
-  // branch — some roles are shared/split across several clustered branches
-  // at once (see OpenRole.branchIds), not just the one branchId implies.
+  // A role counts as in-scope only if every branch it's linked to is an
+  // expansion branch (see isExpansionRole) — a bulk role shared across many
+  // existing branches that merely happens to include Kinoo/G44 doesn't
+  // belong here; only roles genuinely mapped to just the expansion
+  // branch(es) do.
   const expansionRoles = React.useMemo(
     () => openRoles.filter((r) => isExpansionRole(r, branches)),
     [openRoles, branches]
