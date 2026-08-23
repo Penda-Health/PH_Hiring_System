@@ -6,6 +6,7 @@ import { z } from "zod";
 
 const segment = z.enum(["IPS", "SO"]);
 const priority = z.enum(["Critical", "High", "Medium", "Low"]);
+const cadre = z.enum(["CC", "Labtech", "Nurse", "Pharmtech", "Clinical Officer"]);
 
 export const branchSchema = z.object({
   branchId: z.string().trim().min(1).max(30),
@@ -113,6 +114,7 @@ export const openRoleSchema = z.object({
   requisitionId: z.string().max(50).optional(),
   requisitionSubmitterName: z.string().trim().max(150).optional(),
   requisitionSubmitterEmail: z.string().trim().max(255).optional(),
+  cadre: cadre.optional(),
 });
 
 export const candidateSchema = z.object({
@@ -275,4 +277,14 @@ export const locumSchema = z.object({
   licenseNumber: z.string().trim().min(1).max(100),
   availability: z.string().trim().min(1).max(300),
   lastDeployed: z.string().max(40).optional(),
+});
+
+export const staffingProjectionSchema = z.object({
+  month: z.string().min(1).max(40),
+  branchId: z.string().max(100).optional(),
+  cadre,
+  currentStaffingHc: z.number().multipleOf(0.5).min(0).max(500),
+  notes: z.string().trim().max(2000).optional(),
+  updatedBy: z.string().trim().max(150).optional(),
+  updatedAt: z.string().max(40).optional(),
 });

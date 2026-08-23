@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Creates (or repairs) all 11 Airtable tables that mirror src/types.ts.
+// Creates (or repairs) all Airtable tables that mirror src/types.ts.
 // Safe to re-run: existing tables are left alone and only missing fields
 // are added, so this can also be used to patch a base after a schema change.
 //
@@ -92,7 +92,7 @@ async function main() {
     console.log(`  done (${created.id})`);
   }
 
-  console.log("\nAll 11 tables are in place.");
+  console.log(`\nAll ${TABLES.length} tables are in place.`);
 }
 
 main().catch((err) => {

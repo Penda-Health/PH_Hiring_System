@@ -16,6 +16,7 @@ export const TABLE_NAMES = {
   Relievers: "Relievers",
   Locums: "Locums",
   WorkTrialSpecialtyConfig: "Work Trial Specialty Config",
+  StaffingProjections: "Staffing Projections",
 } as const;
 
 export const F = {
@@ -91,6 +92,7 @@ export const F = {
     REQ_SUBMITTER_NAME: "Requisition Submitter Name",
     REQ_SUBMITTER_EMAIL: "Requisition Submitter Email",
     REPLACEMENT_REQUISITION: "Replacement Requisition",
+    CADRE: "Cadre",
   },
   Candidates: {
     CAND_ID: "Cand ID",
@@ -275,5 +277,14 @@ export const F = {
   WorkTrialsSpecialist: {
     ROLE_CATEGORY: "Role Category",
     SPECIALTY: "Specialty",
+  },
+  StaffingProjections: {
+    MONTH: "Month",
+    BRANCH: "Branch",
+    CADRE: "Cadre",
+    CURRENT_STAFFING_HC: "Current Staffing HC",
+    NOTES: "Notes",
+    UPDATED_BY: "Updated By",
+    UPDATED_AT: "Updated At",
   },
 } as const;

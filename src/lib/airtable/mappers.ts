@@ -18,6 +18,7 @@ import {
   SpecialtyConfig,
   WorkTrialDay,
   WorkTrialRoleCategory,
+  StaffingProjection,
 } from "@/types";
 import { AirtableRecord, allLinks, cleanFields, firstLink, link } from "./client";
 import { F } from "./field-names";
@@ -190,6 +191,7 @@ export function openRoleFromAirtable(r: AirtableRecord): OpenRole {
     requisitionId: firstLink(f[F.OpenRoles.REQUISITION]),
     requisitionSubmitterName: opt(f[F.OpenRoles.REQ_SUBMITTER_NAME]),
     requisitionSubmitterEmail: opt(f[F.OpenRoles.REQ_SUBMITTER_EMAIL]),
+    cadre: opt(f[F.OpenRoles.CADRE]),
   };
 }
 export function openRoleToAirtable(r: Partial<OpenRole>) {
@@ -218,6 +220,7 @@ export function openRoleToAirtable(r: Partial<OpenRole>) {
     [F.OpenRoles.REQUISITION]: r.requisitionId !== undefined ? link(r.requisitionId) : undefined,
     [F.OpenRoles.REQ_SUBMITTER_NAME]: r.requisitionSubmitterName,
     [F.OpenRoles.REQ_SUBMITTER_EMAIL]: r.requisitionSubmitterEmail,
+    [F.OpenRoles.CADRE]: r.cadre,
   });
 }
 
@@ -652,5 +655,31 @@ export function locumToAirtable(l: Partial<Locum>) {
     [F.Locums.LICENSE_NUMBER]: l.licenseNumber,
     [F.Locums.AVAILABILITY]: l.availability,
     [F.Locums.LAST_DEPLOYED]: l.lastDeployed,
+  });
+}
+
+// ---------- Staffing Projections ----------
+export function staffingProjectionFromAirtable(r: AirtableRecord): StaffingProjection {
+  const f = r.fields;
+  return {
+    id: r.id,
+    month: str(f[F.StaffingProjections.MONTH]),
+    branchId: firstLink(f[F.StaffingProjections.BRANCH]),
+    cadre: f[F.StaffingProjections.CADRE] as StaffingProjection["cadre"],
+    currentStaffingHc: num(f[F.StaffingProjections.CURRENT_STAFFING_HC]),
+    notes: opt(f[F.StaffingProjections.NOTES]),
+    updatedBy: opt(f[F.StaffingProjections.UPDATED_BY]),
+    updatedAt: opt(f[F.StaffingProjections.UPDATED_AT]),
+  };
+}
+export function staffingProjectionToAirtable(p: Partial<StaffingProjection>) {
+  return cleanFields({
+    [F.StaffingProjections.MONTH]: p.month,
+    [F.StaffingProjections.BRANCH]: p.branchId !== undefined ? link(p.branchId) : undefined,
+    [F.StaffingProjections.CADRE]: p.cadre,
+    [F.StaffingProjections.CURRENT_STAFFING_HC]: p.currentStaffingHc,
+    [F.StaffingProjections.NOTES]: p.notes,
+    [F.StaffingProjections.UPDATED_BY]: p.updatedBy,
+    [F.StaffingProjections.UPDATED_AT]: p.updatedAt,
   });
 }

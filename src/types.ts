@@ -49,6 +49,9 @@ export type JoinStatus = "Pending" | "Joined" | "Did Not Join";
 
 export type EmploymentType = "Full-time" | "Part-time" | "Contract" | "Reliever" | "Locum";
 
+/** The 5 clinical cadres tracked by the Staffing Projections feature — see StaffingProjection. */
+export type Cadre = "CC" | "Labtech" | "Nurse" | "Pharmtech" | "Clinical Officer";
+
 // Permission tier — distinct from `jobTitle`, which is free text describing
 // what the person actually does at Penda. This enum is what gates access.
 export type UserRoleName = "recruitment_manager" | "recruitment_user" | "contributor" | "branch_manager";
@@ -208,6 +211,8 @@ export interface OpenRole {
   requisitionId?: string;
   requisitionSubmitterName?: string;
   requisitionSubmitterEmail?: string;
+  /** Which of the 5 tracked cadres this role is, for the Staffing Projections page — blank for roles outside those 5. */
+  cadre?: Cadre;
 }
 
 export interface Candidate {
@@ -380,6 +385,27 @@ export interface Locum {
   licenseNumber: string;
   availability: string;
   lastDeployed?: string;
+}
+
+/**
+ * One branch+cadre's confirmed real-world headcount for a given month —
+ * the ground truth the Staffing Projections page can't derive from
+ * anywhere else in the system (attrition, informal transfers, maternity
+ * leave exclusions aren't tracked by hcFilled). Entered by People Ops.
+ * Required HC for the same branch+cadre+month is deliberately NOT stored
+ * here — it's derived live from Open Roles' hcApproved so the two can
+ * never drift apart. See src/lib/staffing/compute.ts.
+ */
+export interface StaffingProjection {
+  id: string;
+  /** First-of-month date, e.g. "2026-09-01" */
+  month: string;
+  branchId?: string;
+  cadre: Cadre;
+  currentStaffingHc: number;
+  notes?: string;
+  updatedBy?: string;
+  updatedAt?: string;
 }
 
 export interface AutomationLogEntry {

@@ -8,6 +8,10 @@ const checkboxOpts = { icon: "check", color: "greenBright" };
 const currencyOpts = { symbol: "KES ", precision: 0 };
 const intOpts = { precision: 0 };
 const scoreOpts = { precision: 1 };
+// Headcount numbers that can legitimately be halves (a role split across
+// two clustered branches) — same shape as scoreOpts, named for what it's
+// actually used for here.
+const decimalOpts = { precision: 1 };
 
 // Mirrors src/lib/mock-data/clusters.ts. Duplicated here (rather than
 // imported) because this script runs as plain CommonJS outside the Next.js
@@ -22,6 +26,13 @@ const RELIEVER_CADRES = [
   "Sonographer",
 ];
 const COVERAGE_ZONES = ["Eastleigh", "Waiyaki Way", "Utawala", "Thika Road", "Langata", "Kitengela"];
+
+// The 5 cadres tracked by the Staffing Projections feature — shared between
+// Open Roles' Cadre field and the Staffing Projections table's own Cadre
+// field so a role and a projection can be matched on an identical value.
+// Short codes match how People Ops already refers to them, not the longer
+// RELIEVER_CADRES names above (that table predates this feature).
+const CADRES = ["CC", "Labtech", "Nurse", "Pharmtech", "Clinical Officer"];
 const ALL_BRANCHES = [
   "Umoja 1", "Umoja 2", "Pipeline", "Tassia", "Embakasi",
   "Kangemi", "Kawangware", "Kimathi",
@@ -112,6 +123,10 @@ const F = {
     REQ_SUBMITTER_NAME: "Requisition Submitter Name",
     REQ_SUBMITTER_EMAIL: "Requisition Submitter Email",
     REPLACEMENT_REQUISITION: "Replacement Requisition",
+    // Which of the 5 tracked cadres this role belongs to — blank for roles
+    // outside those 5 (Dentist, IT, admin, etc). Feeds the Staffing
+    // Projections page's Required HC (= sum of hcApproved per branch+cadre).
+    CADRE: "Cadre",
   },
   Candidates: {
     CAND_ID: "Cand ID",
@@ -272,6 +287,19 @@ const F = {
     AVAILABILITY: "Availability",
     LAST_DEPLOYED: "Last Deployed",
   },
+  // Monthly ground-truth headcount per branch+cadre, entered by People Ops
+  // (Airtable grid for now; a BM-facing form is a later phase). Required HC
+  // is deliberately NOT stored here — it's derived live from Open Roles'
+  // hcApproved so it can never drift out of sync with the register.
+  StaffingProjections: {
+    MONTH: "Month",
+    BRANCH: "Branch",
+    CADRE: "Cadre",
+    CURRENT_STAFFING_HC: "Current Staffing HC",
+    NOTES: "Notes",
+    UPDATED_BY: "Updated By",
+    UPDATED_AT: "Updated At",
+  },
 };
 
 // Order matters: every multipleRecordLinks field must point at a table that
@@ -383,6 +411,7 @@ const TABLES = [
       { name: F.OpenRoles.REQ_SUBMITTER_NAME, type: "singleLineText" },
       { name: F.OpenRoles.REQ_SUBMITTER_EMAIL, type: "email" },
       { name: F.OpenRoles.REPLACEMENT_REQUISITION, type: "multipleRecordLinks", linkedTable: "Requisitions" },
+      { name: F.OpenRoles.CADRE, type: "singleSelect", options: choices(CADRES) },
     ],
   },
   {
@@ -621,6 +650,18 @@ const TABLES = [
       { name: F.Locums.LICENSE_NUMBER, type: "singleLineText" },
       { name: F.Locums.AVAILABILITY, type: "singleLineText" },
       { name: F.Locums.LAST_DEPLOYED, type: "date", options: dateOpts },
+    ],
+  },
+  {
+    name: "Staffing Projections",
+    fields: [
+      { name: F.StaffingProjections.MONTH, type: "date", options: dateOpts },
+      { name: F.StaffingProjections.BRANCH, type: "multipleRecordLinks", linkedTable: "Branches" },
+      { name: F.StaffingProjections.CADRE, type: "singleSelect", options: choices(CADRES) },
+      { name: F.StaffingProjections.CURRENT_STAFFING_HC, type: "number", options: decimalOpts },
+      { name: F.StaffingProjections.NOTES, type: "multilineText" },
+      { name: F.StaffingProjections.UPDATED_BY, type: "singleLineText" },
+      { name: F.StaffingProjections.UPDATED_AT, type: "date", options: dateOpts },
     ],
   },
 ];
