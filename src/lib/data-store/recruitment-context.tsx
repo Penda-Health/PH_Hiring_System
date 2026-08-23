@@ -57,7 +57,7 @@ type RecruitmentDataContextValue = {
   createBranch: (branch: Branch) => Promise<Branch | undefined>;
   updateBranch: (id: string, patch: Partial<Branch>) => void;
   openRoles: OpenRole[];
-  createOpenRole: (role: OpenRole) => Promise<void>;
+  createOpenRole: (role: OpenRole) => Promise<OpenRole | undefined>;
   updateOpenRoleStatus: (id: string, status: OpenRole["status"]) => void;
   updateOpenRole: (id: string, patch: Partial<OpenRole>) => void;
   newEmployees: NewEmployee[];
@@ -301,6 +301,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       if (!guardEdit(canEdit, "createOpenRole")) return;
       const created = await createResource<OpenRole>("open-roles", role);
       setOpenRoles((prev) => [created, ...prev]);
+      return created;
     },
     [canEdit]
   );

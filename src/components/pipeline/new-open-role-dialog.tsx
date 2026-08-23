@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Branch, OpenRole, Priority, Segment } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -11,12 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 import { departmentOptionsFor } from "@/lib/department-options";
 import { cn } from "@/lib/utils";
-import { Building2, Plus, User } from "lucide-react";
+import { ArrowLeftRight, Building2, Plus, User, UserPlus } from "lucide-react";
 
 interface Props {
   branches: Branch[];
   openRoles: OpenRole[];
-  onCreate: (role: OpenRole) => Promise<void>;
+  onCreate: (role: OpenRole) => Promise<OpenRole | undefined>;
 }
 
 const IPS_STANDARD_TITLES = [
@@ -50,6 +51,7 @@ function makeEmptyForm(segment: Segment): OpenRole & { hiringManagerEmail?: stri
 }
 
 export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [segment, setSegment] = React.useState<Segment>("IPS");
@@ -58,6 +60,14 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
   const [employmentType, setEmploymentType] = React.useState("");
   const [hiringManagerEmail, setHiringManagerEmail] = React.useState("");
   const [selectedBranch, setSelectedBranch] = React.useState<Branch | null>(null);
+  // How this seat will be filled — "internal" means someone's being pulled
+  // off an existing role/branch to take it, which opens a gap elsewhere
+  // that needs its own backfill (e.g. adding a Pharmtech Incharge by
+  // promoting an existing branch's Pharmtech leaves a Pharmtech vacancy
+  // there, not an Incharge one — the backfill's title can differ from this
+  // role's, which is exactly what the linked Requisition captures
+  // separately below rather than assuming it matches).
+  const [fillPlan, setFillPlan] = React.useState<"external" | "internal">("external");
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -70,6 +80,7 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
     setEmploymentType("");
     setHiringManagerEmail("");
     setSelectedBranch(null);
+    setFillPlan("external");
   }
 
   function handleBranchSelect(branchId: string) {
@@ -94,6 +105,7 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
     setEmploymentType("");
     setHiringManagerEmail("");
     setSelectedBranch(null);
+    setFillPlan("external");
   }
 
   // Autocomplete suggestions — segment-scoped
@@ -131,9 +143,25 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
         segment,
         notes: notes.trim() || undefined,
         employmentType: (employmentType as OpenRole["employmentType"]) || undefined,
+        internalFill: fillPlan === "internal",
       };
-      await onCreate(role);
+      const created = await onCreate(role);
       setOpen(false);
+      // Internal move → this role's headcount doesn't create net-new
+      // headcount, it just relocates it, so go straight into raising the
+      // requisition for the seat it vacates (same guided form + linkRoleId
+      // wiring "+ Raise the replacement requisition" already uses — see
+      // ReplacementRequisitionPicker). Skipped if creation somehow didn't
+      // return the new role's id; the "Internal Fill" flag is still set,
+      // so the role will still show "Needs Replacement" and the link can
+      // be raised later from the role itself.
+      if (fillPlan === "internal" && created?.id) {
+        const href =
+          segment === "IPS"
+            ? `/requisitions/new/ips?linkRoleId=${created.id}&gapReason=Transfer`
+            : `/requisitions/new/so?linkRoleId=${created.id}`;
+        router.push(href);
+      }
       reset();
     } finally {
       setSaving(false);
@@ -189,6 +217,48 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
               placeholder={segment === "IPS" ? "e.g. Clinical Officer" : "e.g. Finance Manager"}
               required
             />
+          </div>
+
+          {/* ── Fill plan ────────────────────────────────── */}
+          <div className="space-y-1.5">
+            <Label>How will this role be filled?</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setFillPlan("external")}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
+                  fillPlan === "external"
+                    ? "border-penda-blue bg-penda-blue/10 text-penda-blue"
+                    : "border-border text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Fresh / external hire</span>
+                <span className="text-xs font-normal text-center">No backfill needed</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFillPlan("internal")}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
+                  fillPlan === "internal"
+                    ? "border-penda-blue bg-penda-blue/10 text-penda-blue"
+                    : "border-border text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                <span>Internal move</span>
+                <span className="text-xs font-normal text-center">Pulls someone off another role — needs a backfill</span>
+              </button>
+            </div>
+            {fillPlan === "internal" && (
+              <p className="text-xs text-muted-foreground">
+                After you create this role, you&apos;ll go straight to raising the requisition for the seat it
+                vacates — that backfill can be a different title/branch than this one (e.g. adding a Pharmtech
+                Incharge by promoting an existing Pharmtech backfills a Pharmtech, not another Incharge).
+              </p>
+            )}
           </div>
 
           {/* ── Priority + Employment Type ────────────────── */}
@@ -352,7 +422,7 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
               disabled={saving || !valid}
               className="bg-penda-blue hover:bg-penda-blue-dark text-white"
             >
-              {saving ? "Creating…" : "Create Role"}
+              {saving ? "Creating…" : fillPlan === "internal" ? "Create Role & Raise Backfill" : "Create Role"}
             </Button>
           </DialogFooter>
         </form>
