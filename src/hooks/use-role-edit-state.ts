@@ -75,9 +75,20 @@ export function useRoleEditState(role: OpenRole | null) {
   // *which* branch got filled. Instead the UI should prompt for a branch
   // (see CloseGroupGapDialog) and call closeGroupGap below.
   const isGroupRole = (role?.branchIds?.length ?? 0) > 1;
-  const groupBranches: Branch[] = role?.branchIds
-    ? branches.filter((b) => role.branchIds!.includes(b.id))
-    : [];
+  // Every branch the seat could plausibly have been filled at — not just
+  // the ones this record happens to be linked to. A "Multiple Locations"
+  // posting on the Open Roles Register can be filled anywhere in the
+  // network, not only at the branches it was originally split across, so
+  // the picker offers the full active list (segment-scoped), with this
+  // role's own linked branches surfaced first for convenience.
+  const groupBranches: Branch[] = React.useMemo(() => {
+    if (!role) return [];
+    const linkedIds = new Set(role.branchIds ?? []);
+    const active = branches.filter((b) => b.active && b.segment === role.segment);
+    const linked = active.filter((b) => linkedIds.has(b.id)).sort((a, b) => a.name.localeCompare(b.name));
+    const rest = active.filter((b) => !linkedIds.has(b.id)).sort((a, b) => a.name.localeCompare(b.name));
+    return [...linked, ...rest];
+  }, [role, branches]);
 
   /**
    * Carves one branch's seat out of a group role: creates a new
