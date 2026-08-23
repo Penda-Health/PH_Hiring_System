@@ -69,7 +69,11 @@ const PLACEHOLDER_BRANCHES = [
     [F.Branches.REGIONAL_MANAGER]: "Daniel Mwendwa",
     [F.Branches.CAPACITY]: 8,
     [F.Branches.ACTIVE]: true,
-    [F.Branches.WORK_TRIAL_ACTIVE]: true,
+    // Not yet open for work-trial booking — a new expansion branch isn't
+    // ready to host candidates on day one, so it shouldn't show up on the
+    // /work-trial or /work-trial-request public forms until someone
+    // explicitly flips this on once the branch is actually staffed for it.
+    [F.Branches.WORK_TRIAL_ACTIVE]: false,
     [F.Branches.EXPANSION_BRANCH]: true,
   },
   {
@@ -81,7 +85,11 @@ const PLACEHOLDER_BRANCHES = [
     [F.Branches.REGIONAL_MANAGER]: "Daniel Mwendwa",
     [F.Branches.CAPACITY]: 8,
     [F.Branches.ACTIVE]: true,
-    [F.Branches.WORK_TRIAL_ACTIVE]: true,
+    // Not yet open for work-trial booking — a new expansion branch isn't
+    // ready to host candidates on day one, so it shouldn't show up on the
+    // /work-trial or /work-trial-request public forms until someone
+    // explicitly flips this on once the branch is actually staffed for it.
+    [F.Branches.WORK_TRIAL_ACTIVE]: false,
     [F.Branches.EXPANSION_BRANCH]: true,
   },
 ];

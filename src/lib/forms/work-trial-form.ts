@@ -40,7 +40,12 @@ export async function loadWorkTrialFormData(workTrialId: string): Promise<WorkTr
 
   const branches = branchRecords
     .map(branchFromAirtable)
-    .filter((b) => b.active)
+    // Active AND work-trial-active — same eligibility rule the sibling
+    // /api/public/work-trial-request route already applies via a
+    // filterByFormula. A branch (e.g. a new expansion branch like Kinoo/G44)
+    // can be active for staffing purposes without yet being ready to host
+    // work trials, so `active` alone isn't enough here.
+    .filter((b) => b.active && b.workTrialActive)
     .map((b) => ({ id: b.id, name: b.name, city: b.city, branchManager: b.branchManager }))
     .sort((a, b) => a.name.localeCompare(b.name));
 

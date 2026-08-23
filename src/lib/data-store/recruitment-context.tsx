@@ -54,6 +54,8 @@ type RecruitmentDataContextValue = {
   refresh: () => Promise<void>;
 
   branches: Branch[];
+  createBranch: (branch: Branch) => Promise<Branch | undefined>;
+  updateBranch: (id: string, patch: Partial<Branch>) => void;
   openRoles: OpenRole[];
   createOpenRole: (role: OpenRole) => Promise<void>;
   updateOpenRoleStatus: (id: string, status: OpenRole["status"]) => void;
@@ -264,6 +266,25 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     setRequisitions((prev) => [created, ...prev]);
     return created;
   }, []);
+
+  const createBranch = React.useCallback(
+    async (branch: Branch) => {
+      if (!guardEdit(canEdit, "createBranch")) return;
+      const created = await createResource<Branch>("branches", branch);
+      setBranches((prev) => [created, ...prev]);
+      return created;
+    },
+    [canEdit]
+  );
+
+  const updateBranch = React.useCallback(
+    (id: string, patch: Partial<Branch>) => {
+      if (!guardEdit(canEdit, "updateBranch")) return;
+      setBranches((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+      persist<Branch>("branches", id, patch);
+    },
+    [canEdit]
+  );
 
   const convertToOpenRole = React.useCallback(
     async (req: Requisition) => {
@@ -761,6 +782,8 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       canSeeSalary: canSeeSalaryValue,
       refresh: refreshCoreData,
       branches,
+      createBranch,
+      updateBranch,
       openRoles,
       createOpenRole,
       updateOpenRoleStatus,
@@ -812,6 +835,8 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       canSeeSalaryValue,
       refreshCoreData,
       branches,
+      createBranch,
+      updateBranch,
       openRoles,
       createOpenRole,
       updateOpenRoleStatus,

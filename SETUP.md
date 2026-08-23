@@ -629,17 +629,47 @@ New Airtable columns — added automatically by `npm run airtable:schema` (see
 - **Branches** table: **Expansion Branch** (checkbox) — flips a branch's
   roles into scope for `/expansion`. It's the flag that drives inclusion, not
   the branch name, so any future expansion branch just needs this checked;
-  no code change required. Kinoo and G44 need their own rows in the
-  `Branches` table with this checked — they don't exist as real branches yet,
-  so run `npm run airtable:add-expansion-branches` once to create them as
-  placeholder rows (name + region only, safe to re-run — it skips any branch
-  name that already exists) until real branch details (manager, capacity,
-  etc.) are known.
+  no code change required. G44 didn't exist as a branch yet, so
+  `npm run airtable:add-expansion-branches` creates it as a placeholder row
+  (name + region only, safe to re-run — it skips any branch name that already
+  exists) until real branch details (manager, capacity, etc.) are known.
+  Kinoo, on the other hand, turned out to already be a real branch (`BR-22`)
+  with real open roles — it was just missing `Active`/`Expansion Branch`
+  (both blank, which the app reads as unchecked), so it silently didn't
+  appear anywhere, not just on `/expansion`. Fixed by setting both fields on
+  its existing row rather than creating a duplicate. The lesson: a
+  never-explicitly-set checkbox on a real branch is an easy way for it to
+  disappear from every branch-filtered view in the app — the "+ New Branch"
+  dialog below (which defaults `Active` to checked) exists partly to avoid
+  this happening again.
 - **Open Roles** table: **Replacement Requisition** (link to `Requisitions`)
   — set when an internally-filled expansion role's `Internal Fill` checkbox
   is on and someone links (or raises, via "+ Raise the replacement
   requisition" on the role) the requisition backfilling the seat that person
   vacated.
+
+### Adding branches and roles
+
+- **New role**: "+ Add Role" on `/expansion` is the same
+  `NewOpenRoleDialog` used on Pipeline, just pre-scoped to the expansion
+  branches so the branch dropdown doesn't need hunting through the full
+  list. No separate creation path — expansion roles are ordinary Open Roles,
+  just linked to a branch that's flagged `Expansion Branch`.
+- **New branch**: "+ New Branch" on `/expansion`
+  (`src/components/branches/new-branch-dialog.tsx`) creates a `Branches` row
+  via the existing `POST /api/branches` route — no backend change was needed,
+  since that route already validated/accepted everything a branch needs.
+  Pre-checks `Expansion Branch` (and `Active`) since it's launched from the
+  Expansion Tracker. `createBranch`/`updateBranch` live in
+  `recruitment-context.tsx` alongside the other resource mutators.
+- A role can legitimately be linked to **more than one branch** at once
+  (geographically clustered roles with split headcount — `Location` reads
+  "Multiple Locations" for these). `OpenRole.branchId` only ever captures the
+  *first* linked branch; anything that needs to check branch membership
+  (like `/expansion`'s scoping) uses `OpenRole.branchIds` (the full link
+  list, via `roleBranchIds()`/`isExpansionRole()` in
+  `expansion-helpers.ts`) instead, or it will silently miss roles whenever
+  the branch it cares about isn't first in the Airtable link order.
 
 ### How replacement status is derived
 
@@ -985,4 +1015,4 @@ change silently failing.
 | Make.com scenario blueprints | ⏳ next phase |
 | Africa's Talking SMS | ⏳ next phase |
 | AI assistant ("Penny") — Groq/Gemini/Cloudflare, agentic actions | ✅ section 7 (app side) / ⏳ you add the API keys |
-| Expansion Tracker (Kinoo, G44) | ✅ section 4.9 (app side) / ⏳ run `npm run airtable:add-expansion-branches` once to create the two branch rows |
+| Expansion Tracker (Kinoo, G44) | ✅ section 4.9 — done; both branches are live and flagged, and "+ New Branch" on `/expansion` handles any future one |

@@ -8,6 +8,7 @@ import { ExpansionRolesTable } from "@/components/roles/expansion-roles-table";
 import { RoleCandidatesDialog } from "@/components/roles/role-candidates-dialog";
 import { CandidateDetailDialog } from "@/components/pipeline/candidate-detail-dialog";
 import { NewOpenRoleDialog } from "@/components/pipeline/new-open-role-dialog";
+import { NewBranchDialog } from "@/components/branches/new-branch-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,8 @@ const STATUSES: RoleStatus[] = ["Open", "Allocated", "Filled", "On Hold", "Cance
 const FILL_TYPES: FillType[] = ["Internal", "External", "Unfilled"];
 
 export default function ExpansionPage() {
-  const { branches, openRoles, candidates, requisitions, createOpenRole, canEdit } = useRecruitmentData();
+  const { branches, openRoles, candidates, requisitions, createOpenRole, createBranch, canEdit } =
+    useRecruitmentData();
   const branchesInScope = React.useMemo(() => expansionBranches(branches), [branches]);
 
   const [branchFilter, setBranchFilter] = React.useState<"All" | string>("All");
@@ -49,10 +51,14 @@ export default function ExpansionPage() {
   if (branchesInScope.length === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Expansion Tracker</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-2xl font-semibold">Expansion Tracker</h1>
+          {canEdit && <NewBranchDialog branches={branches} onCreate={createBranch} expansionContext />}
+        </div>
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No branches are flagged for expansion yet. Mark a branch as an expansion branch to see it here.
+            No branches are flagged for expansion yet. Add one above, or mark an existing branch as an expansion
+            branch to see it here.
           </CardContent>
         </Card>
       </div>
@@ -70,10 +76,13 @@ export default function ExpansionPage() {
           </p>
         </div>
         {canEdit && (
-          // Same dialog as Pipeline's "New Open Role", scoped to just the
-          // expansion branches — so adding a Kinoo/G44 role doesn't mean
-          // hunting for it in the full branch list.
-          <NewOpenRoleDialog branches={branchesInScope} openRoles={openRoles} onCreate={createOpenRole} />
+          <div className="flex gap-2">
+            <NewBranchDialog branches={branches} onCreate={createBranch} expansionContext />
+            {/* Same dialog as Pipeline's "New Open Role", scoped to just the
+                expansion branches — so adding a Kinoo/G44 role doesn't mean
+                hunting for it in the full branch list. */}
+            <NewOpenRoleDialog branches={branchesInScope} openRoles={openRoles} onCreate={createOpenRole} />
+          </div>
         )}
       </div>
 
