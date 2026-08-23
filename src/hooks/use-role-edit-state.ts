@@ -122,8 +122,12 @@ export function useRoleEditState(role: OpenRole | null) {
       status: "Filled",
       hcApproved: amount,
       hcFilled: amount,
-      recruiter: role.recruiter,
-      hiringManager: branch.branchManager || role.hiringManager,
+      // Bulk "Multiple Locations" roles frequently have these blank — the
+      // create schema requires both non-empty (unlike PATCH, POST doesn't
+      // strip blanks before validating), so an empty carry-over here would
+      // 400. Fall back to something editable later rather than fail.
+      recruiter: role.recruiter.trim() || "Unassigned",
+      hiringManager: branch.branchManager || role.hiringManager || "Unassigned",
       hiringManagerEmail: role.hiringManagerEmail,
       datePosted: role.datePosted,
       dateClosed: now,
