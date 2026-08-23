@@ -6,11 +6,13 @@ import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { listAllProfiles, updateUserRoleAndBranch } from "@/lib/supabase/profiles";
 import { DeletedItem, describeSnapshot, listRecentDeletedItems } from "@/lib/supabase/deleted-items-history";
-import { USER_ROLE_LABELS, User, UserRoleName } from "@/types";
+import { Branch, USER_ROLE_LABELS, User, UserRoleName } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Check, Minus } from "lucide-react";
+import { NewBranchDialog } from "@/components/branches/new-branch-dialog";
+import { EditBranchDialog } from "@/components/branches/edit-branch-dialog";
 
 const ROLES: UserRoleName[] = ["recruitment_manager", "recruitment_user", "contributor", "branch_manager"];
 const DELETED_ITEMS_WINDOW_DAYS = 7;
@@ -129,9 +131,40 @@ function UserRow({ target, branches, onSaved }: { target: User; branches: { id: 
   );
 }
 
+// Compact ✓/— indicator for a branch's checkbox fields — a blank/unset
+// checkbox reads as unchecked (see SETUP.md 4.9), so making the current
+// state visible at a glance, without opening the edit dialog, is the point.
+function FlagIcon({ on }: { on: boolean }) {
+  return on ? (
+    <Check className="h-3.5 w-3.5 text-emerald-600" />
+  ) : (
+    <Minus className="h-3.5 w-3.5 text-muted-foreground/40" />
+  );
+}
+
+function BranchRow({ branch, onSave }: { branch: Branch; onSave: (id: string, patch: Partial<Branch>) => void }) {
+  return (
+    <div className="flex items-center gap-3 border-b py-2.5 last:border-b-0">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium leading-tight truncate">{branch.name || "(unnamed)"}</p>
+        <p className="text-xs text-muted-foreground leading-tight truncate">
+          {branch.branchId} · {branch.city || "—"} · {branch.segment}
+        </p>
+      </div>
+      <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1" title="Active"><FlagIcon on={branch.active} />Active</span>
+        <span className="flex items-center gap-1" title="Work Trial Active"><FlagIcon on={branch.workTrialActive} />Work Trial</span>
+        <span className="flex items-center gap-1" title="Expansion Branch"><FlagIcon on={!!branch.expansionBranch} />Expansion</span>
+      </div>
+      <span className="w-12 shrink-0 text-right text-xs text-muted-foreground">{branch.capacity} cap</span>
+      <EditBranchDialog branch={branch} onSave={onSave} />
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
-  const { branches } = useRecruitmentData();
+  const { branches, createBranch, updateBranch } = useRecruitmentData();
   const [profiles, setProfiles] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [deletedItems, setDeletedItems] = React.useState<DeletedItem[]>([]);
@@ -182,6 +215,26 @@ export default function SettingsPage() {
             profiles.map((p) => (
               <UserRow key={p.id} target={p} branches={branches.map((b) => ({ id: b.id, name: b.name }))} onSaved={load} />
             ))
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle>Branches</CardTitle>
+          <NewBranchDialog branches={branches} onCreate={createBranch} />
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-xs text-muted-foreground">
+            A blank Active / Work Trial Active / Expansion Branch checkbox reads as unchecked and silently hides a
+            branch from every branch-filtered view (this is what happened to Kinoo) — check here if a branch seems
+            to be missing somewhere.
+          </p>
+          {branches.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No branches yet.</p>
+          ) : (
+            [...branches]
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((b) => <BranchRow key={b.id} branch={b} onSave={updateBranch} />)
           )}
         </CardContent>
       </Card>
