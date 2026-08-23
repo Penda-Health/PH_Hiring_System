@@ -6,10 +6,25 @@ export function expansionBranches(branches: Branch[]): Branch[] {
   return branches.filter((b) => b.expansionBranch);
 }
 
+/**
+ * Every branch this role is linked to. Prefers branchIds (the full link
+ * list — some roles are shared/split across several clustered branches at
+ * once, see OpenRole.branchIds) and falls back to the single branchId for
+ * data that predates that field (e.g. mock/dev fixtures).
+ */
+export function roleBranchIds(role: OpenRole): string[] {
+  if (role.branchIds && role.branchIds.length > 0) return role.branchIds;
+  return role.branchId ? [role.branchId] : [];
+}
+
+/**
+ * True if ANY branch this role is linked to is an expansion branch — a
+ * clustered role split across Kinoo and a non-expansion branch still counts,
+ * since part of its headcount is genuinely expansion headcount.
+ */
 export function isExpansionRole(role: OpenRole, branches: Branch[]): boolean {
-  if (!role.branchId) return false;
-  const branch = branches.find((b) => b.id === role.branchId);
-  return !!branch?.expansionBranch;
+  const expansionIds = new Set(expansionBranches(branches).map((b) => b.id));
+  return roleBranchIds(role).some((id) => expansionIds.has(id));
 }
 
 export type FillType = "Internal" | "External" | "Unfilled";

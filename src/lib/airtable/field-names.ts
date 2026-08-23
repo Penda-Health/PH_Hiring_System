@@ -34,6 +34,7 @@ export const F = {
     ADDRESS: "Address",
     MAP_PIN_URL: "Map Pin URL",
     EXPANSION_BRANCH: "Expansion Branch",
+    SEGMENT: "Segment",
   },
   Requisitions: {
     REQ_ID: "Req ID",

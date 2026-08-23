@@ -203,6 +203,13 @@ export function firstLink(value: unknown): string | undefined {
   return Array.isArray(value) && value.length > 0 ? String(value[0]) : undefined;
 }
 
+// Every linked record ID on a multipleRecordLinks field, not just the
+// first — needed for fields like Open Roles' Branch link, where a role can
+// legitimately be linked to several branches at once (see OpenRole.branchIds).
+export function allLinks(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(String) : [];
+}
+
 // Escapes a value for interpolation into an Airtable filterByFormula string
 // literal ('...'). Airtable formulas use backslash as the escape character,
 // so backslashes must be escaped first — escaping the quote alone (as a

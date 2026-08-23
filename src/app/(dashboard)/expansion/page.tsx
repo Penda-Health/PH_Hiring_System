@@ -3,10 +3,11 @@
 import * as React from "react";
 import { Candidate, OpenRole, RoleStatus } from "@/types";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
-import { expansionBranches, fillType, FillType, summarizeExpansion } from "@/lib/expansion-helpers";
+import { expansionBranches, fillType, FillType, isExpansionRole, roleBranchIds, summarizeExpansion } from "@/lib/expansion-helpers";
 import { ExpansionRolesTable } from "@/components/roles/expansion-roles-table";
 import { RoleCandidatesDialog } from "@/components/roles/role-candidates-dialog";
 import { CandidateDetailDialog } from "@/components/pipeline/candidate-detail-dialog";
+import { NewOpenRoleDialog } from "@/components/pipeline/new-open-role-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,8 @@ const STATUSES: RoleStatus[] = ["Open", "Allocated", "Filled", "On Hold", "Cance
 const FILL_TYPES: FillType[] = ["Internal", "External", "Unfilled"];
 
 export default function ExpansionPage() {
-  const { branches, openRoles, candidates, requisitions } = useRecruitmentData();
+  const { branches, openRoles, candidates, requisitions, createOpenRole, canEdit } = useRecruitmentData();
   const branchesInScope = React.useMemo(() => expansionBranches(branches), [branches]);
-  const branchIds = React.useMemo(() => new Set(branchesInScope.map((b) => b.id)), [branchesInScope]);
 
   const [branchFilter, setBranchFilter] = React.useState<"All" | string>("All");
   const [statusFilter, setStatusFilter] = React.useState<"All" | RoleStatus>("All");
@@ -26,9 +26,12 @@ export default function ExpansionPage() {
   const [selectedRole, setSelectedRole] = React.useState<OpenRole | null>(null);
   const [selectedCandidate, setSelectedCandidate] = React.useState<Candidate | null>(null);
 
+  // A role counts as in-scope if ANY of its linked branches is an expansion
+  // branch — some roles are shared/split across several clustered branches
+  // at once (see OpenRole.branchIds), not just the one branchId implies.
   const expansionRoles = React.useMemo(
-    () => openRoles.filter((r) => r.branchId && branchIds.has(r.branchId)),
-    [openRoles, branchIds]
+    () => openRoles.filter((r) => isExpansionRole(r, branches)),
+    [openRoles, branches]
   );
 
   const summary = React.useMemo(
@@ -37,7 +40,7 @@ export default function ExpansionPage() {
   );
 
   const filtered = expansionRoles.filter((role) => {
-    if (branchFilter !== "All" && role.branchId !== branchFilter) return false;
+    if (branchFilter !== "All" && !roleBranchIds(role).includes(branchFilter)) return false;
     if (statusFilter !== "All" && role.status !== statusFilter) return false;
     if (fillTypeFilter !== "All" && fillType(role) !== fillTypeFilter) return false;
     return true;
@@ -58,12 +61,20 @@ export default function ExpansionPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Expansion Tracker</h1>
-        <p className="text-sm text-muted-foreground">
-          Open roles for {branchesInScope.map((b) => b.name).join(" and ")}, and whether each seat vacated by an
-          internal move has a replacement raised yet.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Expansion Tracker</h1>
+          <p className="text-sm text-muted-foreground">
+            Open roles for {branchesInScope.map((b) => b.name).join(" and ")}, and whether each seat vacated by an
+            internal move has a replacement raised yet.
+          </p>
+        </div>
+        {canEdit && (
+          // Same dialog as Pipeline's "New Open Role", scoped to just the
+          // expansion branches — so adding a Kinoo/G44 role doesn't mean
+          // hunting for it in the full branch list.
+          <NewOpenRoleDialog branches={branchesInScope} openRoles={openRoles} onCreate={createOpenRole} />
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">

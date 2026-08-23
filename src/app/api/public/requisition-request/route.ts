@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const segment = request.nextUrl.searchParams.get("segment") === "SO" ? "SO" : "IPS";
-    const [branches, roleTitles] = await Promise.all([loadActiveBranches(), loadRoleTitleSuggestions(segment)]);
+    const [branches, roleTitles] = await Promise.all([loadActiveBranches(segment), loadRoleTitleSuggestions(segment)]);
     return NextResponse.json({ branches, roleTitles });
   } catch (err) {
     console.error("[api/public/requisition-request] GET failed:", err);

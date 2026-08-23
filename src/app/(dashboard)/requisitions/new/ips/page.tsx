@@ -56,7 +56,10 @@ function NewIpsGapRequisitionForm() {
   const [gapReason, setGapReason] = React.useState<GapReason>(initialGapReason);
   const [roleTitle, setRoleTitle] = React.useState("");
   const [department, setDepartment] = React.useState("");
-  const [branchId, setBranchId] = React.useState(branches[0]?.id ?? "");
+  // This page only raises IPS requisitions — scope the branch picker to IPS
+  // clinics so SO-only locations (Support Office, Telemedicine) don't show up.
+  const ipsBranches = React.useMemo(() => branches.filter((b) => b.segment === "IPS"), [branches]);
+  const [branchId, setBranchId] = React.useState(ipsBranches[0]?.id ?? "");
   const [employmentType, setEmploymentType] = React.useState<EmploymentType>("Full-time");
   const [headcount, setHeadcount] = React.useState(1);
   const [urgency, setUrgency] = React.useState<Priority>("Medium");
@@ -66,8 +69,8 @@ function NewIpsGapRequisitionForm() {
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!branchId && branches[0]) setBranchId(branches[0].id);
-  }, [branches, branchId]);
+    if (!branchId && ipsBranches[0]) setBranchId(ipsBranches[0].id);
+  }, [ipsBranches, branchId]);
 
   const canSubmit = roleTitle.trim() && department.trim() && branchId && context.trim().length >= 20;
 
@@ -187,7 +190,7 @@ function NewIpsGapRequisitionForm() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {branches.map((b) => (
+                  {ipsBranches.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.name}
                     </SelectItem>

@@ -95,6 +95,7 @@ async function seedBranches() {
       [F.Branches.REGIONAL_MANAGER]: b.regionalManager,
       [F.Branches.CAPACITY]: b.capacity,
       [F.Branches.ACTIVE]: b.active,
+      [F.Branches.SEGMENT]: b.segment,
     })
   );
   const created = await createRecords("Branches", records);

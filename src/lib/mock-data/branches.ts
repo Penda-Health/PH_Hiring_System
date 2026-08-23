@@ -16,6 +16,7 @@ export const branches: Branch[] = [
     workTrialActive: true,
     address: "",
     mapPinUrl: "",
+    segment: "IPS",
   },
   {
     id: "br-2",
@@ -32,6 +33,7 @@ export const branches: Branch[] = [
     workTrialActive: true,
     address: "",
     mapPinUrl: "",
+    segment: "IPS",
   },
   {
     id: "br-3",
@@ -48,6 +50,7 @@ export const branches: Branch[] = [
     workTrialActive: true,
     address: "",
     mapPinUrl: "",
+    segment: "IPS",
   },
   {
     id: "br-4",
@@ -64,6 +67,7 @@ export const branches: Branch[] = [
     workTrialActive: true,
     address: "",
     mapPinUrl: "",
+    segment: "IPS",
   },
   {
     id: "br-5",
@@ -80,6 +84,7 @@ export const branches: Branch[] = [
     workTrialActive: true,
     address: "",
     mapPinUrl: "",
+    segment: "IPS",
   },
   {
     id: "br-6",
@@ -96,6 +101,7 @@ export const branches: Branch[] = [
     workTrialActive: true,
     address: "",
     mapPinUrl: "",
+    segment: "IPS",
   },
   {
     id: "br-7",
@@ -112,6 +118,7 @@ export const branches: Branch[] = [
     workTrialActive: true,
     address: "",
     mapPinUrl: "",
+    segment: "IPS",
   },
   {
     id: "br-8",
@@ -128,6 +135,7 @@ export const branches: Branch[] = [
     workTrialActive: true,
     address: "",
     mapPinUrl: "",
+    segment: "SO",
   },
   // Expansion branches — placeholder details until the real branch
   // manager/capacity are confirmed; expansionBranch:true is what scopes
@@ -148,6 +156,7 @@ export const branches: Branch[] = [
     address: "",
     mapPinUrl: "",
     expansionBranch: true,
+    segment: "IPS",
   },
   {
     id: "br-10",
@@ -165,5 +174,23 @@ export const branches: Branch[] = [
     address: "",
     mapPinUrl: "",
     expansionBranch: true,
+    segment: "IPS",
+  },
+  {
+    id: "br-11",
+    branchId: "BR-11",
+    name: "Telemedicine - SO",
+    city: "Nairobi",
+    region: "Nairobi",
+    branchManager: "—",
+    bmEmail: "",
+    bmPhone: "",
+    regionalManager: "—",
+    capacity: 20,
+    active: true,
+    workTrialActive: false,
+    address: "",
+    mapPinUrl: "",
+    segment: "SO",
   },
 ];

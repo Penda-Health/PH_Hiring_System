@@ -243,7 +243,7 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
                   </SelectTrigger>
                   <SelectContent>
                     {branches
-                      .filter((b) => b.active)
+                      .filter((b) => b.active && b.segment === "IPS")
                       .sort((a, b) => a.name.localeCompare(b.name))
                       .map((b) => (
                         <SelectItem key={b.id} value={b.id}>

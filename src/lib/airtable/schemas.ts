@@ -18,6 +18,7 @@ export const branchSchema = z.object({
   active: z.boolean(),
   workTrialActive: z.boolean().optional(),
   expansionBranch: z.boolean().optional(),
+  segment,
 });
 
 export const requisitionSchema = z.object({

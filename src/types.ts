@@ -83,6 +83,8 @@ export interface Branch {
   mapPinUrl: string;
   /** True while this branch is in the expansion phase (e.g. Kinoo, G44) — drives the Expansion Tracker's branch scoping. */
   expansionBranch?: boolean;
+  /** IPS clinic vs. SO (Support Office / Telemedicine) — scopes which branches show up for a given requisition/role segment. */
+  segment: Segment;
 }
 
 /** Day-of-week names matching the Airtable multipleSelects choices. */
@@ -170,6 +172,18 @@ export interface OpenRole {
   department: string;
   location: string;
   branchId?: string;
+  /**
+   * Every branch this role's headcount is linked to in Airtable — usually
+   * just [branchId], but some roles are deliberately shared/split across
+   * several geographically clustered branches (location reads "Multiple
+   * Locations" for these; see the HC 0.5-increment feature). branchId is
+   * only the *first* of these — anything scoping by branch membership
+   * (e.g. the Expansion Tracker) must check branchIds, not branchId, or it
+   * will miss a role whenever the branch it cares about isn't first in the
+   * Airtable link order. Read-only: populated from Airtable, not written
+   * back (the app doesn't yet have UI to create/edit a multi-branch role).
+   */
+  branchIds?: string[];
   priority: Priority;
   status: RoleStatus;
   hcApproved: number;

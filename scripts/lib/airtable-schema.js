@@ -53,6 +53,7 @@ const F = {
     ADDRESS: "Address",
     MAP_PIN_URL: "Map Pin URL",
     EXPANSION_BRANCH: "Expansion Branch",
+    SEGMENT: "Segment",
   },
   Requisitions: {
     REQ_ID: "Req ID",
@@ -293,6 +294,9 @@ const TABLES = [
       { name: F.Branches.ADDRESS, type: "multilineText" },
       { name: F.Branches.MAP_PIN_URL, type: "url" },
       { name: F.Branches.EXPANSION_BRANCH, type: "checkbox", options: checkboxOpts },
+      // IPS clinic vs. SO (Support Office / Telemedicine) — scopes which
+      // branches show up on requisition/open-role forms for a given segment.
+      { name: F.Branches.SEGMENT, type: "singleSelect", options: choices(["IPS", "SO"]) },
     ],
   },
   {

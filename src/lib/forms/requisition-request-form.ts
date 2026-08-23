@@ -17,11 +17,11 @@ import { Requisition, Segment, OpenRole } from "@/types";
 import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
 import { nextSequentialId } from "@/lib/airtable/route-handlers";
 
-export async function loadActiveBranches(): Promise<{ id: string; name: string; city: string }[]> {
+export async function loadActiveBranches(segment: Segment): Promise<{ id: string; name: string; city: string }[]> {
   const records = await listRecords(TABLE_NAMES.Branches);
   return records
     .map(branchFromAirtable)
-    .filter((b) => b.active)
+    .filter((b) => b.active && b.segment === segment)
     .map((b) => ({ id: b.id, name: b.name, city: b.city }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }

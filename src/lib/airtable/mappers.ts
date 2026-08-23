@@ -19,7 +19,7 @@ import {
   WorkTrialDay,
   WorkTrialRoleCategory,
 } from "@/types";
-import { AirtableRecord, cleanFields, firstLink, link } from "./client";
+import { AirtableRecord, allLinks, cleanFields, firstLink, link } from "./client";
 import { F } from "./field-names";
 
 function str(v: unknown): string {
@@ -64,6 +64,9 @@ export function branchFromAirtable(r: AirtableRecord): Branch {
     address: str(f[F.Branches.ADDRESS]),
     mapPinUrl: str(f[F.Branches.MAP_PIN_URL]),
     expansionBranch: f[F.Branches.EXPANSION_BRANCH] === true,
+    // Older records predate this field — treat unset as an IPS clinic branch,
+    // the vast majority case, until the base is backfilled.
+    segment: (f[F.Branches.SEGMENT] as Branch["segment"]) || "IPS",
   };
 }
 export function branchToAirtable(b: Partial<Branch>) {
@@ -84,6 +87,7 @@ export function branchToAirtable(b: Partial<Branch>) {
     [F.Branches.ADDRESS]: b.address,
     [F.Branches.MAP_PIN_URL]: b.mapPinUrl,
     [F.Branches.EXPANSION_BRANCH]: b.expansionBranch,
+    [F.Branches.SEGMENT]: b.segment,
   });
 }
 
@@ -168,6 +172,7 @@ export function openRoleFromAirtable(r: AirtableRecord): OpenRole {
     department: str(f[F.OpenRoles.DEPARTMENT]),
     location: str(f[F.OpenRoles.LOCATION]),
     branchId: firstLink(f[F.OpenRoles.BRANCH]),
+    branchIds: allLinks(f[F.OpenRoles.BRANCH]),
     priority: f[F.OpenRoles.PRIORITY] as OpenRole["priority"],
     status: f[F.OpenRoles.STATUS] as OpenRole["status"],
     hcApproved: num(f[F.OpenRoles.HC_APPROVED]),

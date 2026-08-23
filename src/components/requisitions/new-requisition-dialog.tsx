@@ -22,6 +22,13 @@ const SEGMENTS: Segment[] = ["IPS", "SO"];
 const URGENCIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 const GAP_REASONS: GapReason[] = ["Transfer", "Promotion", "Voluntary Resignation", "Termination", "New Addition"];
 
+// Every requisition type maps to exactly one segment today (there's no "IPS
+// New Role" type) — Segment is derived from Type rather than picked
+// independently, so the two can never disagree.
+function segmentForType(type: RequisitionType): Segment {
+  return type === "IPS Gap" ? "IPS" : "SO";
+}
+
 export function NewRequisitionDialog({
   onCreate,
   submittedBy,
@@ -33,13 +40,27 @@ export function NewRequisitionDialog({
 }) {
   const [open, setOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
-  const [form, setForm] = React.useState({
-    type: "IPS Gap" as RequisitionType,
+  const initialType: RequisitionType = "IPS Gap";
+  const initialSegment = segmentForType(initialType);
+  const [form, setForm] = React.useState<{
+    type: RequisitionType;
+    roleTitle: string;
+    department: string;
+    segment: Segment;
+    gapReason: GapReason;
+    branchId: string;
+    headcount: number;
+    justification: string;
+    urgency: Priority;
+    jdAttached: boolean;
+    expectedStartDate: string;
+  }>({
+    type: initialType,
     roleTitle: "",
     department: "",
-    segment: "IPS" as Segment,
+    segment: initialSegment,
     gapReason: "New Addition" as GapReason,
-    branchId: branches[0]?.id ?? "",
+    branchId: branches.find((b) => b.segment === initialSegment)?.id ?? branches[0]?.id ?? "",
     headcount: 1,
     justification: "",
     urgency: "Medium" as Priority,
@@ -52,9 +73,23 @@ export function NewRequisitionDialog({
   }
 
   const departmentOptions = departmentOptionsFor(form.segment);
+  const branchOptions = branches.filter((b) => b.segment === form.segment);
 
-  function updateSegment(segment: Segment) {
-    setForm((prev) => ({ ...prev, segment, department: "" }));
+  // Type fully determines Segment (see segmentForType) — changing the
+  // requisition type keeps Segment, Department, and Branch in sync so they
+  // can never end up pointing at the wrong side of the business.
+  function updateType(type: RequisitionType) {
+    const segment = segmentForType(type);
+    setForm((prev) => {
+      if (segment === prev.segment) return { ...prev, type };
+      return {
+        ...prev,
+        type,
+        segment,
+        department: "",
+        branchId: branches.find((b) => b.segment === segment)?.id ?? "",
+      };
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -101,7 +136,7 @@ export function NewRequisitionDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Field label="Requisition Type">
-              <Select value={form.type} onValueChange={(v) => update("type", v as RequisitionType)}>
+              <Select value={form.type} onValueChange={(v) => updateType(v as RequisitionType)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -115,7 +150,9 @@ export function NewRequisitionDialog({
               </Select>
             </Field>
             <Field label="Segment">
-              <Select value={form.segment} onValueChange={(v) => updateSegment(v as Segment)}>
+              {/* Derived from Requisition Type (see segmentForType) — locked
+                  so it can't drift out of sync with it. */}
+              <Select value={form.segment} disabled>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -157,7 +194,7 @@ export function NewRequisitionDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {branches.map((b) => (
+                  {branchOptions.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.name}
                     </SelectItem>
