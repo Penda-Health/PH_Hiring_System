@@ -86,6 +86,7 @@ export function StaffingCellDialog({
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <Stat label="Required HC" value={cell.required} />
             <Stat label="Current HC" value={cell.current ?? "–"} />
+            <Stat label="Actual Gap on Track (Open Roles)" value={cell.actualGap} />
             {cell.status !== "no-data" && (
               <>
                 <Stat label="Adjustment" value={cell.adjustment ?? 0} />

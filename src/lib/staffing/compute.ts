@@ -24,6 +24,30 @@ export function requiredHcFor(branchId: string, cadre: Cadre, openRoles: OpenRol
     .reduce((sum, r) => sum + (r.hcApproved || 0), 0);
 }
 
+/**
+ * Outstanding unfilled HC still actively being recruited for a branch+cadre
+ * — i.e. what's real in the ATS right now (Open Roles' hcApproved minus
+ * hcFilled), as opposed to `required`/`current` above which are the
+ * projected staffing model's own numbers. Negative-or-zero, mirroring the
+ * "negative = understaffed" convention of the sheet this is meant to
+ * replace manual entry in: 0 means every approved seat for this cell is
+ * filled, -2 means 2 HC are still open. Filled/Cancelled roles don't
+ * contribute — a role sitting at hcFilled >= hcApproved isn't a gap
+ * anymore even if its status hasn't been flipped to Filled yet.
+ */
+export function actualGapHcFor(branchId: string, cadre: Cadre, openRoles: OpenRole[]): number {
+  const outstanding = openRoles
+    .filter(
+      (r) =>
+        r.status !== "Filled" &&
+        r.status !== "Cancelled" &&
+        resolveCadre(r) === cadre &&
+        roleBranchIds(r).includes(branchId)
+    )
+    .reduce((sum, r) => sum + Math.max(0, (r.hcApproved || 0) - (r.hcFilled || 0)), 0);
+  return -outstanding;
+}
+
 /** The People-Ops-confirmed Current Staffing HC for a branch+cadre+month, or undefined if never entered. */
 export function currentHcFor(
   branchId: string,
@@ -44,6 +68,8 @@ export interface GapCell {
   branchName: string;
   cadre: Cadre;
   required: number;
+  /** Live ATS gap — see actualGapHcFor. Always populated, independent of whether Current HC has been confirmed. */
+  actualGap: number;
   /** undefined when no one has confirmed Current Staffing HC for this cell yet this month. */
   current?: number;
   /** current - required; negative = understaffed. undefined when current is undefined. */
@@ -68,6 +94,7 @@ export function computeGapCell(
   projections: StaffingProjection[]
 ): GapCell {
   const required = requiredHcFor(branchId, cadre, openRoles);
+  const actualGap = actualGapHcFor(branchId, cadre, openRoles);
   const projection = currentHcFor(branchId, cadre, monthKey, projections);
   const current = projection?.currentStaffingHc;
 
@@ -77,6 +104,7 @@ export function computeGapCell(
       branchName,
       cadre,
       required,
+      actualGap,
       status: "no-data",
       hoursShortfall: 0,
       internalLocumHours: 0,
@@ -102,6 +130,7 @@ export function computeGapCell(
     branchName,
     cadre,
     required,
+    actualGap,
     current,
     adjustment,
     status,
@@ -140,6 +169,8 @@ export interface CadreSummary {
   /** Branches with no Current Staffing HC entered yet this month. */
   unconfirmed: number;
   gapHc: number;
+  /** Sum of actualGap across every branch for this cadre — negative-or-zero, see actualGapHcFor. */
+  actualGapHc: number;
   externalLocumHcNeeded: number;
 }
 
@@ -152,6 +183,7 @@ export function summarizeByCadre(cells: GapCell[]): CadreSummary[] {
       current: rows.reduce((s, c) => s + (c.current ?? 0), 0),
       unconfirmed: rows.filter((c) => c.status === "no-data").length,
       gapHc: rows.reduce((s, c) => s + Math.min(0, c.adjustment ?? 0), 0),
+      actualGapHc: rows.reduce((s, c) => s + c.actualGap, 0),
       externalLocumHcNeeded: rows.reduce((s, c) => s + c.externalLocumHcNeeded, 0),
     };
   });
@@ -165,6 +197,8 @@ export interface OrgSummary {
   understaffedCells: number;
   overstaffedCells: number;
   externalLocumHcNeeded: number;
+  /** Sum of actualGap org-wide — negative-or-zero, see actualGapHcFor. */
+  actualGapHc: number;
 }
 
 export function summarizeOrg(cells: GapCell[]): OrgSummary {
@@ -176,5 +210,6 @@ export function summarizeOrg(cells: GapCell[]): OrgSummary {
     understaffedCells: cells.filter((c) => c.status === "understaffed").length,
     overstaffedCells: cells.filter((c) => c.status === "overstaffed").length,
     externalLocumHcNeeded: cells.reduce((s, c) => s + c.externalLocumHcNeeded, 0),
+    actualGapHc: cells.reduce((s, c) => s + c.actualGap, 0),
   };
 }

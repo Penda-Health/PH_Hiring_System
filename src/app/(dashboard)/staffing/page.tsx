@@ -10,6 +10,7 @@ import { pipelineForCell } from "@/lib/staffing/pipeline";
 import { currentMonthKey, nextMonthKey, formatMonthLabel } from "@/lib/staffing/constants";
 import { StaffingKpiTiles } from "@/components/staffing/staffing-kpi-tiles";
 import { StaffingHeatmap } from "@/components/staffing/staffing-heatmap";
+import { ActualGapsTable } from "@/components/staffing/actual-gaps-table";
 import { StaffingCellDialog } from "@/components/staffing/staffing-cell-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -191,6 +192,13 @@ export default function StaffingPage() {
           ) : (
             <StaffingHeatmap branches={visibleBranches} cells={visibleCells} onSelectCell={setSelectedCell} />
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="py-4">
+          <p className="text-xs font-medium text-muted-foreground mb-3">Actual Gaps on Track — live from Open Roles</p>
+          <ActualGapsTable branches={visibleBranches} cells={visibleCells} onSelectCell={setSelectedCell} />
         </CardContent>
       </Card>
 

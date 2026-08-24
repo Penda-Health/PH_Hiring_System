@@ -3,10 +3,11 @@ import { OrgSummary } from "@/lib/staffing/compute";
 
 export function StaffingKpiTiles({ summary }: { summary: OrgSummary }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
       <Tile label="Required HC" value={summary.required} />
       <Tile label="Current HC" value={summary.current} />
       <Tile label="Understaffed Cells" value={summary.understaffedCells} highlight={summary.understaffedCells > 0} />
+      <Tile label="Actual Gaps on Track" value={round1(summary.actualGapHc)} highlight={summary.actualGapHc < 0} />
       <Tile label="External Locum HC Needed" value={round1(summary.externalLocumHcNeeded)} />
       <Tile label="Not Yet Confirmed" value={summary.unconfirmed} muted={summary.unconfirmed > 0} />
     </div>
