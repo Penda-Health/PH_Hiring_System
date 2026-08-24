@@ -161,10 +161,15 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
 
   const departmentOptions = departmentOptionsFor(segment);
 
+  // Relievers and locums cover whichever branch needs them that day rather
+  // than sitting at one fixed location, so don't force a Branch/Location
+  // pick for those two employment types the way every other role needs one.
+  const locationOptional = employmentType === "Reliever" || employmentType === "Locum";
+
   const valid =
     form.title.trim() &&
     form.department.trim() &&
-    form.location.trim() &&
+    (form.location.trim() || locationOptional) &&
     form.priority &&
     form.hcApproved > 0 &&
     form.recruiter.trim() &&
@@ -178,6 +183,11 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
     try {
       const role: OpenRole = {
         ...form,
+        // openRoleSchema requires a non-empty location server-side (POST
+        // doesn't strip blanks the way PATCH does) — fall back to a
+        // placeholder rather than leave it blank when the picker was
+        // skipped for a Reliever/Locum role.
+        location: form.location.trim() || (locationOptional ? `${employmentType} Pool` : form.location),
         segment,
         notes: notes.trim() || undefined,
         employmentType: (employmentType as OpenRole["employmentType"]) || undefined,
@@ -341,7 +351,14 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
           {/* ── Branch / Location ─────────────────────────── */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label>{segment === "IPS" ? "Branch" : "Location"}</Label>
+              <Label>
+                {segment === "IPS" ? "Branch" : "Location"}
+                {locationOptional && (
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                    (optional for {employmentType})
+                  </span>
+                )}
+              </Label>
               {segment === "IPS" && (
                 <button
                   type="button"
@@ -420,14 +437,20 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
                       </span>
                     </div>
                   )}
+                  {locationOptional && !selectedBranch && (
+                    <p className="text-xs text-muted-foreground">
+                      {employmentType}s cover wherever they&apos;re needed — leave this blank if the role isn&apos;t
+                      tied to one branch.
+                    </p>
+                  )}
                 </>
               )
             ) : (
               <Input
                 value={form.location}
                 onChange={(e) => set("location", e.target.value)}
-                placeholder="e.g. Karen, Nairobi"
-                required
+                placeholder={locationOptional ? `Leave blank to cover any location` : "e.g. Karen, Nairobi"}
+                required={!locationOptional}
               />
             )}
           </div>
