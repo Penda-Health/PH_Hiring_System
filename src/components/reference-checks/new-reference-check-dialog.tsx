@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
+import { useAuth } from "@/lib/auth/auth-context";
 
 interface Props {
   candidates: Candidate[];
@@ -19,7 +20,7 @@ const EMPTY_REFEREE: RefereeStatus = {
   emailSent: false, smsSent: false, responded: false,
 };
 
-function RefereeFields({
+export function RefereeFields({
   label,
   value,
   onChange,
@@ -61,6 +62,7 @@ function RefereeFields({
 }
 
 export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [candidateId, setCandidateId] = React.useState("");
@@ -78,6 +80,7 @@ export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
     if (!candidateId || !ref1.name || !ref2.name) return;
     setSaving(true);
     try {
+      const now = new Date().toISOString();
       const refCheck: ReferenceCheck = {
         id: "",
         refId: "",
@@ -86,7 +89,15 @@ export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
         referee2: { ...EMPTY_REFEREE, ...ref2 },
         outcome: "Pending",
         driveFolderUrl: null,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        // TA-entered referees are self-verified by construction (a staff
+        // member typed them in directly) — this path initiates immediately,
+        // unlike the candidate self-serve path which waits on TA review.
+        source: "TA Added",
+        status: "Awaiting Responses",
+        verifiedAt: now,
+        verifiedBy: user?.name || user?.email || "",
+        initiatedAt: now,
       };
       await onCreate(refCheck);
       setOpen(false);

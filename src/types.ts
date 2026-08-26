@@ -317,7 +317,29 @@ export interface RefereeStatus {
   strengthExample?: string;
   developmentAreas?: string;
   notes?: string;
+  /** True once this referee signed in with Google on /referee and it matched the email on file. */
+  googleVerified?: boolean;
+  /** The actual Google account email used to sign in — may differ from `email` on a TA override. */
+  googleVerifiedEmail?: string;
+  /** Set (to a staff name/email) when a TA manually overrides a Google-verification mismatch. */
+  googleVerifiedOverrideBy?: string;
+  /** True once a reminder email has gone out for this referee's 24h-no-response nudge. */
+  reminder24hSent?: boolean;
 }
+
+/** How a reference check got started — see the two-initiation-path design in SETUP.md. */
+export type ReferenceCheckSource = "TA Added" | "Candidate Submitted";
+
+/**
+ * Derived, server-written status — never edited directly by a user. Drives
+ * the TA verification queue, the "ready for offer" badge/auto-advance, and
+ * every Airtable automation's trigger condition for this table.
+ */
+export type ReferenceCheckStatus =
+  | "Awaiting Verification"
+  | "Awaiting Responses"
+  | "1 Referee In"
+  | "Ready for Offer";
 
 export interface ReferenceCheck {
   id: string;
@@ -328,6 +350,13 @@ export interface ReferenceCheck {
   outcome: "Pending" | "Positive" | "Negative" | "Mixed";
   driveFolderUrl: string | null;
   createdAt: string;
+  source: ReferenceCheckSource;
+  status: ReferenceCheckStatus;
+  /** When a TA confirmed a candidate-submitted record's referee details. Null for TA-added (self-verified) or not-yet-verified records. */
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+  /** When referee emails actually went out — anchors the 24h reminder automation. Null until verified/sent. */
+  initiatedAt: string | null;
 }
 
 export interface Offer {

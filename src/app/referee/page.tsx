@@ -4,9 +4,11 @@ import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
+import { FormattableTextarea } from "@/components/forms/formattable-textarea";
+import { GoogleSignInButton } from "@/components/forms/google-sign-in-button";
+import { WRITTEN_ASSESSMENT_MIN_LENGTH } from "@/lib/work-trial-helpers";
 
 const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · Reference Check",
@@ -19,7 +21,9 @@ type FormData = {
   candidateName: string;
   roleTitle: string;
   refereeName: string;
+  refereeEmail: string;
   alreadySubmitted: boolean;
+  googleVerified: boolean;
 };
 
 const RELATIONSHIPS = ["Direct manager", "Senior colleague", "Peer / colleague", "Client or patient", "Other professional"];
@@ -55,10 +59,84 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
+// Required until a matching Google sign-in (or a later TA override) is on
+// file for this referee slot — see src/lib/forms/google-verify.ts for why
+// this can't reuse the staff Supabase OAuth flow.
+function GoogleVerificationStep({
+  token,
+  data,
+  onVerified,
+}: {
+  token: string;
+  data: FormData;
+  onVerified: () => void;
+}) {
+  const [checking, setChecking] = React.useState(false);
+  const [mismatch, setMismatch] = React.useState<{ googleEmail: string } | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  async function handleCredential(credential: string) {
+    setChecking(true);
+    setError(null);
+    setMismatch(null);
+    try {
+      const res = await fetch("/api/public/referee/verify-google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, credential }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body.error === "invalid_google_token" ? "Couldn't verify that Google account. Please try again." : "Something went wrong. Please try again.");
+      }
+      if (body.verified) {
+        onVerified();
+      } else {
+        setMismatch({ googleEmail: body.googleEmail });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+      <div>
+        <p className="text-sm font-medium">Verify it&apos;s really you</p>
+        <p className="text-sm text-muted-foreground">
+          To keep reference checks trustworthy, please sign in with the Google account matching{" "}
+          <span className="font-medium text-foreground">{data.refereeEmail}</span> before continuing.
+        </p>
+      </div>
+
+      {mismatch && (
+        <FormMessage>
+          <p>
+            You signed in as <span className="font-medium">{mismatch.googleEmail}</span>, but we have{" "}
+            <span className="font-medium">{data.refereeEmail}</span> on file for this reference. Try signing in with a
+            different Google account below, or email{" "}
+            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
+              careers@pendahealth.com
+            </a>{" "}
+            if that&apos;s the correct address for you and it just doesn&apos;t match what {data.candidateName} gave us.
+          </p>
+        </FormMessage>
+      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <GoogleSignInButton onCredential={handleCredential} disabled={checking} />
+      {checking && <p className="text-xs text-muted-foreground">Verifying…</p>}
+    </div>
+  );
+}
+
 function RefereeForm() {
   const token = useSearchParams().get("token");
   const [data, setData] = React.useState<FormData | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [googleVerified, setGoogleVerified] = React.useState(false);
 
   const [relationship, setRelationship] = React.useState("");
   const [durationKnown, setDurationKnown] = React.useState("");
@@ -89,7 +167,10 @@ function RefereeForm() {
         }
         return res.json();
       })
-      .then(setData)
+      .then((body: FormData) => {
+        setData(body);
+        setGoogleVerified(body.googleVerified);
+      })
       .catch((err) => setLoadError(err.message));
   }, [token]);
 
@@ -150,7 +231,13 @@ function RefereeForm() {
 
   const allScored = SCORE_CRITERIA.every((c) => scores[c.key] > 0);
   const canSubmit =
-    relationship && durationKnown && allScored && wouldRehire && strengthExample.trim().length >= 50;
+    googleVerified &&
+    relationship &&
+    durationKnown &&
+    allScored &&
+    wouldRehire &&
+    strengthExample.trim().length >= WRITTEN_ASSESSMENT_MIN_LENGTH &&
+    developmentAreas.trim().length >= WRITTEN_ASSESSMENT_MIN_LENGTH;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -167,14 +254,18 @@ function RefereeForm() {
           ...scores,
           wouldRehire,
           strengthExample,
-          developmentAreas: developmentAreas || undefined,
+          developmentAreas,
           notes: notes || undefined,
         }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(
-          body.error === "already_submitted" ? "This reference has already been submitted." : "Something went wrong. Please try again."
+          body.error === "already_submitted"
+            ? "This reference has already been submitted."
+            : body.error === "google_verification_required"
+              ? "Please verify with Google before submitting."
+              : "Something went wrong. Please try again."
         );
       }
       setSubmitted(true);
@@ -191,88 +282,102 @@ function RefereeForm() {
       subtitle={`Hi ${data.refereeName}, ${data.candidateName} listed you as a reference for the ${data.roleTitle} role at Penda Health.`}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-2">
-          <Label>How do you know {data.candidateName}?</Label>
-          <Select value={relationship} onValueChange={setRelationship}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select relationship" />
-            </SelectTrigger>
-            <SelectContent>
-              {RELATIONSHIPS.map((r) => (
-                <SelectItem key={r} value={r}>
-                  {r}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {!googleVerified && token && (
+          <GoogleVerificationStep token={token} data={data} onVerified={() => setGoogleVerified(true)} />
+        )}
+        {googleVerified && (
+          <p className="text-xs text-muted-foreground">✓ Identity verified with Google.</p>
+        )}
 
-        <div className="space-y-2">
-          <Label>How long have you known them?</Label>
-          <Select value={durationKnown} onValueChange={setDurationKnown}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select duration" />
-            </SelectTrigger>
-            <SelectContent>
-              {DURATIONS.map((d) => (
-                <SelectItem key={d} value={d}>
-                  {d}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-4">
-          {SCORE_CRITERIA.map((c) => (
-            <div key={c.key} className="flex items-center justify-between">
-              <Label>{c.label}</Label>
-              <StarRating value={scores[c.key]} onChange={(v) => setScores((s) => ({ ...s, [c.key]: v }))} />
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-2">
-          <Label>Would you rehire {data.candidateName}?</Label>
+        <fieldset disabled={!googleVerified} className="space-y-6 disabled:opacity-40">
           <div className="space-y-2">
-            {REHIRE_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setWouldRehire(opt.value)}
-                className={`w-full text-left rounded-lg border p-3 transition-colors ${
-                  wouldRehire === opt.value ? "border-penda-blue bg-penda-blue/5" : "border-border hover:border-penda-blue/50"
-                }`}
-              >
-                {opt.label}
-              </button>
+            <Label>How do you know {data.candidateName}?</Label>
+            <Select value={relationship} onValueChange={setRelationship}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select relationship" />
+              </SelectTrigger>
+              <SelectContent>
+                {RELATIONSHIPS.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>How long have you known them?</Label>
+            <Select value={durationKnown} onValueChange={setDurationKnown}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select duration" />
+              </SelectTrigger>
+              <SelectContent>
+                {DURATIONS.map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {d}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-4">
+            {SCORE_CRITERIA.map((c) => (
+              <div key={c.key} className="flex items-center justify-between">
+                <Label>{c.label}</Label>
+                <StarRating value={scores[c.key]} onChange={(v) => setScores((s) => ({ ...s, [c.key]: v }))} />
+              </div>
             ))}
           </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="strength">
-            Describe a specific example of their strengths (min. 50 characters)
-          </Label>
-          <Textarea
-            id="strength"
-            required
-            value={strengthExample}
-            onChange={(e) => setStrengthExample(e.target.value)}
-            rows={4}
-          />
-          <p className="text-xs text-muted-foreground">{strengthExample.length}/50 characters minimum</p>
-        </div>
+          <div className="space-y-2">
+            <Label>Would you rehire {data.candidateName}?</Label>
+            <div className="space-y-2">
+              {REHIRE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setWouldRehire(opt.value)}
+                  className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                    wouldRehire === opt.value ? "border-penda-blue bg-penda-blue/5" : "border-border hover:border-penda-blue/50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="development">Any areas for development? (optional)</Label>
-          <Textarea id="development" value={developmentAreas} onChange={(e) => setDevelopmentAreas(e.target.value)} rows={3} />
-        </div>
+          <div className="space-y-2">
+            <Label htmlFor="strength">Describe a specific example of their strengths</Label>
+            <FormattableTextarea
+              id="strength"
+              required
+              minLength={WRITTEN_ASSESSMENT_MIN_LENGTH}
+              value={strengthExample}
+              onChange={setStrengthExample}
+              rows={5}
+            />
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="notes">Additional notes (optional)</Label>
-          <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
-        </div>
+          <div className="space-y-2">
+            <Label htmlFor="development">What&apos;s one area they could keep developing?</Label>
+            <FormattableTextarea
+              id="development"
+              required
+              minLength={WRITTEN_ASSESSMENT_MIN_LENGTH}
+              value={developmentAreas}
+              onChange={setDevelopmentAreas}
+              rows={5}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Additional notes (optional)</Label>
+            <FormattableTextarea id="notes" value={notes} onChange={setNotes} rows={3} />
+          </div>
+        </fieldset>
 
         {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 

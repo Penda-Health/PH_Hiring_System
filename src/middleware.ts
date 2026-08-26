@@ -23,6 +23,7 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/requisition-request") ||
     request.nextUrl.pathname.startsWith("/confirm-employment") ||
     request.nextUrl.pathname.startsWith("/work-trial-request") ||
+    request.nextUrl.pathname.startsWith("/reference-check-request") ||
     request.nextUrl.pathname.startsWith("/api/public/") ||
     request.nextUrl.pathname.startsWith("/api/forms/issue-link") ||
     // Vercel cron — authenticated via CRON_SECRET Bearer token, not Supabase session

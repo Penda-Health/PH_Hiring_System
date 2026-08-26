@@ -217,6 +217,10 @@ const refereeStatusSchema = z.object({
   strengthExample: z.string().trim().max(3000).optional(),
   developmentAreas: z.string().trim().max(3000).optional(),
   notes: z.string().trim().max(2000).optional(),
+  googleVerified: z.boolean().optional(),
+  googleVerifiedEmail: z.string().trim().max(255).optional(),
+  googleVerifiedOverrideBy: z.string().trim().max(150).optional(),
+  reminder24hSent: z.boolean().optional(),
 });
 
 export const referenceCheckSchema = z.object({
@@ -227,6 +231,11 @@ export const referenceCheckSchema = z.object({
   outcome: z.enum(["Pending", "Positive", "Negative", "Mixed"]),
   driveFolderUrl: z.string().max(2000).nullable(),
   createdAt: z.string().max(40),
+  source: z.enum(["TA Added", "Candidate Submitted"]),
+  status: z.enum(["Awaiting Verification", "Awaiting Responses", "1 Referee In", "Ready for Offer"]),
+  verifiedAt: z.string().max(40).nullable(),
+  verifiedBy: z.string().trim().max(150).nullable(),
+  initiatedAt: z.string().max(40).nullable(),
 });
 
 export const offerSchema = z.object({
