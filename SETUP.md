@@ -768,8 +768,15 @@ NEXT_PUBLIC_APP_URL=      # your deployed URL, e.g. https://ph-hiring-system.ver
 5. Repeat the same pattern for the branch-manager feedback link, triggered
    off the work trial's date (e.g. "the morning of Trial Date") with
    `type: "bm-feedback"` and the BM's email instead.
-6. For referee links, trigger off the Reference Check record being created,
-   running the script twice (once per referee) with
+6. For referee links, trigger on `Reference Checks` record **create or
+   update** where `Initiated At` is not blank — **not** on record creation.
+   A reference check can be created two ways (see §4.5.6): a TA-added record
+   sets `Initiated At` immediately, so create and initiate happen in the same
+   moment; a candidate-submitted record is created with `Initiated At` blank
+   and only gets it set once a TA reviews and verifies it, which can be
+   hours or days after the record first appears. Triggering off record
+   creation would email referees before their details have ever been
+   checked. Run the script twice (once per referee) with
    `{ "type": "referee", "refCheckId": "<recId>", "refereeNum": 1 }` (and `2`
    for the second referee), sending each to that referee's email.
 
@@ -839,6 +846,120 @@ serialisable), so the upload step's file input always needs re-attaching
 after a restore. The draft is cleared automatically once the assessment is
 actually submitted, or if the link is reopened after someone else already
 submitted/approved it.
+
+### 4.5.6 Reference checks: two initiation paths, Google verification, status, and automations
+
+**Two ways a reference check gets started:**
+
+- **TA-added** (`NewReferenceCheckDialog`, existing) — a Recruitment
+  User/Manager types both referees' name/email/phone directly on
+  `/reference-checks`. The record is created already `source: "TA Added"`,
+  `status: "Awaiting Responses"`, with `verifiedAt`/`verifiedBy`/
+  `initiatedAt` all set immediately (self-verified by construction — a
+  staff member typed it in).
+- **Candidate self-serve** (`/reference-check-request?token=...`, new) —
+  the candidate fills in their own two referees' details. This creates the
+  record as `source: "Candidate Submitted"`, `status: "Awaiting
+  Verification"`, `initiatedAt: null` — **no referee emails go out yet**.
+  It sits in the "Awaiting verification" queue at the top of
+  `/reference-checks` until a TA opens **Verify & send**
+  (`VerifyReferenceCheckDialog`), corrects any typos, and confirms. That
+  action is what sets `verifiedAt`/`verifiedBy`/`initiatedAt` and flips
+  `status` to `"Awaiting Responses"` — the moment that actually triggers
+  the referee-link email (see the corrected §4.5.2 step 6 above).
+
+  Mint this link the same way as the other public forms —
+  `POST /api/forms/issue-link` with `{ "type": "reference-check-request",
+  "candidateId": "recXXXX..." }` — typically from an Airtable automation
+  triggered off `Candidates.Stage = "Reference Check"`, same recipe as
+  §4.5.2. The token is valid 30 days.
+
+**Status field.** `Reference Checks.Status` is server-written only (never
+edited by hand) and drives the verification queue, the card's badge, and
+every automation below:
+
+| Status | Meaning |
+|---|---|
+| `Awaiting Verification` | Candidate-submitted, not yet reviewed by a TA. |
+| `Awaiting Responses` | Sent to both referees; 0 have responded. |
+| `1 Referee In` | Exactly one referee has responded. |
+| `Ready for Offer` | Both referees have responded. The candidate's `Stage` is auto-advanced to `Offer` the moment this is reached — guarded to only fire if the candidate is still on `Reference Check`, so it never overwrites a stage a recruiter already changed by hand. |
+
+**Referee identity verification (Google Sign-In).** `/referee` requires the
+person filling it in to sign in with a Google account via **Google
+Identity Services** (client-side, `accounts.google.com/gsi/client`) before
+the form unlocks — this is deliberately a separate mechanism from staff
+Supabase login, since referees are external people and the Supabase
+Postgres Auth Hook (Section 4) hard-rejects any email outside
+`@penda.co.ke`/`@pendahealth.com`. The ID token is verified server-side
+against Google's JWKS (`src/lib/forms/google-verify.ts`) and the resulting
+email is compared, case-insensitively, against the email on file for that
+referee slot. On a mismatch the referee sees both emails plainly and can
+try a different account, or email `careers@pendahealth.com`.
+
+For legitimate mismatches (e.g. a referee has a personal Gmail on file but
+signs in with a work Google account), a Recruitment User/Manager can
+manually clear it from the referee's card on `/reference-checks` — **"Mark
+verified anyway"** — which stamps `Referee{1,2} Google Verified Override
+By` with their name and unblocks that referee's already-submitted answers
+without requiring a resubmission.
+
+New env var:
+
+```
+NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID=   # same value as GOOGLE_OAUTH_CLIENT_ID (Section 2), just exposed to the browser
+```
+
+This reuses the **same** OAuth client created in Section 2 for Supabase —
+no second client needed — but Google Identity Services checks the
+requesting page's origin, not just the redirect URI Supabase uses. Add your
+app's origin under **APIs & Services → Credentials → (your OAuth client) →
+Authorized JavaScript origins** (a different field from the **Authorized
+redirect URIs** already set for Supabase):
+
+```
+https://YOUR_APP_URL
+```
+
+(and `http://localhost:3000` for local dev).
+
+**PDF report.** Once at least one referee has responded, a Recruitment
+User/Manager can download a Penda-branded PDF from the card
+(`GET /api/reference-checks/[id]/report`, dashboard-only) — one section per
+referee (relationship, scores, would-rehire, strengths, areas for
+development, notes, and whether that referee's identity was Google-verified
+or manually overridden). A referee who hasn't responded yet gets a plain
+"hasn't responded" placeholder section rather than being omitted, same
+"show it's missing rather than hide it" convention as the work-trial
+report.
+
+**Airtable automations to configure** (same "Run a script → Send email"
+shape as §4.5.2/§4.5.3; all key off `Reference Checks` fields):
+
+1. **24h no-response reminder.** Trigger: *At a scheduled time* (daily).
+   Find records where `Initiated At` is ≤24h ago, the referee hasn't
+   responded (`Referee{1,2} Responded` unchecked), and that referee's
+   `Referee{1,2} Reminder 24h Sent` is unchecked. Action: **Run a script**
+   calling `POST /api/forms/get-link` (same route the dashboard's copy-link
+   button uses) with `{ "type": "referee", "refCheckId": input.config().recordId,
+   "refereeNum": 1 }` to fetch that referee's existing link, then **Send
+   email** a reminder, then check `Referee1 Reminder 24h Sent`. Build the
+   automation once and duplicate it for `refereeNum: 2` /
+   `Referee2 Reminder 24h Sent`, same "run it twice" pattern as §4.5.2 step
+   6.
+2. **Notify TA on candidate submission.** Trigger: *When a record matches
+   conditions*, `Status = "Awaiting Verification"` (record created or
+   updated). Send to the TA team's shared inbox/Slack email, linking to
+   `/reference-checks` (the verification queue is always shown first on
+   that page).
+3. **Notify recruiter on referee response.** Trigger: *When a record
+   matches conditions*, `Referee1 Responded = checked` **or**
+   `Referee2 Responded = checked` (build as two automations, one per
+   field — Airtable's OR conditions across a single trigger are limited).
+   Send to the candidate's assigned recruiter (`Candidates.Recruiter`
+   lookup), noting which referee responded and, when `Status` is now
+   `"Ready for Offer"`, that the candidate has cleared both and moved to
+   Offer.
 
 ---
 

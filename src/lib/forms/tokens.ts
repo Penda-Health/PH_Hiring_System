@@ -43,6 +43,16 @@ export type WorkTrialRequestTokenPayload = {
   candidateEmail?: string;
 };
 
+// Sent to a candidate once they reach the "Reference Check" stage, letting
+// them submit their own two referees' contact details (Path B — see
+// SETUP.md's "Two ways to start a reference check"). Unlike RefereeToken,
+// this doesn't point at an existing Reference Checks record — one doesn't
+// exist yet, the POST creates it (unverified, no emails sent).
+export type ReferenceCheckRequestTokenPayload = {
+  type: "reference-check-request";
+  candidateId: string;
+};
+
 export async function signWorkTrialToken(payload: Omit<WorkTrialTokenPayload, "type">): Promise<string> {
   return new SignJWT({ type: "work-trial", ...payload })
     .setProtectedHeader({ alg: "HS256" })
@@ -135,6 +145,28 @@ export async function verifyWorkTrialRequestToken(token: string): Promise<WorkTr
     const { payload } = await jwtVerify(token, secret());
     if (payload.type !== "work-trial-request") return null;
     return payload as unknown as WorkTrialRequestTokenPayload;
+  } catch {
+    return null;
+  }
+}
+
+export async function signReferenceCheckRequestToken(
+  payload: Omit<ReferenceCheckRequestTokenPayload, "type">
+): Promise<string> {
+  return new SignJWT({ type: "reference-check-request", ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("30d")
+    .sign(secret());
+}
+
+export async function verifyReferenceCheckRequestToken(
+  token: string
+): Promise<ReferenceCheckRequestTokenPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    if (payload.type !== "reference-check-request") return null;
+    return payload as unknown as ReferenceCheckRequestTokenPayload;
   } catch {
     return null;
   }

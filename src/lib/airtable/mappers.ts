@@ -469,6 +469,10 @@ function refereeFromAirtable(
     strengthExample: opt(f[keys[`${prefix}_STRENGTH_EXAMPLE`]]),
     developmentAreas: opt(f[keys[`${prefix}_DEVELOPMENT_AREAS`]]),
     notes: opt(f[keys[`${prefix}_NOTES`]]),
+    googleVerified: bool(f[keys[`${prefix}_GOOGLE_VERIFIED`]]),
+    googleVerifiedEmail: opt(f[keys[`${prefix}_GOOGLE_VERIFIED_EMAIL`]]),
+    googleVerifiedOverrideBy: opt(f[keys[`${prefix}_GOOGLE_VERIFIED_OVERRIDE_BY`]]),
+    reminder24hSent: bool(f[keys[`${prefix}_REMINDER_24H_SENT`]]),
   };
 }
 export function referenceCheckFromAirtable(r: AirtableRecord): ReferenceCheck {
@@ -482,6 +486,11 @@ export function referenceCheckFromAirtable(r: AirtableRecord): ReferenceCheck {
     outcome: f[F.ReferenceChecks.OUTCOME] as ReferenceCheck["outcome"],
     driveFolderUrl: opt(f[F.ReferenceChecks.DRIVE_FOLDER_URL]) ?? null,
     createdAt: str(f[F.ReferenceChecks.CREATED_AT]),
+    source: (f[F.ReferenceChecks.SOURCE] as ReferenceCheck["source"]) ?? "TA Added",
+    status: (f[F.ReferenceChecks.STATUS] as ReferenceCheck["status"]) ?? "Awaiting Responses",
+    verifiedAt: opt(f[F.ReferenceChecks.VERIFIED_AT]) ?? null,
+    verifiedBy: opt(f[F.ReferenceChecks.VERIFIED_BY]) ?? null,
+    initiatedAt: opt(f[F.ReferenceChecks.INITIATED_AT]) ?? null,
   };
 }
 export function referenceCheckToAirtable(rc: Partial<ReferenceCheck>) {
@@ -504,6 +513,10 @@ export function referenceCheckToAirtable(rc: Partial<ReferenceCheck>) {
     [F.ReferenceChecks.REFEREE1_STRENGTH_EXAMPLE]: rc.referee1?.strengthExample,
     [F.ReferenceChecks.REFEREE1_DEVELOPMENT_AREAS]: rc.referee1?.developmentAreas,
     [F.ReferenceChecks.REFEREE1_NOTES]: rc.referee1?.notes,
+    [F.ReferenceChecks.REFEREE1_GOOGLE_VERIFIED]: rc.referee1?.googleVerified,
+    [F.ReferenceChecks.REFEREE1_GOOGLE_VERIFIED_EMAIL]: rc.referee1?.googleVerifiedEmail,
+    [F.ReferenceChecks.REFEREE1_GOOGLE_VERIFIED_OVERRIDE_BY]: rc.referee1?.googleVerifiedOverrideBy,
+    [F.ReferenceChecks.REFEREE1_REMINDER_24H_SENT]: rc.referee1?.reminder24hSent,
     [F.ReferenceChecks.REFEREE2_NAME]: rc.referee2?.name,
     [F.ReferenceChecks.REFEREE2_EMAIL]: rc.referee2?.email,
     [F.ReferenceChecks.REFEREE2_PHONE]: rc.referee2?.phone,
@@ -520,9 +533,18 @@ export function referenceCheckToAirtable(rc: Partial<ReferenceCheck>) {
     [F.ReferenceChecks.REFEREE2_STRENGTH_EXAMPLE]: rc.referee2?.strengthExample,
     [F.ReferenceChecks.REFEREE2_DEVELOPMENT_AREAS]: rc.referee2?.developmentAreas,
     [F.ReferenceChecks.REFEREE2_NOTES]: rc.referee2?.notes,
+    [F.ReferenceChecks.REFEREE2_GOOGLE_VERIFIED]: rc.referee2?.googleVerified,
+    [F.ReferenceChecks.REFEREE2_GOOGLE_VERIFIED_EMAIL]: rc.referee2?.googleVerifiedEmail,
+    [F.ReferenceChecks.REFEREE2_GOOGLE_VERIFIED_OVERRIDE_BY]: rc.referee2?.googleVerifiedOverrideBy,
+    [F.ReferenceChecks.REFEREE2_REMINDER_24H_SENT]: rc.referee2?.reminder24hSent,
     [F.ReferenceChecks.OUTCOME]: rc.outcome,
     [F.ReferenceChecks.DRIVE_FOLDER_URL]: rc.driveFolderUrl,
     [F.ReferenceChecks.CREATED_AT]: rc.createdAt,
+    [F.ReferenceChecks.SOURCE]: rc.source,
+    [F.ReferenceChecks.STATUS]: rc.status,
+    [F.ReferenceChecks.VERIFIED_AT]: rc.verifiedAt?.slice(0, 10) ?? rc.verifiedAt,
+    [F.ReferenceChecks.VERIFIED_BY]: rc.verifiedBy,
+    [F.ReferenceChecks.INITIATED_AT]: rc.initiatedAt?.slice(0, 10) ?? rc.initiatedAt,
   });
 }
 

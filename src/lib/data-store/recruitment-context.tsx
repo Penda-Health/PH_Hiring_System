@@ -83,6 +83,14 @@ type RecruitmentDataContextValue = {
   referenceChecks: ReferenceCheck[];
   createReferenceCheck: (refCheck: ReferenceCheck) => Promise<void>;
   updateReferenceCheckOutcome: (id: string, outcome: ReferenceCheck["outcome"]) => void;
+  /** TA reviews a candidate-submitted (unverified) record, corrects any typos, and sends — moves it from "Awaiting Verification" to "Awaiting Responses". */
+  verifyAndInitiateReferenceCheck: (
+    id: string,
+    referee1: { name: string; email: string; phone: string },
+    referee2: { name: string; email: string; phone: string }
+  ) => Promise<void>;
+  /** TA manually confirms a referee's identity despite a Google sign-in mismatch (or no sign-in at all). */
+  overrideRefereeGoogleVerification: (id: string, refereeNum: 1 | 2) => Promise<void>;
 
   offers: Offer[];
   createOffer: (offer: Offer) => Promise<void>;
@@ -467,6 +475,45 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit]
   );
 
+  const verifyAndInitiateReferenceCheck = React.useCallback(
+    async (
+      id: string,
+      referee1: { name: string; email: string; phone: string },
+      referee2: { name: string; email: string; phone: string }
+    ) => {
+      if (!guardEdit(canEdit, "verifyAndInitiateReferenceCheck")) return;
+      const now = new Date().toISOString();
+      const existing = referenceChecks.find((c) => c.id === id);
+      const patch: Partial<ReferenceCheck> = {
+        referee1: existing ? { ...existing.referee1, ...referee1 } : { ...referee1, emailSent: false, smsSent: false, responded: false },
+        referee2: existing ? { ...existing.referee2, ...referee2 } : { ...referee2, emailSent: false, smsSent: false, responded: false },
+        status: "Awaiting Responses",
+        verifiedAt: now,
+        verifiedBy: user?.name || user?.email || "",
+        initiatedAt: now,
+      };
+      persist<ReferenceCheck>("reference-checks", id, patch);
+      setReferenceChecks((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    },
+    [canEdit, referenceChecks, user]
+  );
+
+  const overrideRefereeGoogleVerification = React.useCallback(
+    async (id: string, refereeNum: 1 | 2) => {
+      if (!guardEdit(canEdit, "overrideRefereeGoogleVerification")) return;
+      const existing = referenceChecks.find((c) => c.id === id);
+      if (!existing) return;
+      const overriddenBy = user?.name || user?.email || "";
+      const key = refereeNum === 1 ? "referee1" : "referee2";
+      const patch: Partial<ReferenceCheck> = {
+        [key]: { ...existing[key], googleVerifiedOverrideBy: overriddenBy },
+      } as Partial<ReferenceCheck>;
+      persist<ReferenceCheck>("reference-checks", id, patch);
+      setReferenceChecks((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    },
+    [canEdit, referenceChecks, user]
+  );
+
   const createOffer = React.useCallback(
     async (offer: Offer) => {
       if (!guardEdit(canEdit, "createOffer")) return;
@@ -805,6 +852,8 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       referenceChecks,
       createReferenceCheck,
       updateReferenceCheckOutcome,
+      verifyAndInitiateReferenceCheck,
+      overrideRefereeGoogleVerification,
       offers,
       createOffer,
       acceptOffer,
@@ -858,6 +907,8 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       referenceChecks,
       createReferenceCheck,
       updateReferenceCheckOutcome,
+      verifyAndInitiateReferenceCheck,
+      overrideRefereeGoogleVerification,
       offers,
       createOffer,
       acceptOffer,

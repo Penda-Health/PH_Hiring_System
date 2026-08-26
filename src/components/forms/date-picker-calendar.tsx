@@ -6,8 +6,19 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 // Default blocked days (0 = Sunday)
 const DEFAULT_BLOCKED_DAYS = new Set([0]);
 
+// Deliberately NOT `d.toISOString().slice(0, 10)`: toISOString() converts to
+// UTC first, and every date this component builds (`new Date(year, month,
+// day)`) is local midnight. In any UTC+ timezone — Nairobi (UTC+3) included —
+// local midnight is still the *previous* day in UTC, so that conversion was
+// silently shifting every clicked date back by one. All the dates handled
+// here are calendar days, not instants, so we just read the local
+// year/month/day fields straight off the Date instead of round-tripping
+// through UTC.
 function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function addMonths(d: Date, n: number): Date {

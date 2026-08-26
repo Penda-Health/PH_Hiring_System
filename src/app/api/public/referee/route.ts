@@ -5,6 +5,7 @@ import { z } from "zod";
 import { verifyRefereeToken } from "@/lib/forms/tokens";
 import { loadRefereeFormData, submitRefereeForm } from "@/lib/forms/referee-form";
 import { rateLimit } from "@/lib/rate-limit";
+import { WRITTEN_ASSESSMENT_MIN_LENGTH } from "@/lib/work-trial-helpers";
 
 export async function GET(request: NextRequest) {
   const limited = rateLimit(request, "public:referee:get", { limit: 60, windowMs: 10 * 60 * 1000 });
@@ -38,8 +39,8 @@ const submitSchema = z.object({
     "Yes, with some reservations",
     "No, I would not recommend them",
   ]),
-  strengthExample: z.string().trim().min(50).max(3000),
-  developmentAreas: z.string().trim().max(3000).optional(),
+  strengthExample: z.string().trim().min(WRITTEN_ASSESSMENT_MIN_LENGTH).max(3000),
+  developmentAreas: z.string().trim().min(WRITTEN_ASSESSMENT_MIN_LENGTH).max(3000),
   notes: z.string().trim().max(2000).optional(),
 });
 
@@ -58,6 +59,12 @@ export async function POST(request: NextRequest) {
     const existing = await loadRefereeFormData(payload.refCheckId, payload.refereeNum);
     if (!existing) return NextResponse.json({ error: "not_found" }, { status: 404 });
     if (existing.alreadySubmitted) return NextResponse.json({ error: "already_submitted" }, { status: 409 });
+    // Never trust a client-side "I verified" flag — re-check server-side
+    // that a matching Google sign-in (or a TA override) was actually
+    // persisted against this referee slot. See google-verify.ts.
+    if (!existing.googleVerified) {
+      return NextResponse.json({ error: "google_verification_required" }, { status: 403 });
+    }
 
     await submitRefereeForm(payload.refCheckId, payload.refereeNum, {
       relationship: result.data.relationship,
