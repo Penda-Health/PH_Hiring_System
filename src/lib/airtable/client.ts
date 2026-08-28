@@ -13,6 +13,16 @@ type AirtableListResponse = { records: AirtableRecord[]; offset?: string };
 
 const MAX_RETRIES = 3;
 
+// Per-attempt network timeout. Vercel serverless functions get killed
+// outright (25s on Hobby/Pro) if they never return an initial response —
+// and a stalled TCP connection to Airtable (no HTTP error, just a fetch()
+// that never resolves) used to do exactly that: it isn't a 429/5xx, so it
+// never hit the retry logic below, and just sat there until the platform
+// force-killed the whole function. Bounding each attempt means a stall
+// fails fast and falls into the same retry/backoff path as a 429/5xx,
+// instead of eating the entire function's time budget on one hung request.
+const REQUEST_TIMEOUT_MS = 10_000;
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -25,20 +35,36 @@ async function airtableRequest(
   const { apiKey, baseUrl } = getAirtableConfig();
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const res = await fetch(`${baseUrl}/${path}`, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
-      // Reads are cached briefly and tagged per table so a write can invalidate
-      // just that table's cache via revalidateTag instead of going stale for a
-      // full minute or re-fetching Airtable on every single page load.
-      ...(options.method && options.method !== "GET"
-        ? { cache: "no-store" as const }
-        : { next: { revalidate: 30, tags: [`airtable:${tableName}`] } }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${baseUrl}/${path}`, {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          ...(options.headers || {}),
+        },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        // Reads are cached briefly and tagged per table so a write can invalidate
+        // just that table's cache via revalidateTag instead of going stale for a
+        // full minute or re-fetching Airtable on every single page load.
+        ...(options.method && options.method !== "GET"
+          ? { cache: "no-store" as const }
+          : { next: { revalidate: 30, tags: [`airtable:${tableName}`] } }),
+      });
+    } catch (err) {
+      // A stalled/dropped connection or a timed-out attempt (AbortError)
+      // throws instead of resolving with a bad status — treat it the same
+      // as a retryable 5xx rather than letting it bubble up uncaught, since
+      // it's just as likely to be a transient network blip.
+      if (attempt < MAX_RETRIES) {
+        await sleep(2 ** attempt * 300);
+        continue;
+      }
+      throw new Error(
+        `Airtable API request failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
 
     if (res.ok) {
       return await res.json().catch(() => ({}));
@@ -150,20 +176,38 @@ export async function uploadAttachment(
 ): Promise<AirtableRecord> {
   const { apiKey, baseId } = getAirtableConfig();
   const url = `https://content.airtable.com/v0/${baseId}/${recordId}/${encodeURIComponent(fieldName)}/uploadAttachment`;
+  // Base64 file bodies can legitimately take longer than a plain list/get
+  // call, hence the longer timeout than REQUEST_TIMEOUT_MS above — but it
+  // still needs a bound for the same reason: an unbounded fetch() that
+  // stalls mid-upload hangs the whole serverless function until Vercel
+  // force-kills it, rather than failing fast into the retry loop below.
+  const UPLOAD_TIMEOUT_MS = 20_000;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contentType: file.contentType,
-        file: file.base64,
-        filename: file.filename,
-      }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contentType: file.contentType,
+          file: file.base64,
+          filename: file.filename,
+        }),
+        signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+      });
+    } catch (err) {
+      if (attempt < MAX_RETRIES) {
+        await sleep(2 ** attempt * 300);
+        continue;
+      }
+      throw new Error(
+        `Airtable attachment upload failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
 
     if (res.ok) {
       const json = await res.json().catch(() => ({}));
