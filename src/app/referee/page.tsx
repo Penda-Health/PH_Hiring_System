@@ -276,20 +276,40 @@ function RefereeForm() {
     }
   }
 
+  // Step 1 — verify, and nothing else. Splitting this into its own screen
+  // (rather than showing the questions greyed out behind a disabled
+  // <fieldset>) isn't just presentation: a disabled fieldset only reliably
+  // blocks *native* form controls, and the relationship/duration dropdowns
+  // are Radix Select components that don't consistently inherit that
+  // ambient disabled state across browsers — so they could look locked but
+  // still be interactive. Not rendering the questions at all until verified
+  // closes that gap by construction instead of patching each widget.
+  if (!googleVerified) {
+    return (
+      <FormShell brand={BRAND}
+        title="Verify it's you"
+        subtitle={`Hi ${data.refereeName}, ${data.candidateName} listed you as a reference for the ${data.roleTitle} role at Penda Health.`}
+      >
+        <div className="space-y-4">
+          <p className="text-sm font-medium">Step 1 of 2 — Verify it&apos;s you</p>
+          {token && <GoogleVerificationStep token={token} data={data} onVerified={() => setGoogleVerified(true)} />}
+        </div>
+      </FormShell>
+    );
+  }
+
   return (
     <FormShell brand={BRAND}
       title="Reference check"
       subtitle={`Hi ${data.refereeName}, ${data.candidateName} listed you as a reference for the ${data.roleTitle} role at Penda Health.`}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
-        {!googleVerified && token && (
-          <GoogleVerificationStep token={token} data={data} onVerified={() => setGoogleVerified(true)} />
-        )}
-        {googleVerified && (
+        <div className="space-y-1">
+          <p className="text-sm font-medium">Step 2 of 2 — Your feedback</p>
           <p className="text-xs text-muted-foreground">✓ Identity verified with Google.</p>
-        )}
+        </div>
 
-        <fieldset disabled={!googleVerified} className="space-y-6 disabled:opacity-40">
+        <div className="space-y-6">
           <div className="space-y-2">
             <Label>How do you know {data.candidateName}?</Label>
             <Select value={relationship} onValueChange={setRelationship}>
@@ -377,7 +397,7 @@ function RefereeForm() {
             <Label htmlFor="notes">Additional notes (optional)</Label>
             <FormattableTextarea id="notes" value={notes} onChange={setNotes} rows={3} />
           </div>
-        </fieldset>
+        </div>
 
         {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 
