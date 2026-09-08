@@ -11,16 +11,25 @@
 //    Supabase directly for auth and Realtime (see src/lib/supabase/client.ts,
 //    use-ips-realtime.ts) — this is not a Next.js API route, so 'self' alone
 //    would break login and the IPS meeting live-update feature.
+//  - script-src/connect-src/frame-src include accounts.google.com: /referee
+//    renders Google Identity Services' "Sign in with Google" button
+//    (src/components/forms/google-sign-in-button.tsx) to verify referee
+//    identity — a separate flow from the Supabase Google OAuth login above.
+//    GIS loads its script from, talks to, and renders its button/prompt via
+//    an iframe from accounts.google.com, so all three directives need it or
+//    the button silently never appears (no visible error, just a blocked
+//    script — only shows up as a CSP violation in the browser console).
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' https://accounts.google.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com",
+      "frame-src https://accounts.google.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
