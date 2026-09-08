@@ -63,12 +63,22 @@ You need a Google OAuth client so Supabase can run "Sign in with Google."
 1. Go to [console.cloud.google.com](https://console.cloud.google.com).
 2. Top-left project dropdown → **New Project**. Name it `Penda Hiring System`,
    click **Create**, then make sure it's selected in the project dropdown.
-3. In the left sidebar: **APIs & Services → OAuth consent screen**.
-   - User Type: **Internal** if your Google Workspace is `penda.co.ke` and
-     you want only Workspace accounts to even see the consent screen
-     (recommended — this is a second layer of restriction on top of the
-     server-side domain check). Otherwise choose **External** and rely on
-     the server-side check described in Section 4.
+3. In the left sidebar: **APIs & Services → OAuth consent screen** (in newer
+   Console UIs this lives under **Google Auth Platform → Audience**).
+   - User Type: **External**, then **Publish the app** (Publishing status →
+     **In production**, not "Testing" — Testing caps sign-in at ~100
+     explicitly-added test users, which blocks every referee who isn't on
+     that list). This client is reused below (Section 4.5) for referee
+     identity verification via Google Identity Services, and referees are
+     external people by definition — **Internal** would hard-block them at
+     Google's own consent screen (`Error 403: org_internal`) before the app
+     ever sees a token, with no way to fix it from our side. This is safe
+     for staff login too: it's backstopped by the server-side domain check
+     in Section 4 (a Supabase Auth Hook, not client-side JS), so an
+     out-of-org Google account can complete the Google consent screen but
+     still gets hard-rejected at token issuance. Publishing to production
+     doesn't trigger Google's manual review here since GIS only requests
+     basic `openid`/`email`/`profile` scopes, not sensitive ones.
    - App name: `Penda Hiring System`.
    - User support email: your email.
    - Developer contact: your email.
@@ -922,6 +932,16 @@ https://YOUR_APP_URL
 ```
 
 (and `http://localhost:3000` for local dev).
+
+This only works at all if the OAuth consent screen is **External** and
+**published** (Section 2) — an **Internal** consent screen rejects every
+referee outright with `Error 403: org_internal`, since that's a Google
+Workspace-level block on the consent screen itself, not something this
+app's code can see or work around. Also note GIS only authenticates people
+who *have* a Google Account — one can be registered to a non-Gmail address
+(Yahoo, Outlook, etc.), but a referee with no Google Account at all can't
+complete this step no matter what; that's what the "Mark verified anyway"
+TA override above is for.
 
 **PDF report.** Once at least one referee has responded, a Recruitment
 User/Manager can download a Penda-branded PDF from the card
