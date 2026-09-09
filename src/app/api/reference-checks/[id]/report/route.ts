@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadReferenceCheckReportData } from "@/lib/reports/reference-check-report";
 import { generateReferenceCheckReportPdf } from "@/lib/reports/reference-check-report-pdf";
+import { generateReferenceCheckSummary } from "@/lib/ai/reference-check-summary";
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const supabase = await createSupabaseServerClient();
@@ -25,7 +26,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "not_complete" }, { status: 409 });
     }
 
-    const pdfBytes = await generateReferenceCheckReportPdf(data);
+    // Never lets a slow/unavailable AI provider block the report — it
+    // already returns null on any failure (see the module for why).
+    const aiSummary = await generateReferenceCheckSummary(data);
+    const pdfBytes = await generateReferenceCheckReportPdf(data, aiSummary);
     const filename = `Reference Check Report - ${data.candidateName} (${data.refId}).pdf`.replace(/[/\\]/g, "-");
 
     return new NextResponse(Buffer.from(pdfBytes), {

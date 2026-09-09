@@ -10,6 +10,7 @@ import fs from "fs";
 import path from "path";
 import type { ReferenceCheckReportData } from "./reference-check-report";
 import type { RefereeStatus } from "@/types";
+import type { ReferenceCheckAiSummary } from "@/lib/ai/reference-check-summary";
 
 const PAGE_W = 595.28; // A4, points
 const PAGE_H = 841.89;
@@ -221,6 +222,30 @@ function drawStatusBanner(ctx: Ctx, data: ReferenceCheckReportData) {
   ctx.y -= bannerH + 24;
 }
 
+// AI-generated analysis of the reference check, drawn on page 1 alongside
+// the human-set status banner above it. Deliberately kept visually distinct
+// (its own tinted box + a disclaimer line) so it reads as a supplementary
+// signal, not the official TA-set outcome.
+function drawAiSummarySection(ctx: Ctx, summary: ReferenceCheckAiSummary) {
+  drawSectionHeading(ctx, "AI Analysis");
+
+  ensureSpace(ctx, 14);
+  ctx.page.drawText(
+    "Generated automatically from referee responses — a supplement to human judgment, not a replacement.",
+    { x: MARGIN, y: ctx.y - 10, size: 8, font: ctx.regular, color: GREY }
+  );
+  ctx.y -= 22;
+
+  drawFactGrid(ctx, [
+    { label: "Overall status", value: summary.overallStatus },
+    { label: "Confidence", value: `${Math.round(summary.confidenceScore)}%` },
+    { label: "Recommendation score", value: `${summary.recommendationScore}/5` },
+    { label: "Overall score", value: `${summary.overallScore}/5` },
+  ]);
+
+  drawParagraphSection(ctx, "Summary", summary.summary);
+}
+
 function drawRefereeSection(ctx: Ctx, num: 1 | 2, referee: RefereeStatus) {
   ensureSpace(ctx, 40);
   drawSectionHeading(ctx, `Referee ${num}: ${referee.name || "—"}`);
@@ -267,7 +292,10 @@ function drawRefereeSection(ctx: Ctx, num: 1 | 2, referee: RefereeStatus) {
   drawParagraphSection(ctx, "Additional notes", referee.notes, "No additional notes.");
 }
 
-export async function generateReferenceCheckReportPdf(data: ReferenceCheckReportData): Promise<Uint8Array> {
+export async function generateReferenceCheckReportPdf(
+  data: ReferenceCheckReportData,
+  aiSummary: ReferenceCheckAiSummary | null = null
+): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`Reference Check Report — ${data.candidateName}`);
   doc.setAuthor("Penda Health Recruitment System");
@@ -281,6 +309,12 @@ export async function generateReferenceCheckReportPdf(data: ReferenceCheckReport
     { label: "Reference check started", value: fmtDateTime(data.createdAt) },
   ]);
   drawStatusBanner(ctx, data);
+
+  // Only drawn when AI generation succeeded (see
+  // src/lib/ai/reference-check-summary.ts) — omitted silently on failure or
+  // when it's not configured, same graceful-degradation approach as the
+  // logo above.
+  if (aiSummary) drawAiSummarySection(ctx, aiSummary);
 
   // Each referee's report gets its own page rather than flowing on wherever
   // there happens to be room — keeps the two reports visually distinct and
