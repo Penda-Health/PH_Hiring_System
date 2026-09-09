@@ -945,13 +945,27 @@ TA override above is for.
 
 **PDF report.** Once at least one referee has responded, a Recruitment
 User/Manager can download a Penda-branded PDF from the card
-(`GET /api/reference-checks/[id]/report`, dashboard-only) — one section per
-referee (relationship, scores, would-rehire, strengths, areas for
-development, notes, and whether that referee's identity was Google-verified
-or manually overridden). A referee who hasn't responded yet gets a plain
-"hasn't responded" placeholder section rather than being omitted, same
-"show it's missing rather than hide it" convention as the work-trial
-report.
+(`GET /api/reference-checks/[id]/report`, dashboard-only). Page 1 covers the
+candidate, the human-set status/outcome, and (see below) an AI analysis;
+each referee then gets their own page — relationship, scores, would-rehire,
+strengths, areas for development, notes, and whether that referee's
+identity was Google-verified or manually overridden. A referee who hasn't
+responded yet gets a plain "hasn't responded" placeholder section rather
+than being omitted, same "show it's missing rather than hide it" convention
+as the work-trial report.
+
+**AI analysis (page 1).** `src/lib/ai/reference-check-summary.ts` calls the
+same AI provider setup as Penny (§7 — defaults to Groq's Llama 3.3) to
+produce an overall status, a short plain-English summary, a recommendation
+score and overall score (both 1–5), and a confidence score (0–100%, capped
+at 60% when only one of the two referees has responded). This is a
+supplement to the human-set outcome dropdown, never a replacement — the PDF
+section says so, and it's visually distinct from the status banner above
+it. It never sends the candidate's or referees' names/emails/phone numbers
+to the provider (matching §7's PII policy) — only role title, relationship,
+scores, would-rehire, and the free-text answers. If the provider call fails
+or isn't configured, this section is silently omitted and the rest of the
+report still generates — no separate setup step needed beyond §7.
 
 **Airtable automations to configure** (same "Run a script → Send email"
 shape as §4.5.2/§4.5.3; all key off `Reference Checks` fields):
