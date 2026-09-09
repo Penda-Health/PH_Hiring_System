@@ -45,7 +45,7 @@ restricted to Penda Health staff.
 ```bash
 npm install
 cp .env.local.example .env.local   # then fill in AIRTABLE_API_KEY / AIRTABLE_BASE_ID
-npm run airtable:schema   # creates all 11 tables + fields
+npm run airtable:schema   # creates all 13 tables + fields
 npm run airtable:seed     # populates them with the same mock data the app ships with
 ```
 
@@ -981,6 +981,32 @@ shape as §4.5.2/§4.5.3; all key off `Reference Checks` fields):
    `"Ready for Offer"`, that the candidate has cleared both and moved to
    Offer.
 
+### 4.5.7 Work trial booking window (`/settings` → "Work trial booking window")
+
+Candidates self-book their work trial date via `/work-trial-request`
+(token-protected, exempted in `src/middleware.ts` the same way as the other
+public forms above). By default they can pick any date up to
+`DEFAULT_BOOKING_WINDOW_DAYS` (14) days out — see `src/lib/work-trial-timing.ts`.
+
+A Recruitment Manager can pull that ceiling in — e.g. to stop bookings ahead
+of a hiring freeze or a known cutoff date — from a new card on `/settings`.
+This is backed by a new **App Settings** Airtable table: a singleton
+(always-exactly-one-row) table holding app-wide config, created automatically
+by `npm run airtable:schema` (§1.3) along with the other 12 tables. The
+cutoff date is read/written via `GET`/`PATCH /api/settings`
+(recruitment_manager-only, gated in `src/lib/permissions.ts` the same way as
+the `/settings` page itself) and enforced **server-side** on both the read
+side (`GET /api/public/work-trial-request` returns the effective `maxDate`
+so the calendar greys out anything past it) and the write side (`POST
+.../work-trial-request` rejects a `schedule` submission past that date with
+`outside_booking_window`) — never only in the browser.
+
+The cutoff is exclusive (no new date *on or after* it can be booked) and can
+never push the window out further than the default 14 days, only pull it in.
+Leaving it blank restores the default rolling window. No manual Airtable
+automation setup is needed for this one — it's plain CRUD against the new
+table, not an email-sending flow.
+
 ---
 
 ## 4.5.3 Public requisition-request links + 6-month employment confirmation
@@ -1157,3 +1183,4 @@ change silently failing.
 | Africa's Talking SMS | ⏳ next phase |
 | AI assistant ("Penny") — Groq/Gemini/Cloudflare, agentic actions | ✅ section 7 (app side) / ⏳ you add the API keys |
 | Expansion Tracker (Kinoo, G44) | ✅ section 4.9 — done; both branches are live and flagged, and "+ New Branch" on `/expansion` handles any future one |
+| Work trial booking window (`/settings`) | ✅ section 4.5.7 |

@@ -313,6 +313,14 @@ const F = {
     UPDATED_BY: "Updated By",
     UPDATED_AT: "Updated At",
   },
+  // Singleton config row, edited from the dashboard's Settings page — see
+  // src/app/api/settings/route.ts. Always exactly one record; more
+  // app-wide settings can land as additional fields on that same row later.
+  AppSettings: {
+    WORK_TRIAL_BOOKING_CUTOFF_DATE: "Work Trial Booking Cutoff Date",
+    UPDATED_BY: "Updated By",
+    UPDATED_AT: "Updated At",
+  },
 };
 
 // Order matters: every multipleRecordLinks field must point at a table that
@@ -696,6 +704,17 @@ const TABLES = [
       { name: F.StaffingProjections.NOTES, type: "multilineText" },
       { name: F.StaffingProjections.UPDATED_BY, type: "singleLineText" },
       { name: F.StaffingProjections.UPDATED_AT, type: "date", options: dateOpts },
+    ],
+  },
+  {
+    name: "App Settings",
+    fields: [
+      // Exclusive: no new work-trial date on or after this may be booked
+      // (candidate self-serve /work-trial-request). Blank = no cutoff, falls
+      // back to the default rolling window (see src/lib/work-trial-timing.ts).
+      { name: F.AppSettings.WORK_TRIAL_BOOKING_CUTOFF_DATE, type: "date", options: dateOpts },
+      { name: F.AppSettings.UPDATED_BY, type: "singleLineText" },
+      { name: F.AppSettings.UPDATED_AT, type: "date", options: dateOpts },
     ],
   },
 ];

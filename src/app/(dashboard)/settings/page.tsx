@@ -9,10 +9,13 @@ import { DeletedItem, describeSnapshot, listRecentDeletedItems } from "@/lib/sup
 import { Branch, USER_ROLE_LABELS, User, UserRoleName } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronRight, Check, Minus } from "lucide-react";
 import { NewBranchDialog } from "@/components/branches/new-branch-dialog";
 import { EditBranchDialog } from "@/components/branches/edit-branch-dialog";
+import { AppSettings } from "@/types";
+import { DEFAULT_BOOKING_WINDOW_DAYS } from "@/lib/work-trial-timing";
 
 const ROLES: UserRoleName[] = ["recruitment_manager", "recruitment_user", "contributor", "branch_manager"];
 const DELETED_ITEMS_WINDOW_DAYS = 7;
@@ -162,6 +165,104 @@ function BranchRow({ branch, onSave }: { branch: Branch; onSave: (id: string, pa
   );
 }
 
+// Lets a Recruitment Manager cap how far out a candidate can self-book a work
+// trial (/work-trial-request) — e.g. "nothing past 30 September" ahead of a
+// hiring freeze. Backed by the singleton App Settings Airtable row; see
+// src/app/api/settings/route.ts and src/lib/work-trial-timing.ts for how the
+// cutoff combines with the always-on rolling window.
+function WorkTrialBookingWindowCard() {
+  const [cutoff, setCutoff] = React.useState<string | null>(null);
+  const [draft, setDraft] = React.useState("");
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = React.useState<string | null>(null);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/settings");
+      const data = (await res.json()) as AppSettings;
+      setCutoff(data.workTrialBookingCutoffDate);
+      setDraft(data.workTrialBookingCutoffDate ?? "");
+    } catch {
+      setError("Failed to load current setting.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  async function save(value: string | null) {
+    setSaving(true);
+    setError(null);
+    setSavedMessage(null);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workTrialBookingCutoffDate: value }),
+      });
+      if (!res.ok) throw new Error();
+      const data = (await res.json()) as AppSettings;
+      setCutoff(data.workTrialBookingCutoffDate);
+      setDraft(data.workTrialBookingCutoffDate ?? "");
+      setSavedMessage(value ? "Cutoff saved." : "Cutoff cleared — back to the default rolling window.");
+    } catch {
+      setError("Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const dirty = draft !== (cutoff ?? "");
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Work trial booking window</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Candidates can self-book a work trial up to {DEFAULT_BOOKING_WINDOW_DAYS} days out by default. Set a cutoff
+          date below to close bookings earlier than that — no new work trial date on or after the cutoff can be
+          booked via the candidate link. Leave it blank for the default rolling window.
+        </p>
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="date"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              className="w-48"
+            />
+            <Button
+              size="sm"
+              disabled={saving || !dirty || !draft}
+              onClick={() => save(draft)}
+              className="bg-penda-blue hover:bg-penda-blue-dark"
+            >
+              {saving ? "Saving…" : "Save cutoff"}
+            </Button>
+            {cutoff && (
+              <Button size="sm" variant="outline" disabled={saving} onClick={() => save(null)}>
+                Clear cutoff
+              </Button>
+            )}
+          </div>
+        )}
+        {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+        {savedMessage && !error && <p className="mt-2 text-xs text-emerald-600">{savedMessage}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const { branches, createBranch, updateBranch } = useRecruitmentData();
@@ -238,6 +339,7 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+      <WorkTrialBookingWindowCard />
       <Card>
         <CardHeader>
           <CardTitle>Deleted items</CardTitle>

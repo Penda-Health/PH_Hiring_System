@@ -12,9 +12,18 @@ import {
   workTrialFromAirtable,
   branchFromAirtable,
   specialtyConfigFromAirtable,
+  appSettingsFromAirtable,
 } from "@/lib/airtable/mappers";
 import { rateLimit } from "@/lib/rate-limit";
-import { isDateBookable } from "@/lib/work-trial-timing";
+import { isDateBookable, maxBookableDate } from "@/lib/work-trial-timing";
+
+// The booking-cutoff setting lives on the singleton "App Settings" row (see
+// src/app/api/settings/route.ts) — `null` when a Recruitment Manager hasn't
+// set one, in which case the default rolling window applies.
+async function getWorkTrialBookingCutoff(): Promise<string | null> {
+  const records = await listRecords(TABLE_NAMES.AppSettings);
+  return records[0] ? appSettingsFromAirtable(records[0]).workTrialBookingCutoffDate : null;
+}
 
 // ── Phone helpers ─────────────────────────────────────────────────────────────
 
@@ -68,7 +77,7 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    const [branchRecords, specialtyRecords, openRoleRecords] = await Promise.all([
+    const [branchRecords, specialtyRecords, openRoleRecords, bookingCutoffDate] = await Promise.all([
       listRecordsFiltered(TABLE_NAMES.Branches, `{${F.Branches.WORK_TRIAL_ACTIVE}}=1`),
       listRecords(TABLE_NAMES.WorkTrialSpecialtyConfig),
       // Unique cadres from live IPS open roles — deduped by department so
@@ -77,6 +86,7 @@ export async function GET(request: NextRequest) {
         TABLE_NAMES.OpenRoles,
         `AND({${F.OpenRoles.SEGMENT}}='IPS',OR({${F.OpenRoles.STATUS}}='Open',{${F.OpenRoles.STATUS}}='On Hold'))`
       ),
+      getWorkTrialBookingCutoff(),
     ]);
     const branches = branchRecords.map(branchFromAirtable).map((b) => ({
       id: b.id,
@@ -104,7 +114,19 @@ export async function GET(request: NextRequest) {
     }
     if (!availableCadres.includes("Other")) availableCadres.push("Other");
 
-    return NextResponse.json({ branches, specialtyConfigs, availableCadres });
+    const max = maxBookableDate(bookingCutoffDate);
+    return NextResponse.json({
+      branches,
+      specialtyConfigs,
+      availableCadres,
+      // `maxDate: null` means bookings are fully closed right now (a
+      // Recruitment Manager's cutoff has already passed) — the client shows
+      // a closed state instead of a calendar. `bookingCutoffDate` is passed
+      // through separately (even though it's folded into `maxDate` already)
+      // so the client can show the actual configured date in copy.
+      maxDate: max ? max.toISOString().slice(0, 10) : null,
+      bookingCutoffDate,
+    });
   } catch (err) {
     console.error("[api/public/work-trial-request] GET failed:", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
@@ -287,6 +309,17 @@ export async function POST(request: NextRequest) {
   // same-day or too-soon date through. Enforce the real floor here too.
   if (!isDateBookable(date)) {
     return NextResponse.json({ error: "too_soon" }, { status: 400 });
+  }
+
+  // Ceiling on the other end — the rolling default window, pulled in by a
+  // Recruitment Manager's cutoff if one is set (Settings page). This was
+  // previously enforced only client-side (a `maxDate` the calendar greyed
+  // out), so a submission built by hand could carry any future date through
+  // untouched — close that the same way `isDateBookable` closed the min side.
+  const cutoff = await getWorkTrialBookingCutoff();
+  const latestBookable = maxBookableDate(cutoff);
+  if (!latestBookable || new Date(`${date}T00:00:00`).getTime() > latestBookable.getTime()) {
+    return NextResponse.json({ error: "outside_booking_window" }, { status: 400 });
   }
 
   // Day names matching Airtable Available Days choices

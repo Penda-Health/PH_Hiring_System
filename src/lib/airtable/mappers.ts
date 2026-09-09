@@ -19,6 +19,7 @@ import {
   WorkTrialDay,
   WorkTrialRoleCategory,
   StaffingProjection,
+  AppSettings,
 } from "@/types";
 import { AirtableRecord, allLinks, cleanFields, firstLink, link, links } from "./client";
 import { F } from "./field-names";
@@ -444,6 +445,31 @@ export function specialtyConfigFromAirtable(r: AirtableRecord): SpecialtyConfig 
     active: bool(f[F.WorkTrialSpecialtyConfig.ACTIVE]),
     notes: str(f[F.WorkTrialSpecialtyConfig.NOTES]),
   };
+}
+
+// ---------- App Settings ----------
+// Singleton table — see src/app/api/settings/route.ts for the find-or-create
+// upsert that keeps it to exactly one row.
+export function appSettingsFromAirtable(r: AirtableRecord): AppSettings {
+  const f = r.fields;
+  return {
+    id: r.id,
+    workTrialBookingCutoffDate: opt<string>(f[F.AppSettings.WORK_TRIAL_BOOKING_CUTOFF_DATE]) ?? null,
+    updatedBy: opt<string>(f[F.AppSettings.UPDATED_BY]) ?? null,
+    updatedAt: opt<string>(f[F.AppSettings.UPDATED_AT]) ?? null,
+  };
+}
+
+export function appSettingsToAirtable(s: Partial<AppSettings> & { updatedBy?: string }) {
+  return cleanFields({
+    // `null` is a deliberate "clear the cutoff" write, not "leave it alone"
+    // — cleanFields only drops `undefined`, so this reaches Airtable as a
+    // real blank rather than being silently skipped.
+    [F.AppSettings.WORK_TRIAL_BOOKING_CUTOFF_DATE]:
+      s.workTrialBookingCutoffDate === undefined ? undefined : s.workTrialBookingCutoffDate,
+    [F.AppSettings.UPDATED_BY]: s.updatedBy,
+    [F.AppSettings.UPDATED_AT]: s.updatedBy ? new Date().toISOString() : undefined,
+  });
 }
 
 // ---------- Reference Checks ----------
