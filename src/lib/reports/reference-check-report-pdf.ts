@@ -282,7 +282,13 @@ export async function generateReferenceCheckReportPdf(data: ReferenceCheckReport
   ]);
   drawStatusBanner(ctx, data);
 
+  // Each referee's report gets its own page rather than flowing on wherever
+  // there happens to be room — keeps the two reports visually distinct and
+  // means printing/sharing "Referee 1's report" as its own page never risks
+  // pulling in a stray line from the candidate summary or the other referee.
+  newPage(ctx);
   drawRefereeSection(ctx, 1, data.referee1);
+  newPage(ctx);
   drawRefereeSection(ctx, 2, data.referee2);
 
   drawFooter(ctx);
