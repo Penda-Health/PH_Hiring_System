@@ -30,6 +30,14 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/api/cron/");
   if (isPublicFormRoute) return NextResponse.next();
 
+  // Static legal pages — no token, no session, meant to be reachable by
+  // anyone (including Google, whose OAuth consent screen links to these as
+  // the app's Privacy Policy / Terms of Service; see SETUP.md §2).
+  const isPublicLegalRoute =
+    request.nextUrl.pathname.startsWith("/privacy-policy") ||
+    request.nextUrl.pathname.startsWith("/terms-of-service");
+  if (isPublicLegalRoute) return NextResponse.next();
+
   // Supabase isn't provisioned yet (see SETUP.md sections 2-4) — fall back to
   // the existing client-side-only auth gate instead of locking everyone out.
   // Remove this branch once NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY
