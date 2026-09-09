@@ -33,3 +33,50 @@ export function isDateBookable(dateStr: string, now: Date = new Date()): boolean
   const picked = new Date(`${dateStr}T00:00:00`);
   return picked.getTime() >= minBookableDate(now).getTime();
 }
+
+// Default "how far out can a candidate pick a date" window, used whenever a
+// Recruitment Manager hasn't set an explicit cutoff on the Settings page
+// (see src/app/api/settings/route.ts). Unchanged from the value this file
+// used to hardcode client-side only, before the cutoff setting existed.
+export const DEFAULT_BOOKING_WINDOW_DAYS = 14;
+
+/**
+ * Latest bookable calendar date, given an optional admin-set cutoff and
+ * `now`. `cutoffDate` (YYYY-MM-DD) is exclusive — that date and everything
+ * after it is closed, so the effective ceiling is the day before it. Falls
+ * back to `now + DEFAULT_BOOKING_WINDOW_DAYS` when `cutoffDate` is unset, and
+ * never extends *past* that rolling window even when the cutoff is further
+ * out — it can only pull the ceiling in, not push it out (the 2-week
+ * planning horizon for branches is a separate, always-on constraint).
+ *
+ * Returns `null` when there's no bookable date left at all — the cutoff has
+ * already passed, or falls before the minimum lead time — so callers can
+ * show a "bookings are currently closed" state instead of an empty or
+ * misleading calendar.
+ */
+export function maxBookableDate(cutoffDate: string | null | undefined, now: Date = new Date()): Date | null {
+  const rollingMax = new Date(now);
+  rollingMax.setHours(0, 0, 0, 0);
+  rollingMax.setDate(rollingMax.getDate() + DEFAULT_BOOKING_WINDOW_DAYS);
+
+  let effectiveMax = rollingMax;
+  if (cutoffDate) {
+    const dayBeforeCutoff = new Date(`${cutoffDate}T00:00:00`);
+    dayBeforeCutoff.setDate(dayBeforeCutoff.getDate() - 1);
+    if (dayBeforeCutoff.getTime() < effectiveMax.getTime()) effectiveMax = dayBeforeCutoff;
+  }
+
+  return effectiveMax.getTime() < minBookableDate(now).getTime() ? null : effectiveMax;
+}
+
+/** True if `dateStr` (YYYY-MM-DD) satisfies both the minimum lead time and the (optional) booking cutoff, as of `now`. */
+export function isWithinBookingWindow(
+  dateStr: string,
+  cutoffDate: string | null | undefined,
+  now: Date = new Date()
+): boolean {
+  const max = maxBookableDate(cutoffDate, now);
+  if (!max) return false;
+  const picked = new Date(`${dateStr}T00:00:00`);
+  return picked.getTime() <= max.getTime() && isDateBookable(dateStr, now);
+}

@@ -114,6 +114,22 @@ export interface SpecialtyConfig {
   notes: string;
 }
 
+/**
+ * The one-row App Settings table (src/app/api/settings/route.ts). More
+ * app-wide config can land as additional fields here later.
+ */
+export interface AppSettings {
+  id: string | null;
+  /**
+   * Exclusive cutoff (YYYY-MM-DD) — no new work-trial date on or after this
+   * may be booked via /work-trial-request. `null` = no cutoff, falls back to
+   * the default rolling window (see src/lib/work-trial-timing.ts).
+   */
+  workTrialBookingCutoffDate: string | null;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
 export type WorkTrialRoleCategory = "General" | "Specialist";
 
 export type RequisitionLevel =

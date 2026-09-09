@@ -17,6 +17,7 @@ export const TABLE_NAMES = {
   Locums: "Locums",
   WorkTrialSpecialtyConfig: "Work Trial Specialty Config",
   StaffingProjections: "Staffing Projections",
+  AppSettings: "App Settings",
 } as const;
 
 export const F = {
@@ -297,6 +298,11 @@ export const F = {
     CADRE: "Cadre",
     CURRENT_STAFFING_HC: "Current Staffing HC",
     NOTES: "Notes",
+    UPDATED_BY: "Updated By",
+    UPDATED_AT: "Updated At",
+  },
+  AppSettings: {
+    WORK_TRIAL_BOOKING_CUTOFF_DATE: "Work Trial Booking Cutoff Date",
     UPDATED_BY: "Updated By",
     UPDATED_AT: "Updated At",
   },

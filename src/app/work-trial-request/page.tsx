@@ -145,12 +145,13 @@ function WorkTrialRequestForm() {
   // the calendar's own greying-out. It's cheap to recompute on every render.
   const minDate = minBookableDate();
 
-  // Latest: 2 weeks out
-  const maxDate = React.useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 14);
-    return d;
-  }, []);
+  // Latest selectable date — the default rolling window, pulled in by a
+  // Recruitment Manager's booking cutoff if one is set (Settings page). Comes
+  // from the server (which also enforces it) rather than being hardcoded
+  // here, so the two can never disagree. `null` = bookings are fully closed
+  // right now (the cutoff has already passed).
+  const [maxDate, setMaxDate] = React.useState<Date | null>(null);
+  const [loadingConfig, setLoadingConfig] = React.useState(true);
 
   React.useEffect(() => {
     fetch("/api/public/work-trial-request")
@@ -159,9 +160,13 @@ function WorkTrialRequestForm() {
         setBranches(d.branches ?? []);
         setSpecialtyConfigs((d.specialtyConfigs ?? []).filter((s: SpecialtyConfig) => s.active));
         setAvailableCadres(d.availableCadres ?? []);
+        setMaxDate(d.maxDate ? new Date(`${d.maxDate}T00:00:00`) : null);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingConfig(false));
   }, []);
+
+  const bookingClosed = !loadingConfig && !maxDate;
 
   // When the branch changes: fetch already-booked dates so the calendar can
   // grey them out, and clear any previously selected date that might now clash.
@@ -294,6 +299,8 @@ function WorkTrialRequestForm() {
           ? `That branch doesn't offer ${selectedRole || "specialist"} work trials. Please select a different branch.`
           : bodyErr === "invalid_day_for_specialty"
           ? `That day is not available for ${selectedRole || "specialist"} work trials. Please pick another date.`
+          : bodyErr === "outside_booking_window"
+          ? "That date is outside the current booking window. Please pick an earlier date, or contact careers@pendahealth.com if you need help."
           : "Something went wrong. Please try again."
       );
     } finally {
@@ -596,7 +603,15 @@ function WorkTrialRequestForm() {
           {/* Date picker — only active once a branch is selected */}
           <div className="space-y-2">
             <Label>Preferred date</Label>
-            {!branchId ? (
+            {bookingClosed ? (
+              <p className="rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-900 dark:text-amber-100">
+                Work trial bookings are closed right now. Please contact{" "}
+                <a href="mailto:careers@pendahealth.com" className="font-medium underline">
+                  careers@pendahealth.com
+                </a>{" "}
+                to arrange a date.
+              </p>
+            ) : !branchId ? (
               <p className="text-sm text-muted-foreground italic">
                 Select a branch above to see available dates.
               </p>
@@ -606,7 +621,7 @@ function WorkTrialRequestForm() {
                   value={date}
                   onChange={setDate}
                   minDate={minDate}
-                  maxDate={maxDate}
+                  maxDate={maxDate ?? undefined}
                   allowedDays={allowedDayNumbers}
                   allowedDaysLabel={allowedDaysLabel}
                   placeholder={loadingAvailability ? "Checking availability…" : "Select a date"}
@@ -615,8 +630,12 @@ function WorkTrialRequestForm() {
                 />
                 <p className="text-xs text-muted-foreground">
                   {allowedDayNumbers
-                    ? `Available: ${activeSpecialtyConfig?.availableDays.join(", ") ?? "selected days"} · up to 2 weeks ahead`
-                    : "Available from tomorrow · Monday – Saturday · up to 2 weeks ahead"}
+                    ? `Available: ${activeSpecialtyConfig?.availableDays.join(", ") ?? "selected days"}${
+                        maxDate ? ` · through ${formatDateDisplay(maxDate.toISOString().slice(0, 10))}` : ""
+                      }`
+                    : `Available from tomorrow · Monday – Saturday${
+                        maxDate ? ` · through ${formatDateDisplay(maxDate.toISOString().slice(0, 10))}` : ""
+                      }`}
                 </p>
               </>
             )}
@@ -642,7 +661,7 @@ function WorkTrialRequestForm() {
           <Button
             type="submit"
             className="w-full bg-penda-blue hover:bg-penda-blue-dark"
-            disabled={scheduling || !branchId || !date}
+            disabled={scheduling || !branchId || !date || bookingClosed}
           >
             {scheduling
               ? (rescheduling ? "Updating…" : "Confirming…")

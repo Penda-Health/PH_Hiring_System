@@ -20,6 +20,10 @@ export function maskSalary(value: number | null | undefined, role: UserRoleName 
 /** Routes (prefix-matched) restricted to specific roles. Checked in middleware against the signed-in user's profile. */
 export const ROLE_ROUTES: Record<string, UserRoleName[]> = {
   "/settings": ["recruitment_manager"],
+  // Backs the Settings page's Work Trial Booking Window card — same
+  // restriction as the page itself, so gating the whole path here covers
+  // both GET (read the current cutoff) and PATCH (change it).
+  "/api/settings": ["recruitment_manager"],
 };
 
 export function isRouteAllowed(pathname: string, role: UserRoleName | undefined): boolean {
