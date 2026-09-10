@@ -7,7 +7,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadReferenceCheckReportData } from "@/lib/reports/reference-check-report";
 import { generateReferenceCheckReportPdf } from "@/lib/reports/reference-check-report-pdf";
-import { generateReferenceCheckSummary } from "@/lib/ai/reference-check-summary";
+import { generateReferenceCheckInsights } from "@/lib/ai/reference-check-summary";
+import { updateRecord } from "@/lib/airtable/client";
+import { TABLE_NAMES } from "@/lib/airtable/field-names";
+import { referenceCheckToAirtable } from "@/lib/airtable/mappers";
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const supabase = await createSupabaseServerClient();
@@ -26,10 +29,28 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "not_complete" }, { status: 409 });
     }
 
-    // Never lets a slow/unavailable AI provider block the report — it
-    // already returns null on any failure (see the module for why).
-    const aiSummary = await generateReferenceCheckSummary(data);
-    const pdfBytes = await generateReferenceCheckReportPdf(data, aiSummary);
+    // Reuse persisted insights (generated from the dashboard card, or by an
+    // earlier download) rather than re-calling the AI provider on every
+    // download — keeps the report instant after the first generation and
+    // keeps the PDF, the card, and Penny's chat context all showing the same
+    // analysis instead of three independently-regenerated ones. Only
+    // generate here, and persist the result, when nothing exists yet.
+    let aiInsights = data.aiInsights;
+    if (!aiInsights) {
+      // Never lets a slow/unavailable AI provider block the report — it
+      // already returns null on any failure (see the module for why).
+      aiInsights = await generateReferenceCheckInsights(data);
+      if (aiInsights) {
+        try {
+          await updateRecord(TABLE_NAMES.ReferenceChecks, params.id, referenceCheckToAirtable({ aiInsights }));
+        } catch (err) {
+          // Persistence failing shouldn't block the report the TA is
+          // actively trying to download — it'll just regenerate next time.
+          console.error("[api/reference-checks/[id]/report] failed to persist AI insights:", err);
+        }
+      }
+    }
+    const pdfBytes = await generateReferenceCheckReportPdf(data, aiInsights);
     const filename = `Reference Check Report - ${data.candidateName} (${data.refId}).pdf`.replace(/[/\\]/g, "-");
 
     return new NextResponse(Buffer.from(pdfBytes), {

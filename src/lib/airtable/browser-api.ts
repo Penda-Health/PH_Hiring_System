@@ -26,6 +26,12 @@ export function updateResource<T>(resource: string, id: string, body: Partial<T>
   return request<T>(`/api/${resource}/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 }
 
+/** Hits a custom (non-CRUD) /api/* action route, e.g. one that triggers server-side
+ *  work like AI generation rather than a plain field write. */
+export function postAction<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>(path, { method: "POST", body: body !== undefined ? JSON.stringify(body) : undefined });
+}
+
 export async function deleteResource(resource: string, id: string): Promise<void> {
   const res = await fetch(`/api/${resource}/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) {

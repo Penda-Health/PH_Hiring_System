@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Copy, Download, FolderOpen, ShieldAlert } from "lucide-react";
+import { Check, Copy, Download, FolderOpen, RefreshCw, ShieldAlert, Sparkles } from "lucide-react";
 import { ReferenceCheck } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RefereeStatusRow } from "./referee-status-row";
 import { VerifyReferenceCheckDialog } from "./verify-reference-check-dialog";
-import { getCandidateForRefCheck, OUTCOME_STYLES, STATUS_STYLES } from "@/lib/reference-check-helpers";
+import { AI_STATUS_STYLES, getCandidateForRefCheck, OUTCOME_STYLES, STATUS_STYLES } from "@/lib/reference-check-helpers";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 
 const OUTCOMES: ReferenceCheck["outcome"][] = ["Pending", "Positive", "Negative", "Mixed"];
@@ -32,13 +32,20 @@ export function ReferenceCheckCard({
   refCheck: ReferenceCheck;
   onUpdateOutcome: (id: string, outcome: ReferenceCheck["outcome"]) => void;
 }) {
-  const { candidates, canEdit, verifyAndInitiateReferenceCheck, overrideRefereeGoogleVerification } =
-    useRecruitmentData();
+  const {
+    candidates,
+    canEdit,
+    verifyAndInitiateReferenceCheck,
+    overrideRefereeGoogleVerification,
+    generateReferenceCheckAiInsights,
+  } = useRecruitmentData();
   const candidate = getCandidateForRefCheck(refCheck, candidates);
   const [copied, setCopied] = React.useState<1 | 2 | null>(null);
   const [downloadingReport, setDownloadingReport] = React.useState(false);
   const [reportError, setReportError] = React.useState<string | null>(null);
   const [overriding, setOverriding] = React.useState<1 | 2 | null>(null);
+  const [generatingInsights, setGeneratingInsights] = React.useState(false);
+  const [insightsError, setInsightsError] = React.useState<string | null>(null);
 
   async function handleCopy(num: 1 | 2) {
     try {
@@ -97,6 +104,19 @@ export function ReferenceCheckCard({
   function needsOverride(num: 1 | 2) {
     const referee = num === 1 ? refCheck.referee1 : refCheck.referee2;
     return referee.responded && !referee.googleVerified && !referee.googleVerifiedOverrideBy;
+  }
+
+  async function handleGenerateInsights() {
+    setInsightsError(null);
+    setGeneratingInsights(true);
+    try {
+      await generateReferenceCheckAiInsights(refCheck.id);
+    } catch (err) {
+      setInsightsError(err instanceof Error ? err.message : "Failed to generate AI insights");
+      setTimeout(() => setInsightsError(null), 4000);
+    } finally {
+      setGeneratingInsights(false);
+    }
   }
 
   return (
@@ -182,6 +202,95 @@ export function ReferenceCheckCard({
           >
             <FolderOpen className="h-3.5 w-3.5" /> View Drive folder
           </a>
+        )}
+
+        {reportReady && (
+          <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium">
+                <Sparkles className="h-3.5 w-3.5 text-penda-blue" />
+                AI Insights
+              </div>
+              {canEdit && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 shrink-0"
+                  title={refCheck.aiInsights ? "Refresh AI insights" : "Generate AI insights"}
+                  onClick={handleGenerateInsights}
+                  disabled={generatingInsights}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${generatingInsights ? "animate-spin" : ""}`} />
+                </Button>
+              )}
+            </div>
+
+            {refCheck.aiInsights ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className={AI_STATUS_STYLES[refCheck.aiInsights.overallStatus]}>
+                    {refCheck.aiInsights.overallStatus}
+                  </Badge>
+                  <span className="text-[11px] text-muted-foreground">
+                    Recommendation {refCheck.aiInsights.recommendationScore}/5 · Overall {refCheck.aiInsights.overallScore}/5 ·{" "}
+                    {refCheck.aiInsights.confidenceScore}% confidence
+                  </span>
+                </div>
+                <p className="text-xs text-foreground">{refCheck.aiInsights.summary}</p>
+
+                {refCheck.aiInsights.keyStrengths.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-medium text-success-fg">Strengths</p>
+                    <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+                      {refCheck.aiInsights.keyStrengths.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {refCheck.aiInsights.areasOfConcern.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-medium text-high-fg">Areas of concern</p>
+                    <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+                      {refCheck.aiInsights.areasOfConcern.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {refCheck.aiInsights.consistencyNotes && (
+                  <p className="text-[11px] text-muted-foreground">
+                    <span className="font-medium text-foreground">Consistency: </span>
+                    {refCheck.aiInsights.consistencyNotes}
+                  </p>
+                )}
+
+                {refCheck.aiInsights.suggestedFollowUps.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-medium text-foreground">Suggested follow-ups</p>
+                    <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+                      {refCheck.aiInsights.suggestedFollowUps.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <p className="text-[10px] text-muted-foreground">
+                  Generated {new Date(refCheck.aiInsights.generatedAt).toLocaleString()}
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {canEdit
+                  ? "No AI insights yet — click refresh to generate an analysis of the referee responses."
+                  : "No AI insights generated yet."}
+              </p>
+            )}
+            {insightsError && <p className="text-xs text-destructive">{insightsError}</p>}
+          </div>
         )}
 
         <Select

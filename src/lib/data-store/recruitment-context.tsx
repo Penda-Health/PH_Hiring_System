@@ -32,7 +32,7 @@ function dedupWorkTrials(trials: WorkTrial[]): WorkTrial[] {
   return Array.from(byCandidate.values()).concat(orphaned);
 }
 import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
-import { listResource, createResource, updateResource, deleteResource } from "@/lib/airtable/browser-api";
+import { listResource, createResource, updateResource, deleteResource, postAction } from "@/lib/airtable/browser-api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canEditRecruitmentData, canDeleteRecords, canManageRoles, canSeeSalary } from "@/lib/permissions";
 import { useUndoToast, DEFAULT_UNDO_WINDOW_MS } from "@/components/ui/undo-toast";
@@ -91,6 +91,10 @@ type RecruitmentDataContextValue = {
   ) => Promise<void>;
   /** TA manually confirms a referee's identity despite a Google sign-in mismatch (or no sign-in at all). */
   overrideRefereeGoogleVerification: (id: string, refereeNum: 1 | 2) => Promise<void>;
+  /** Generates (or regenerates) the AI insights layer for a reference check and persists it to Airtable.
+   *  Throws (e.g. "not_complete" if no referee has responded yet, or "generation_failed") — callers should
+   *  surface the error rather than assume success, since the AI-generated values can't be known ahead of time. */
+  generateReferenceCheckAiInsights: (id: string) => Promise<void>;
 
   offers: Offer[];
   createOffer: (offer: Offer) => Promise<void>;
@@ -514,6 +518,18 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit, referenceChecks, user]
   );
 
+  const generateReferenceCheckAiInsights = React.useCallback(
+    async (id: string) => {
+      if (!guardEdit(canEdit, "generateReferenceCheckAiInsights")) return;
+      // Awaited-fetch-then-merge rather than an optimistic local patch — the
+      // AI-generated fields (scores, summary, etc.) aren't known client-side
+      // ahead of time, unlike the plain-field mutators above.
+      const updated = await postAction<ReferenceCheck>(`/api/reference-checks/${id}/ai-insights`);
+      setReferenceChecks((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    },
+    [canEdit]
+  );
+
   const createOffer = React.useCallback(
     async (offer: Offer) => {
       if (!guardEdit(canEdit, "createOffer")) return;
@@ -854,6 +870,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       updateReferenceCheckOutcome,
       verifyAndInitiateReferenceCheck,
       overrideRefereeGoogleVerification,
+      generateReferenceCheckAiInsights,
       offers,
       createOffer,
       acceptOffer,
@@ -909,6 +926,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       updateReferenceCheckOutcome,
       verifyAndInitiateReferenceCheck,
       overrideRefereeGoogleVerification,
+      generateReferenceCheckAiInsights,
       offers,
       createOffer,
       acceptOffer,

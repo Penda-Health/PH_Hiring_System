@@ -4,7 +4,7 @@ import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
+import { FormShell, FormStatusCard, FormStepper, type FormShellBrand } from "@/components/forms/form-shell";
 import { FormattableTextarea } from "@/components/forms/formattable-textarea";
 import {
   WRITTEN_ASSESSMENT_MIN_LENGTH,
@@ -264,29 +264,29 @@ function BmFeedbackForm() {
 
   if (loadError === "missing_token" || loadError === "expired") {
     return (
-      <FormShell brand={BRAND} title="Link expired" subtitle="This feedback link is no longer valid.">
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="warning" title="Link expired" subtitle="This feedback link is no longer valid.">
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>Email: <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a></p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }
 
   if (loadError) {
     return (
-      <FormShell brand={BRAND} title="Something went wrong">
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="error" title="Something went wrong">
           <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.</p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }
 
   if (!data) {
     return (
-      <FormShell brand={BRAND} title="Loading…">
-        <p className="text-sm text-muted-foreground">Loading work trial details…</p>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="loading" title="Loading…" subtitle="Loading work trial details." />
       </FormShell>
     );
   }
@@ -484,7 +484,7 @@ function BmFeedbackForm() {
           </div>
 
           <div className="space-y-3">
-            <p className="text-sm font-medium">Step 1 of 5 — Did the candidate arrive?</p>
+            <FormStepper step={1} total={5} label="Did the candidate arrive?" />
             {submitError && <p className="text-sm text-destructive">{submitError}</p>}
             <div className="flex gap-3">
               <Button
@@ -514,7 +514,7 @@ function BmFeedbackForm() {
     return (
       <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-5">
-          <p className="text-sm font-medium">Step 2 of 5 — I am the:</p>
+          <FormStepper step={2} total={5} label="I am the:" />
           <div className="grid grid-cols-2 gap-3">
             {(["BM", "Incharge"] as const).map((role) => (
               <button
@@ -543,7 +543,7 @@ function BmFeedbackForm() {
       <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-5">
           {draftRestored && <DraftRestoredBanner step="method" onDiscard={discardDraftAndRestart} />}
-          <p className="text-sm font-medium">Step 3 of 5 — How would you like to submit this assessment?</p>
+          <FormStepper step={3} total={5} label="How would you like to submit this assessment?" />
           <div className="grid grid-cols-1 gap-3">
             <button
               type="button"
@@ -578,9 +578,7 @@ function BmFeedbackForm() {
       <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <div className="space-y-6">
           {draftRestored && <DraftRestoredBanner step="scoring" onDiscard={discardDraftAndRestart} />}
-          <p className="text-sm font-medium text-muted-foreground">
-            Step 4 of 5 — Score each area (1 = Poor · 5 = Good · 10 = Excellent)
-          </p>
+          <FormStepper step={4} total={5} label="Score each area (1 = Poor · 5 = Good · 10 = Excellent)" />
 
           {CATEGORIES.map((cat) => (
             <div key={cat.key} className="space-y-3 rounded-lg border border-border p-4">
@@ -663,9 +661,7 @@ function BmFeedbackForm() {
       <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <form onSubmit={handleScoreSubmit} className="space-y-6">
           {draftRestored && <DraftRestoredBanner step="feedback" onDiscard={discardDraftAndRestart} />}
-          <p className="text-sm font-medium text-muted-foreground">
-            Step 5 of 5 — Qualitative feedback
-          </p>
+          <FormStepper step={5} total={5} label="Qualitative feedback" />
 
           <div className="rounded-lg border border-border bg-muted/40 p-3 flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Weighted score</span>
@@ -771,9 +767,7 @@ function BmFeedbackForm() {
       <FormShell brand={BRAND} title="Work Trial Assessment" subtitle={header}>
         <form onSubmit={handleUploadSubmit} className="space-y-6">
           {draftRestored && <DraftRestoredBanner step="upload" onDiscard={discardDraftAndRestart} />}
-          <p className="text-sm font-medium text-muted-foreground">
-            Step 4 of 4 — Scores, uploaded form, and overall recommendation
-          </p>
+          <FormStepper step={4} total={4} label="Scores, uploaded form, and overall recommendation" />
 
           {CATEGORIES.map((cat) => (
             <div key={cat.key} className="space-y-3 rounded-lg border border-border p-4">
@@ -938,8 +932,8 @@ function BmFeedbackForm() {
   // ─── Approved ────────────────────────────────────────────────────────────────
   if (step === "approved" && approvalResult) {
     return (
-      <FormShell brand={BRAND} title="Assessment approved" subtitle={header}>
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="success" title="Assessment approved" subtitle={header}>
           <p>
             Score: <strong>{approvalResult.total.toFixed(1)}/100</strong> —{" "}
             <Badge variant={approvalResult.passFail === "Pass" ? "ips" : "so"}>
@@ -947,7 +941,7 @@ function BmFeedbackForm() {
             </Badge>
           </p>
           <p>The recruitment team has been notified. Thank you.</p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }
@@ -956,19 +950,19 @@ function BmFeedbackForm() {
   if (step === "done" && !scoreResult) {
     if (data.arrivalMarked === false) {
       return (
-        <FormShell brand={BRAND} title="Recorded" subtitle={header}>
-          <FormMessage>
+        <FormShell brand={BRAND}>
+          <FormStatusCard variant="info" title="Recorded" subtitle={header}>
             <p>Thanks — we&apos;ve recorded that {data.candidateName} did not arrive. The recruitment team has been notified.</p>
-          </FormMessage>
+          </FormStatusCard>
         </FormShell>
       );
     }
     if (data.alreadyScored) {
       return (
-        <FormShell brand={BRAND} title="Already submitted" subtitle={header}>
-          <FormMessage>
+        <FormShell brand={BRAND}>
+          <FormStatusCard variant="info" title="Already submitted" subtitle={header}>
             <p>This assessment has already been submitted. Contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a> if you need to make a correction.</p>
-          </FormMessage>
+          </FormStatusCard>
         </FormShell>
       );
     }
@@ -978,8 +972,8 @@ function BmFeedbackForm() {
   if (scoreResult) {
     if (scoreResult.submittedByRole === "Incharge") {
       return (
-        <FormShell brand={BRAND} title="Scores submitted" subtitle={header}>
-          <FormMessage>
+        <FormShell brand={BRAND}>
+          <FormStatusCard variant="success" title="Scores submitted" subtitle={header}>
             <p>
               Score: <strong>{scoreResult.total.toFixed(1)}/100</strong>
             </p>
@@ -987,13 +981,13 @@ function BmFeedbackForm() {
               Your scores have been recorded and sent to the Branch Manager for approval.
               The assessment will be finalised once the BM approves.
             </p>
-          </FormMessage>
+          </FormStatusCard>
         </FormShell>
       );
     }
     return (
-      <FormShell brand={BRAND} title="Assessment submitted" subtitle={header}>
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="success" title="Assessment submitted" subtitle={header}>
           <p>
             Score: <strong>{scoreResult.total.toFixed(1)}/100</strong> —{" "}
             <Badge variant={scoreResult.passFail === "Pass" ? "ips" : "so"}>
@@ -1001,7 +995,7 @@ function BmFeedbackForm() {
             </Badge>
           </p>
           <p>The recruitment team has been notified. Thank you.</p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }

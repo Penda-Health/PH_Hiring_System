@@ -166,13 +166,32 @@ export function buildAiContext(data: {
   };
 
   // ── Reference check details ────────────────────────────────────────────────
+  // aiInsights, when present, is the same persisted analysis shown on the
+  // dashboard card and embedded in the PDF report (see
+  // generateReferenceCheckInsights in lib/ai/reference-check-summary.ts) —
+  // reusing it here rather than re-summarizing referee answers is what makes
+  // Penny's read of a reference check consistent with what a TA sees.
   const refCheckDetails = referenceChecks.map((rc) => {
     const candidate = candidateMap.get(rc.candidateId);
     return {
       candidateName: candidate?.name || "(no name)",
+      status: rc.status,
       outcome: rc.outcome,
       referee1Responded: rc.referee1.responded,
       referee2Responded: rc.referee2.responded,
+      aiInsights: rc.aiInsights
+        ? {
+            overallStatus: rc.aiInsights.overallStatus,
+            summary: rc.aiInsights.summary,
+            recommendationScore: rc.aiInsights.recommendationScore,
+            overallScore: rc.aiInsights.overallScore,
+            confidenceScore: rc.aiInsights.confidenceScore,
+            keyStrengths: rc.aiInsights.keyStrengths,
+            areasOfConcern: rc.aiInsights.areasOfConcern,
+            consistencyNotes: rc.aiInsights.consistencyNotes,
+            suggestedFollowUps: rc.aiInsights.suggestedFollowUps,
+          }
+        : null,
     };
   });
 
@@ -221,7 +240,7 @@ export function buildSystemPrompt(context: AiContext, canEdit: boolean) {
   return [
     "You are Penny, an AI recruitment assistant inside Penda Health's hiring dashboard.",
     "You have full access to the current state of all open roles, candidates (including names and stages), interviews, work trials, reference checks, and offers. Use this data to answer questions precisely — no guessing or hallucinating records that aren't in the context.",
-    "Context structure: `roster` = all open roles with location, recruiter, HC gaps, and candidate counts. `candidateProfiles` = every candidate with name, current stage, role, and days in stage. `interviewDetails` = all scheduled interviews with candidate names, dates, stages, and attendance. `workTrialDetails` = all work trials with outcomes. `refCheckDetails` = reference check statuses. `offerDetails` = all offers with outcomes and salaries. `departmentBreakdown` and `branchBreakdown` are pre-aggregated for breakdown questions.",
+    "Context structure: `roster` = all open roles with location, recruiter, HC gaps, and candidate counts. `candidateProfiles` = every candidate with name, current stage, role, and days in stage. `interviewDetails` = all scheduled interviews with candidate names, dates, stages, and attendance. `workTrialDetails` = all work trials with outcomes. `refCheckDetails` = reference check statuses; when a check's referees have responded and AI insights have been generated, each entry also carries an `aiInsights` object (overall recommendation, scores, summary, key strengths, areas of concern, consistency notes, suggested follow-ups) — treat this as the analyzed read on that reference check, not just raw status, and lean on it when asked things like which candidates are safe to extend an offer to or where a reference raised concerns. `offerDetails` = all offers with outcomes and salaries. `departmentBreakdown` and `branchBreakdown` are pre-aggregated for breakdown questions.",
     "Formatting rules: write for a human reading a chat window. Use names and role titles from the data — never invent details not present. NEVER show internal `id` field values starting with \"rec\" in visible text. For breakdown/grouping questions prefer the pre-aggregated arrays. For candidate-specific questions, scan `candidateProfiles`. Keep answers concise — bullet lists or short paragraphs.",
     "If asked to change a role's status, call the setRoleStatus tool with the role's `id` and `title` from the roster. Always confirm with the user first.",
     canEdit

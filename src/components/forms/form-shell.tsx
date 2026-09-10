@@ -1,3 +1,7 @@
+import * as React from "react";
+import { AlertTriangle, CheckCircle2, Info, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
 export interface FormShellStat {
   value: string;
   label: string;
@@ -62,7 +66,8 @@ export function FormShell({
   brand,
   children,
 }: {
-  title: string;
+  /** Omit for a status-only screen (loading/success/error) whose `children` is a FormStatusCard — avoids a duplicate heading above the card's own. */
+  title?: string;
   subtitle?: string;
   brand?: FormShellBrand;
   children: React.ReactNode;
@@ -72,6 +77,14 @@ export function FormShell({
   return (
     <div className="light min-h-screen grid grid-cols-1 md:grid-cols-[minmax(0,0.86fr)_minmax(0,1fr)] bg-background px-0 md:px-[15px] text-foreground">
       <div className="relative overflow-hidden bg-gradient-to-br from-penda-blue via-[#1442D6] to-penda-blue-dark px-6 py-8 sm:px-10 md:py-14 lg:py-16 flex flex-col text-white">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage: "radial-gradient(circle, #FFFFFF 1px, transparent 1px)",
+            backgroundSize: "18px 18px",
+          }}
+          aria-hidden="true"
+        />
         <div className="pointer-events-none absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-penda-pink/30 blur-3xl" />
         <div className="pointer-events-none absolute -top-20 -left-10 h-56 w-56 rounded-full bg-white/5 blur-3xl" />
 
@@ -123,9 +136,9 @@ export function FormShell({
 
       <div className="flex items-center justify-center px-4 py-10 sm:px-8 sm:py-14">
         <div className="w-full max-w-lg">
-          <h1 className="text-2xl font-bold text-balance text-foreground">{title}</h1>
-          {subtitle && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>}
-          <div className="mt-6">{children}</div>
+          {title && <h1 className="text-2xl font-bold text-balance text-foreground">{title}</h1>}
+          {title && subtitle && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>}
+          <div className={title ? "mt-6" : undefined}>{children}</div>
         </div>
       </div>
     </div>
@@ -134,4 +147,95 @@ export function FormShell({
 
 export function FormMessage({ children }: { children: React.ReactNode }) {
   return <div className="space-y-3 text-sm text-foreground/90">{children}</div>;
+}
+
+// ---------------------------------------------------------------------------
+// Status screens — the shared "this is where the flow ends" treatment for
+// every public form: expired/invalid link, a submit failure, "you already
+// did this", and the final thank-you. Previously each page rendered these as
+// bare paragraphs under a plain <h1>, which read as unfinished next to the
+// branded panel beside it. One icon+card component now covers all of them
+// consistently across every FormShell caller (referee, work-trial,
+// bm-feedback, requisition-request, confirm-employment, …).
+// ---------------------------------------------------------------------------
+
+export type FormStatusVariant = "loading" | "success" | "info" | "warning" | "error";
+
+const STATUS_ICON: Record<FormStatusVariant, React.ComponentType<{ className?: string }>> = {
+  loading: Loader2,
+  success: CheckCircle2,
+  info: Info,
+  warning: AlertTriangle,
+  error: AlertTriangle,
+};
+
+const STATUS_TONE: Record<FormStatusVariant, string> = {
+  loading: "bg-muted text-muted-foreground",
+  success: "bg-success-bg text-success-fg",
+  info: "bg-penda-blue-light text-penda-blue-dark",
+  warning: "bg-high-bg text-high-fg",
+  error: "bg-critical-bg text-critical-fg",
+};
+
+export function FormStatusIcon({ variant, className }: { variant: FormStatusVariant; className?: string }) {
+  const Icon = STATUS_ICON[variant];
+  return (
+    <div className={cn("flex h-12 w-12 items-center justify-center rounded-full", STATUS_TONE[variant], className)}>
+      <Icon className={cn("h-6 w-6", variant === "loading" && "animate-spin")} />
+    </div>
+  );
+}
+
+/**
+ * A self-contained status screen: icon, heading, optional subtitle, and a
+ * message body — meant to be the sole child of a FormShell called *without*
+ * `title` (so there's no duplicate heading above it). Use FormMessage-style
+ * children for the body when it needs links/formatting, or a plain string
+ * for the common case.
+ */
+export function FormStatusCard({
+  variant,
+  title,
+  subtitle,
+  children,
+}: {
+  variant: FormStatusVariant;
+  title: string;
+  subtitle?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-6 shadow-sm sm:p-7">
+      <FormStatusIcon variant={variant} />
+      <h1 className="mt-4 text-xl font-bold text-balance text-foreground">{title}</h1>
+      {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+      {children && <div className="mt-4 space-y-3 text-sm leading-relaxed text-foreground/90">{children}</div>}
+    </div>
+  );
+}
+
+/**
+ * Compact numbered-step indicator for multi-step public forms (currently
+ * just /referee's verify → answer flow, written generically in case another
+ * form grows a second step later).
+ */
+export function FormStepper({ step, total, label }: { step: number; total: number; label: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5" aria-hidden="true">
+        {Array.from({ length: total }, (_, i) => i + 1).map((n) => (
+          <span
+            key={n}
+            className={cn(
+              "h-1.5 w-6 rounded-full transition-colors",
+              n <= step ? "bg-penda-blue" : "bg-muted"
+            )}
+          />
+        ))}
+      </div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Step {step} of {total} — {label}
+      </p>
+    </div>
+  );
 }

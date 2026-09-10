@@ -10,7 +10,7 @@ import fs from "fs";
 import path from "path";
 import type { ReferenceCheckReportData } from "./reference-check-report";
 import type { RefereeStatus } from "@/types";
-import type { ReferenceCheckAiSummary } from "@/lib/ai/reference-check-summary";
+import type { ReferenceCheckAiInsights } from "@/types";
 
 const PAGE_W = 595.28; // A4, points
 const PAGE_H = 841.89;
@@ -170,6 +170,32 @@ function drawParagraphSection(ctx: Ctx, heading: string, text: string | undefine
   ctx.y -= 12;
 }
 
+// Bulleted list section (key strengths, areas of concern, follow-up
+// questions) — same heading treatment as drawParagraphSection but one
+// wrapped, hanging-indent bullet per entry instead of a single body of text.
+// Omits the whole section (heading included) when there's nothing to show,
+// since an empty "Areas of concern" heading would read as "we checked and
+// found nothing" when really the model just had nothing to add either way —
+// callers that want an explicit empty-state pass a placeholder-only call.
+function drawBulletListSection(ctx: Ctx, heading: string, items: string[]) {
+  if (items.length === 0) return;
+  drawSectionHeading(ctx, heading);
+  const bulletIndent = 14;
+  const lineH = 14;
+  for (const item of items) {
+    const lines = wrapText(item, ctx.regular, 10, CONTENT_W - bulletIndent);
+    for (const [i, line] of Array.from(lines.entries())) {
+      ensureSpace(ctx, lineH);
+      if (i === 0) {
+        ctx.page.drawText("•", { x: MARGIN, y: ctx.y - 10, size: 10, font: ctx.bold, color: BLUE });
+      }
+      ctx.page.drawText(line, { x: MARGIN + bulletIndent, y: ctx.y - 10, size: 10, font: ctx.regular, color: CHARCOAL });
+      ctx.y -= lineH;
+    }
+  }
+  ctx.y -= 12;
+}
+
 function fmtDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -222,11 +248,15 @@ function drawStatusBanner(ctx: Ctx, data: ReferenceCheckReportData) {
   ctx.y -= bannerH + 24;
 }
 
-// AI-generated analysis of the reference check, drawn on page 1 alongside
-// the human-set status banner above it. Deliberately kept visually distinct
-// (its own tinted box + a disclaimer line) so it reads as a supplementary
-// signal, not the official TA-set outcome.
-function drawAiSummarySection(ctx: Ctx, summary: ReferenceCheckAiSummary) {
+// AI-generated intelligence layer for the reference check, drawn on page 1
+// alongside the human-set status banner above it. Deliberately kept visually
+// distinct (its own heading + a disclaimer line) so it reads as a
+// supplementary signal, not the official TA-set outcome. Goes well beyond a
+// single summary paragraph: scores, concrete strengths/concerns, a
+// cross-referee consistency note, suggested follow-ups, and a one-line
+// takeaway per referee — the same structured object shown on the dashboard
+// card and available to Penny in chat (see ai/reference-check-summary.ts).
+function drawAiSummarySection(ctx: Ctx, insights: ReferenceCheckAiInsights) {
   drawSectionHeading(ctx, "AI Analysis");
 
   ensureSpace(ctx, 14);
@@ -237,13 +267,36 @@ function drawAiSummarySection(ctx: Ctx, summary: ReferenceCheckAiSummary) {
   ctx.y -= 22;
 
   drawFactGrid(ctx, [
-    { label: "Overall status", value: summary.overallStatus },
-    { label: "Confidence", value: `${Math.round(summary.confidenceScore)}%` },
-    { label: "Recommendation score", value: `${summary.recommendationScore}/5` },
-    { label: "Overall score", value: `${summary.overallScore}/5` },
+    { label: "Overall status", value: insights.overallStatus },
+    { label: "Confidence", value: `${Math.round(insights.confidenceScore)}%` },
+    { label: "Recommendation score", value: `${insights.recommendationScore}/5` },
+    { label: "Overall score", value: `${insights.overallScore}/5` },
   ]);
 
-  drawParagraphSection(ctx, "Summary", summary.summary);
+  drawParagraphSection(ctx, "Summary", insights.summary);
+  drawBulletListSection(ctx, "Key strengths", insights.keyStrengths);
+  drawBulletListSection(ctx, "Areas of concern", insights.areasOfConcern);
+  if (insights.consistencyNotes.trim()) {
+    drawParagraphSection(ctx, "Consistency between referees", insights.consistencyNotes);
+  }
+  drawBulletListSection(ctx, "Suggested follow-up questions", insights.suggestedFollowUps);
+
+  const takeaways = [
+    insights.referee1Takeaway.trim() ? `Referee 1: ${insights.referee1Takeaway.trim()}` : null,
+    insights.referee2Takeaway.trim() ? `Referee 2: ${insights.referee2Takeaway.trim()}` : null,
+  ].filter((t): t is string => t !== null);
+  if (takeaways.length > 0) {
+    drawSectionHeading(ctx, "Referee takeaways");
+    for (const t of takeaways) {
+      const lines = wrapText(t, ctx.regular, 10, CONTENT_W);
+      for (const line of lines) {
+        ensureSpace(ctx, 14);
+        ctx.page.drawText(line, { x: MARGIN, y: ctx.y - 10, size: 10, font: ctx.regular, color: CHARCOAL });
+        ctx.y -= 14;
+      }
+    }
+    ctx.y -= 12;
+  }
 }
 
 function drawRefereeSection(ctx: Ctx, num: 1 | 2, referee: RefereeStatus) {
@@ -294,7 +347,7 @@ function drawRefereeSection(ctx: Ctx, num: 1 | 2, referee: RefereeStatus) {
 
 export async function generateReferenceCheckReportPdf(
   data: ReferenceCheckReportData,
-  aiSummary: ReferenceCheckAiSummary | null = null
+  aiInsights: ReferenceCheckAiInsights | null = null
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`Reference Check Report — ${data.candidateName}`);
@@ -314,7 +367,7 @@ export async function generateReferenceCheckReportPdf(
   // src/lib/ai/reference-check-summary.ts) — omitted silently on failure or
   // when it's not configured, same graceful-degradation approach as the
   // logo above.
-  if (aiSummary) drawAiSummarySection(ctx, aiSummary);
+  if (aiInsights) drawAiSummarySection(ctx, aiInsights);
 
   // Each referee's report gets its own page rather than flowing on wherever
   // there happens to be room — keeps the two reports visually distinct and

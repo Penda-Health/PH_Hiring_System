@@ -946,26 +946,41 @@ TA override above is for.
 **PDF report.** Once at least one referee has responded, a Recruitment
 User/Manager can download a Penda-branded PDF from the card
 (`GET /api/reference-checks/[id]/report`, dashboard-only). Page 1 covers the
-candidate, the human-set status/outcome, and (see below) an AI analysis;
-each referee then gets their own page — relationship, scores, would-rehire,
-strengths, areas for development, notes, and whether that referee's
-identity was Google-verified or manually overridden. A referee who hasn't
-responded yet gets a plain "hasn't responded" placeholder section rather
-than being omitted, same "show it's missing rather than hide it" convention
-as the work-trial report.
+candidate, the human-set status/outcome, and (see below) an AI insights
+section; each referee then gets their own page — relationship, scores,
+would-rehire, strengths, areas for development, notes, and whether that
+referee's identity was Google-verified or manually overridden. A referee
+who hasn't responded yet gets a plain "hasn't responded" placeholder section
+rather than being omitted, same "show it's missing rather than hide it"
+convention as the work-trial report.
 
-**AI analysis (page 1).** `src/lib/ai/reference-check-summary.ts` calls the
-same AI provider setup as Penny (§7 — defaults to Groq's Llama 3.3) to
-produce an overall status, a short plain-English summary, a recommendation
-score and overall score (both 1–5), and a confidence score (0–100%, capped
-at 60% when only one of the two referees has responded). This is a
-supplement to the human-set outcome dropdown, never a replacement — the PDF
-section says so, and it's visually distinct from the status banner above
-it. It never sends the candidate's or referees' names/emails/phone numbers
-to the provider (matching §7's PII policy) — only role title, relationship,
-scores, would-rehire, and the free-text answers. If the provider call fails
-or isn't configured, this section is silently omitted and the rest of the
-report still generates — no separate setup step needed beyond §7.
+**AI insights layer (page 1, dashboard card, and Penny).**
+`src/lib/ai/reference-check-summary.ts` calls the same AI provider setup as
+Penny (§7 — defaults to Groq's Llama 3.3) to produce a genuine analysis, not
+just a one-line summary: an overall recommendation status, a plain-English
+summary, a recommendation score and overall score (both 1–5), a confidence
+score (0–100%, capped at 60% when only one of the two referees has
+responded), key strengths, areas of concern, a note on how consistent the
+two referees were with each other, suggested follow-up questions for the
+hiring manager, and a one-line takeaway per referee. This is a supplement to
+the human-set outcome dropdown, never a replacement.
+
+Unlike Penny's aggregate/PII-free default (§7), this analysis is a deliberate,
+scoped exception: it includes the candidate's and referees' real names so
+the model can write a coherent, specific summary (e.g. "both referees
+independently praised Dennis's...") instead of a generic one — product
+decision, not an oversight. The result is generated once and persisted to
+Airtable (`Reference Checks` table, `AI Overall Status` through
+`AI Generated At` — provisioned automatically by `npm run airtable:schema`),
+then reused everywhere rather than regenerated per surface: the PDF, the
+"AI Insights" block on the dashboard card (with a refresh button, Recruitment
+User/Manager only, calling `POST /api/reference-checks/[id]/ai-insights`),
+and Penny's chat context (`refCheckDetails[].aiInsights` in
+`src/lib/ai/build-context.ts`) all read the same stored object. Generation
+also happens automatically, once, the first time anyone downloads a report
+for a check that doesn't have insights yet. If the provider call fails or
+isn't configured, generation is silently skipped and the rest of the report
+still generates — no separate setup step needed beyond §7.
 
 **Airtable automations to configure** (same "Run a script → Send email"
 shape as §4.5.2/§4.5.3; all key off `Reference Checks` fields):
@@ -1154,10 +1169,15 @@ Penny (the floating chat button on the dashboard) calls one of three free-tier
 LLM providers, switchable per-conversation. Each is independent — set up as
 many as you want; a provider with no key just won't work if selected.
 
-**Data-safety design**: Penny's context is built only from aggregate metrics
-and a PII-free open-roles roster (`src/lib/ai/build-context.ts`) — candidate
-names, emails, and salaries are never sent to any provider, regardless of
-which one is selected.
+**Data-safety design**: Penny's context is built from aggregate metrics and
+an open-roles roster (`src/lib/ai/build-context.ts`) — candidate emails and
+salaries (unless the signed-in user can already see salary) are never sent
+to any provider, regardless of which one is selected. Candidate names are
+included (candidates, interviews, work trials, offers), and — see §4.5.6 —
+so is the reference-check AI insights layer, which by deliberate product
+decision also includes candidate and referee names so its summaries read as
+specific and useful rather than generic; that's a scoped exception, not a
+blanket relaxation of this policy.
 
 1. **Groq** (hosts Llama 3.3) — sign up at
    [console.groq.com/keys](https://console.groq.com/keys), create a key, put

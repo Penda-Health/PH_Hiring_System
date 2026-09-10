@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
+import { FormShell, FormMessage, FormStatusCard, FormStepper, type FormShellBrand } from "@/components/forms/form-shell";
+import { CheckCircle2 } from "lucide-react";
 import { FormattableTextarea } from "@/components/forms/formattable-textarea";
 import { GoogleSignInButton } from "@/components/forms/google-sign-in-button";
 import { WRITTEN_ASSESSMENT_MIN_LENGTH } from "@/lib/work-trial-helpers";
@@ -176,55 +177,66 @@ function RefereeForm() {
 
   if (loadError === "missing_token" || loadError === "expired") {
     return (
-      <FormShell brand={BRAND} title="Link expired" subtitle="This reference check link is no longer valid.">
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="warning" title="Link expired" subtitle="This reference check link is no longer valid.">
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>
-            Email: <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>
+            Email:{" "}
+            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
+              careers@pendahealth.com
+            </a>
           </p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }
 
   if (loadError) {
     return (
-      <FormShell brand={BRAND} title="Something went wrong">
-        <FormMessage>
-          <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.</p>
-        </FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="error" title="Something went wrong">
+          <p>
+            Please try again later, or contact{" "}
+            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
+              careers@pendahealth.com
+            </a>
+            .
+          </p>
+        </FormStatusCard>
       </FormShell>
     );
   }
 
   if (!data) {
     return (
-      <FormShell brand={BRAND} title="Loading…">
-        <p className="text-sm text-muted-foreground">Loading reference check details…</p>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="loading" title="Loading your reference check…" subtitle="Just a moment." />
       </FormShell>
     );
   }
 
   if (submitted) {
     return (
-      <FormShell brand={BRAND} title="Thank you" subtitle={`Hi ${data.refereeName}`}>
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="success" title="Thank you" subtitle={`Hi ${data.refereeName}`}>
           <p>Your reference for {data.candidateName} has been submitted. We appreciate your time.</p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }
 
   if (data.alreadySubmitted) {
     return (
-      <FormShell brand={BRAND} title="Already submitted" subtitle={`Hi ${data.refereeName}`}>
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="info" title="Already submitted" subtitle={`Hi ${data.refereeName}`}>
           <p>
             You&apos;ve already submitted a reference for {data.candidateName}. Contact{" "}
-            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a> if you need to make a
-            correction.
+            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
+              careers@pendahealth.com
+            </a>{" "}
+            if you need to make a correction.
           </p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }
@@ -291,7 +303,7 @@ function RefereeForm() {
         subtitle={`Hi ${data.refereeName}, ${data.candidateName} listed you as a reference for the ${data.roleTitle} role at Penda Health.`}
       >
         <div className="space-y-4">
-          <p className="text-sm font-medium">Step 1 of 2 — Verify it&apos;s you</p>
+          <FormStepper step={1} total={2} label="Verify it's you" />
           {token && <GoogleVerificationStep token={token} data={data} onVerified={() => setGoogleVerified(true)} />}
         </div>
       </FormShell>
@@ -304,9 +316,12 @@ function RefereeForm() {
       subtitle={`Hi ${data.refereeName}, ${data.candidateName} listed you as a reference for the ${data.roleTitle} role at Penda Health.`}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-1">
-          <p className="text-sm font-medium">Step 2 of 2 — Your feedback</p>
-          <p className="text-xs text-muted-foreground">✓ Identity verified with Google.</p>
+        <div className="space-y-2">
+          <FormStepper step={2} total={2} label="Your feedback" />
+          <p className="flex items-center gap-1.5 text-xs text-success-fg">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Identity verified with Google.
+          </p>
         </div>
 
         <div className="space-y-6">
@@ -342,13 +357,16 @@ function RefereeForm() {
             </Select>
           </div>
 
-          <div className="space-y-4">
-            {SCORE_CRITERIA.map((c) => (
-              <div key={c.key} className="flex items-center justify-between">
-                <Label>{c.label}</Label>
-                <StarRating value={scores[c.key]} onChange={(v) => setScores((s) => ({ ...s, [c.key]: v }))} />
-              </div>
-            ))}
+          <div className="space-y-2">
+            <Label>Rate their work</Label>
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {SCORE_CRITERIA.map((c) => (
+                <div key={c.key} className="flex items-center justify-between gap-4 px-4 py-3">
+                  <span className="text-sm text-foreground">{c.label}</span>
+                  <StarRating value={scores[c.key]} onChange={(v) => setScores((s) => ({ ...s, [c.key]: v }))} />
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -359,11 +377,12 @@ function RefereeForm() {
                   key={opt.value}
                   type="button"
                   onClick={() => setWouldRehire(opt.value)}
-                  className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                  className={`flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors ${
                     wouldRehire === opt.value ? "border-penda-blue bg-penda-blue/5" : "border-border hover:border-penda-blue/50"
                   }`}
                 >
-                  {opt.label}
+                  <span>{opt.label}</span>
+                  {wouldRehire === opt.value && <CheckCircle2 className="h-4 w-4 shrink-0 text-penda-blue" />}
                 </button>
               ))}
             </div>

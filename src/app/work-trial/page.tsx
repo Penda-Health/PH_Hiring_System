@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
+import { FormShell, FormStatusCard, type FormShellBrand } from "@/components/forms/form-shell";
 
 const BRAND: FormShellBrand = {
   headline: "A short trial, a real look at life at Penda.",
@@ -71,53 +71,53 @@ function WorkTrialForm() {
 
   if (loadError === "missing_token" || loadError === "expired") {
     return (
-      <FormShell brand={BRAND} title="Link expired" subtitle="This work trial link is no longer valid.">
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="warning" title="Link expired" subtitle="This work trial link is no longer valid.">
           <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
           <p>
             Email: <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>
           </p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }
 
   if (loadError) {
     return (
-      <FormShell brand={BRAND} title="Something went wrong" subtitle="We couldn't load your work trial details.">
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="error" title="Something went wrong" subtitle="We couldn't load your work trial details.">
           <p>Please try again later, or contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.</p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }
 
   if (!data) {
     return (
-      <FormShell brand={BRAND} title="Loading…">
-        <p className="text-sm text-muted-foreground">Loading your work trial details…</p>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="loading" title="Loading…" subtitle="Loading your work trial details." />
       </FormShell>
     );
   }
 
   if (submitted) {
     return (
-      <FormShell brand={BRAND} title="You're all set!" subtitle={`Hi ${data.candidateName}, thank you for confirming.`}>
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="success" title="You're all set!" subtitle={`Hi ${data.candidateName}, thank you for confirming.`}>
           <p>
             Your work trial is confirmed for <strong>{date}</strong> at{" "}
             <strong>{data.branches.find((b) => b.id === branchId)?.name}</strong>.
           </p>
           <p>You&apos;ll receive a confirmation email shortly. If you need to make changes, contact careers@pendahealth.com.</p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }
 
   if (data.alreadySubmitted) {
     return (
-      <FormShell brand={BRAND} title="Already confirmed" subtitle={`Hi ${data.candidateName}`}>
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="info" title="Already confirmed" subtitle={`Hi ${data.candidateName}`}>
           <p>
             You&apos;ve already selected your work trial: <strong>{data.selectedDate}</strong> at{" "}
             <strong>{data.selectedBranchName}</strong>.
@@ -126,17 +126,17 @@ function WorkTrialForm() {
             Check your email for confirmation. To make changes, contact{" "}
             <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a>.
           </p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }
 
   if (data.branches.length === 0) {
     return (
-      <FormShell brand={BRAND} title="No branches available" subtitle={`Hi ${data.candidateName}`}>
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="warning" title="No branches available" subtitle={`Hi ${data.candidateName}`}>
           <p>Please contact <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">careers@pendahealth.com</a> to arrange your work trial date.</p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }

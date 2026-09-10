@@ -250,6 +250,18 @@ const F = {
     VERIFIED_AT: "Verified At",
     VERIFIED_BY: "Verified By",
     INITIATED_AT: "Initiated At",
+    AI_OVERALL_STATUS: "AI Overall Status",
+    AI_SUMMARY: "AI Summary",
+    AI_RECOMMENDATION_SCORE: "AI Recommendation Score",
+    AI_OVERALL_SCORE: "AI Overall Score",
+    AI_CONFIDENCE_SCORE: "AI Confidence Score",
+    AI_KEY_STRENGTHS: "AI Key Strengths",
+    AI_AREAS_OF_CONCERN: "AI Areas Of Concern",
+    AI_CONSISTENCY_NOTES: "AI Consistency Notes",
+    AI_FOLLOW_UP_QUESTIONS: "AI Follow-Up Questions",
+    AI_REFEREE1_TAKEAWAY: "AI Referee 1 Takeaway",
+    AI_REFEREE2_TAKEAWAY: "AI Referee 2 Takeaway",
+    AI_GENERATED_AT: "AI Generated At",
   },
   Offers: {
     OFFER_ID: "Offer ID",
@@ -619,6 +631,28 @@ const TABLES = [
       { name: F.ReferenceChecks.VERIFIED_AT, type: "date", options: dateOpts },
       { name: F.ReferenceChecks.VERIFIED_BY, type: "singleLineText" },
       { name: F.ReferenceChecks.INITIATED_AT, type: "date", options: dateOpts },
+      // AI "intelligence and insights layer" (src/lib/ai/reference-check-summary.ts)
+      // — persisted here (not just embedded in the PDF) so it shows on the
+      // dashboard card and flows into Penny's chat context. Array-shaped
+      // fields (strengths, concerns, follow-ups) are stored as newline-joined
+      // plain text rather than JSON, matching this table's existing
+      // preference for human-readable text fields over serialized blobs.
+      {
+        name: F.ReferenceChecks.AI_OVERALL_STATUS,
+        type: "singleSelect",
+        options: choices(["Strong Recommend", "Recommend", "Recommend with Reservations", "Do Not Recommend", "Insufficient Data"]),
+      },
+      { name: F.ReferenceChecks.AI_SUMMARY, type: "multilineText" },
+      { name: F.ReferenceChecks.AI_RECOMMENDATION_SCORE, type: "number", options: scoreOpts },
+      { name: F.ReferenceChecks.AI_OVERALL_SCORE, type: "number", options: scoreOpts },
+      { name: F.ReferenceChecks.AI_CONFIDENCE_SCORE, type: "number", options: intOpts },
+      { name: F.ReferenceChecks.AI_KEY_STRENGTHS, type: "multilineText" },
+      { name: F.ReferenceChecks.AI_AREAS_OF_CONCERN, type: "multilineText" },
+      { name: F.ReferenceChecks.AI_CONSISTENCY_NOTES, type: "multilineText" },
+      { name: F.ReferenceChecks.AI_FOLLOW_UP_QUESTIONS, type: "multilineText" },
+      { name: F.ReferenceChecks.AI_REFEREE1_TAKEAWAY, type: "multilineText" },
+      { name: F.ReferenceChecks.AI_REFEREE2_TAKEAWAY, type: "multilineText" },
+      { name: F.ReferenceChecks.AI_GENERATED_AT, type: "date", options: dateOpts },
     ],
   },
   {

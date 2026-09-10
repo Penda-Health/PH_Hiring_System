@@ -4,7 +4,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
+import { FormShell, FormMessage, FormStepper, type FormShellBrand } from "@/components/forms/form-shell";
 import { DatePickerCalendar } from "@/components/forms/date-picker-calendar";
 import { MapPin, Phone, Calendar, CheckCircle2 } from "lucide-react";
 import { minBookableDate, MIN_LEAD_HOURS } from "@/lib/work-trial-timing";
@@ -363,6 +363,7 @@ function WorkTrialRequestForm() {
         subtitle="Enter your details below to confirm your work trial at Penda Health."
       >
         <form onSubmit={handleIdentify} className="space-y-5">
+          <FormStepper step={1} total={3} label="Your details" />
           <div className="rounded-lg border border-penda-blue-light/50 bg-penda-blue/5 p-4 text-sm text-foreground/80 space-y-2.5">
             <p className="font-semibold text-penda-blue-dark">Congratulations on making it to the work trial stage!</p>
             <p>
@@ -465,6 +466,7 @@ function WorkTrialRequestForm() {
         subtitle={`Hi ${candidateName}, select the role that best matches your position.`}
       >
         <div className="space-y-5">
+          <FormStepper step={2} total={3} label="Your role" />
           <div className="space-y-2">
             <Label htmlFor="role-select">Role type</Label>
             <select
@@ -539,6 +541,7 @@ function WorkTrialRequestForm() {
           : `Hi ${candidateName}, please pick a branch and date below.`}
       >
         <form onSubmit={handleSchedule} className="space-y-6">
+          {!rescheduling && <FormStepper step={3} total={3} label="Branch & date" />}
           {/* Role badge */}
           {selectedRole && (
             <div className="flex items-center gap-2 text-xs">

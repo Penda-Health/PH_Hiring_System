@@ -6,7 +6,7 @@
 import { getRecord } from "@/lib/airtable/client";
 import { TABLE_NAMES } from "@/lib/airtable/field-names";
 import { candidateFromAirtable, openRoleFromAirtable, referenceCheckFromAirtable } from "@/lib/airtable/mappers";
-import { RefereeStatus, ReferenceCheckStatus } from "@/types";
+import { RefereeStatus, ReferenceCheckAiInsights, ReferenceCheckStatus } from "@/types";
 
 export type ReferenceCheckReportData = {
   refId: string;
@@ -17,6 +17,8 @@ export type ReferenceCheckReportData = {
   createdAt: string;
   referee1: RefereeStatus;
   referee2: RefereeStatus;
+  /** Previously-persisted AI insights, if any — see ai/reference-check-summary.ts. */
+  aiInsights: ReferenceCheckAiInsights | null;
 };
 
 export async function loadReferenceCheckReportData(refCheckId: string): Promise<ReferenceCheckReportData | null> {
@@ -43,5 +45,6 @@ export async function loadReferenceCheckReportData(refCheckId: string): Promise<
     createdAt: refCheck.createdAt,
     referee1: refCheck.referee1,
     referee2: refCheck.referee2,
+    aiInsights: refCheck.aiInsights,
   };
 }

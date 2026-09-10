@@ -11,6 +11,7 @@ import {
   WorkTrial,
   ReferenceCheck,
   RefereeStatus,
+  ReferenceCheckAiInsights,
   Offer,
   NewEmployee,
   Reliever,
@@ -501,6 +502,78 @@ function refereeFromAirtable(
     reminder24hSent: bool(f[keys[`${prefix}_REMINDER_24H_SENT`]]),
   };
 }
+// Array-shaped AI fields are stored as newline-joined plain text rather than
+// JSON — matches this table's existing convention of human-readable text
+// fields (no JSON.stringify/parse anywhere else in this file), so a TA
+// looking straight at the Airtable grid sees the strengths/concerns/
+// follow-ups as plain bullet lines rather than a serialized blob.
+function linesFromAirtable(v: unknown): string[] {
+  const s = str(v).trim();
+  return s ? s.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+}
+function linesToAirtable(lines: string[] | undefined): string | undefined {
+  return lines === undefined ? undefined : lines.join("\n");
+}
+
+function aiInsightsFromAirtable(f: Record<string, unknown>): ReferenceCheckAiInsights | null {
+  const keys = F.ReferenceChecks;
+  const summary = opt<string>(f[keys.AI_SUMMARY]);
+  const generatedAt = opt<string>(f[keys.AI_GENERATED_AT]);
+  // No summary/generatedAt means AI insights were never generated for this
+  // record — every other AI field is meaningless without them.
+  if (!summary || !generatedAt) return null;
+  return {
+    overallStatus: (opt(f[keys.AI_OVERALL_STATUS]) ?? "Insufficient Data") as ReferenceCheckAiInsights["overallStatus"],
+    summary,
+    recommendationScore: num(f[keys.AI_RECOMMENDATION_SCORE]),
+    overallScore: num(f[keys.AI_OVERALL_SCORE]),
+    confidenceScore: num(f[keys.AI_CONFIDENCE_SCORE]),
+    keyStrengths: linesFromAirtable(f[keys.AI_KEY_STRENGTHS]),
+    areasOfConcern: linesFromAirtable(f[keys.AI_AREAS_OF_CONCERN]),
+    consistencyNotes: str(f[keys.AI_CONSISTENCY_NOTES]),
+    suggestedFollowUps: linesFromAirtable(f[keys.AI_FOLLOW_UP_QUESTIONS]),
+    referee1Takeaway: str(f[keys.AI_REFEREE1_TAKEAWAY]),
+    referee2Takeaway: str(f[keys.AI_REFEREE2_TAKEAWAY]),
+    generatedAt,
+  };
+}
+
+function aiInsightsToAirtable(insights: ReferenceCheckAiInsights | null | undefined) {
+  if (insights === undefined) return {};
+  // `null` is a deliberate "clear the insights" write (e.g. re-generation
+  // failed) — write real blanks rather than skipping the fields.
+  if (insights === null) {
+    return {
+      [F.ReferenceChecks.AI_OVERALL_STATUS]: null,
+      [F.ReferenceChecks.AI_SUMMARY]: null,
+      [F.ReferenceChecks.AI_RECOMMENDATION_SCORE]: null,
+      [F.ReferenceChecks.AI_OVERALL_SCORE]: null,
+      [F.ReferenceChecks.AI_CONFIDENCE_SCORE]: null,
+      [F.ReferenceChecks.AI_KEY_STRENGTHS]: null,
+      [F.ReferenceChecks.AI_AREAS_OF_CONCERN]: null,
+      [F.ReferenceChecks.AI_CONSISTENCY_NOTES]: null,
+      [F.ReferenceChecks.AI_FOLLOW_UP_QUESTIONS]: null,
+      [F.ReferenceChecks.AI_REFEREE1_TAKEAWAY]: null,
+      [F.ReferenceChecks.AI_REFEREE2_TAKEAWAY]: null,
+      [F.ReferenceChecks.AI_GENERATED_AT]: null,
+    };
+  }
+  return {
+    [F.ReferenceChecks.AI_OVERALL_STATUS]: insights.overallStatus,
+    [F.ReferenceChecks.AI_SUMMARY]: insights.summary,
+    [F.ReferenceChecks.AI_RECOMMENDATION_SCORE]: insights.recommendationScore,
+    [F.ReferenceChecks.AI_OVERALL_SCORE]: insights.overallScore,
+    [F.ReferenceChecks.AI_CONFIDENCE_SCORE]: insights.confidenceScore,
+    [F.ReferenceChecks.AI_KEY_STRENGTHS]: linesToAirtable(insights.keyStrengths),
+    [F.ReferenceChecks.AI_AREAS_OF_CONCERN]: linesToAirtable(insights.areasOfConcern),
+    [F.ReferenceChecks.AI_CONSISTENCY_NOTES]: insights.consistencyNotes,
+    [F.ReferenceChecks.AI_FOLLOW_UP_QUESTIONS]: linesToAirtable(insights.suggestedFollowUps),
+    [F.ReferenceChecks.AI_REFEREE1_TAKEAWAY]: insights.referee1Takeaway,
+    [F.ReferenceChecks.AI_REFEREE2_TAKEAWAY]: insights.referee2Takeaway,
+    [F.ReferenceChecks.AI_GENERATED_AT]: insights.generatedAt,
+  };
+}
+
 export function referenceCheckFromAirtable(r: AirtableRecord): ReferenceCheck {
   const f = r.fields;
   return {
@@ -517,6 +590,7 @@ export function referenceCheckFromAirtable(r: AirtableRecord): ReferenceCheck {
     verifiedAt: opt(f[F.ReferenceChecks.VERIFIED_AT]) ?? null,
     verifiedBy: opt(f[F.ReferenceChecks.VERIFIED_BY]) ?? null,
     initiatedAt: opt(f[F.ReferenceChecks.INITIATED_AT]) ?? null,
+    aiInsights: aiInsightsFromAirtable(f),
   };
 }
 export function referenceCheckToAirtable(rc: Partial<ReferenceCheck>) {
@@ -571,6 +645,7 @@ export function referenceCheckToAirtable(rc: Partial<ReferenceCheck>) {
     [F.ReferenceChecks.VERIFIED_AT]: rc.verifiedAt?.slice(0, 10) ?? rc.verifiedAt,
     [F.ReferenceChecks.VERIFIED_BY]: rc.verifiedBy,
     [F.ReferenceChecks.INITIATED_AT]: rc.initiatedAt?.slice(0, 10) ?? rc.initiatedAt,
+    ...aiInsightsToAirtable(rc.aiInsights),
   });
 }
 

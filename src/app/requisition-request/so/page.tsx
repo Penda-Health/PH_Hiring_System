@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FormShell, FormMessage, type FormShellBrand } from "@/components/forms/form-shell";
+import { FormShell, FormStatusCard, type FormShellBrand } from "@/components/forms/form-shell";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 import { SO_DEPARTMENTS } from "@/lib/department-options";
 
@@ -122,10 +122,10 @@ export default function PublicSoRequisitionRequestPage() {
 
   if (submitted) {
     return (
-      <FormShell brand={BRAND} title="Request received" subtitle={`Thanks ${submitterName}, your requisition has been created.`}>
-        <FormMessage>
+      <FormShell brand={BRAND}>
+        <FormStatusCard variant="success" title="Request received" subtitle={`Thanks ${submitterName}, your requisition has been created.`}>
           <p>The role is now an open role in our pipeline. You&apos;ll receive email updates at {submitterEmail} as it progresses.</p>
-        </FormMessage>
+        </FormStatusCard>
       </FormShell>
     );
   }

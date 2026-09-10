@@ -30,6 +30,7 @@ export const referenceChecks: ReferenceCheck[] = [
     verifiedAt: "2026-06-16",
     verifiedBy: "TA Team",
     initiatedAt: "2026-06-16",
+    aiInsights: null,
   },
   {
     id: "ref-2",
@@ -59,6 +60,7 @@ export const referenceChecks: ReferenceCheck[] = [
     verifiedAt: "2026-06-17",
     verifiedBy: "TA Team",
     initiatedAt: "2026-06-17",
+    aiInsights: null,
   },
   {
     id: "ref-3",
@@ -90,5 +92,24 @@ export const referenceChecks: ReferenceCheck[] = [
     verifiedAt: "2026-06-08",
     verifiedBy: "TA Team",
     initiatedAt: "2026-06-08",
+    aiInsights: {
+      overallStatus: "Strong Recommend",
+      summary:
+        "Both referees independently described Dennis as technically strong and highly reliable, with consistent praise for his calm handling of high-pressure situations and collaborative style with the wider team.",
+      recommendationScore: 5,
+      overallScore: 4.5,
+      confidenceScore: 92,
+      keyStrengths: [
+        "Both referees cited specific examples of Dennis staying composed and effective during high-patient-volume shifts.",
+        "Susan noted he proactively mentored newer staff without being asked.",
+      ],
+      areasOfConcern: ["Tom mentioned Dennis can be slow to delegate when under time pressure, preferring to do it himself."],
+      consistencyNotes:
+        "Strong agreement between both referees on technical skill and reliability; the only divergence is Tom's delegation note, which Susan didn't raise.",
+      suggestedFollowUps: ["Ask Dennis directly how he approaches delegating tasks when a shift gets busy."],
+      referee1Takeaway: "Susan: Consistently dependable and a natural mentor to newer staff.",
+      referee2Takeaway: "Tom: Technically excellent, though could delegate more under pressure.",
+      generatedAt: "2026-06-10T09:15:00.000Z",
+    },
   },
 ];
