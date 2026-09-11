@@ -895,6 +895,30 @@ every automation below:
 | `1 Referee In` | Exactly one referee has responded. |
 | `Ready for Offer` | Both referees have responded. The candidate's `Stage` is auto-advanced to `Offer` the moment this is reached — guarded to only fire if the candidate is still on `Reference Check`, so it never overwrites a stage a recruiter already changed by hand. |
 
+**Referee form (`/referee`).** A 4-step wizard (intro/landing screen, then
+verify → relationship & ratings → feedback & character → recommendation),
+matching Penda's redesigned reference-check mockup. Two things worth
+knowing when reading the data:
+
+- `Reference Checks.Referee{1,2} Would Rehire` is a `singleSelect` field
+  whose choices are **not** purely additive across this redesign: the
+  original 3 options (`Yes, without hesitation`, `Yes, with some
+  reservations`, `No, I would not recommend them`) are kept in the field's
+  choice list for historical records, but the form now only ever offers
+  and writes the new 4-option set (`Yes, without hesitation`, `Yes, with
+  reservations`, `No`, `Unsure`). The old 3 are legal-but-deprecated —
+  never removed, since that would orphan already-submitted records.
+- The old two-field `Referee{1,2} Strength Example` /
+  `Referee{1,2} Development Areas` pair is likewise kept for history only.
+  New submissions write one merged `Referee{1,2} Strengths And
+  Development` field instead. The PDF report and AI insights generator
+  both fall back to the old two fields when the new one is empty, so
+  pre-redesign records still render correctly.
+- The character/compliance block (honesty concerns, compliance incidents,
+  license standing) — the latter two are asked only when the candidate's
+  `Segment` is `IPS` (clinical roles); Support Office referees never see
+  them.
+
 **Referee identity verification (Google Sign-In).** `/referee` requires the
 person filling it in to sign in with a Google account via **Google
 Identity Services** (client-side, `accounts.google.com/gsi/client`) before
@@ -947,10 +971,15 @@ TA override above is for.
 User/Manager can download a Penda-branded PDF from the card
 (`GET /api/reference-checks/[id]/report`, dashboard-only). Page 1 covers the
 candidate, the human-set status/outcome, and (see below) an AI insights
-section; each referee then gets their own page — relationship, scores,
-would-rehire, strengths, areas for development, notes, and whether that
-referee's identity was Google-verified or manually overridden. A referee
-who hasn't responded yet gets a plain "hasn't responded" placeholder section
+section; each referee then gets their own page — relationship (and whether
+they directly supervised the candidate), employment period, all 5 rating
+categories (technical, reliability, teamwork, problem solving,
+adaptability), would-rehire, overall recommendation score, strengths and
+areas for development, how they handle pressure/conflict, honesty/integrity
+concerns (plus compliance incidents and license standing for clinical
+roles), notes, and whether that referee's identity was Google-verified or
+manually overridden. A referee who hasn't responded yet gets a plain
+"hasn't responded" placeholder section
 rather than being omitted, same "show it's missing rather than hide it"
 convention as the work-trial report.
 

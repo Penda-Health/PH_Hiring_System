@@ -30,17 +30,27 @@ export async function GET(request: NextRequest) {
 const submitSchema = z.object({
   token: z.string().min(1).max(4000),
   relationship: z.string().trim().min(1).max(100),
+  directlySupervised: z.boolean(),
   durationKnown: z.string().trim().min(1).max(100),
+  employmentFrom: z.string().trim().max(40).optional(),
+  employmentTo: z.string().trim().max(40).optional(),
+  stillEmployed: z.boolean(),
   techScore: z.number().int().min(1).max(5),
   reliabilityScore: z.number().int().min(1).max(5),
   teamworkScore: z.number().int().min(1).max(5),
-  wouldRehire: z.enum([
-    "Yes, without hesitation",
-    "Yes, with some reservations",
-    "No, I would not recommend them",
-  ]),
-  strengthExample: z.string().trim().min(WRITTEN_ASSESSMENT_MIN_LENGTH).max(3000),
-  developmentAreas: z.string().trim().min(WRITTEN_ASSESSMENT_MIN_LENGTH).max(3000),
+  problemSolvingScore: z.number().int().min(1).max(5),
+  adaptabilityScore: z.number().int().min(1).max(5),
+  wouldRehire: z.enum(["Yes, without hesitation", "Yes, with reservations", "No", "Unsure"]),
+  strengthsAndDevelopment: z.string().trim().min(WRITTEN_ASSESSMENT_MIN_LENGTH).max(3000),
+  conflictExample: z.string().trim().min(1).max(3000),
+  honestyConcerns: z.enum(["No concerns", "Some concerns", "Prefer to discuss by phone"]),
+  // Clinical (IPS) roles only — validated as required server-side below once the
+  // candidate's segment is known; optional here since SO referees never send them.
+  complianceIncidents: z.enum(["None that I know of", "Yes", "Prefer to discuss by phone"]).optional(),
+  licenseStanding: z.enum(["Yes", "No", "N/A", "Not sure"]).optional(),
+  preferPhoneNumber: z.string().trim().max(30).optional(),
+  overallRecommendScore: z.number().int().min(1).max(5),
+  consentToContact: z.boolean(),
   notes: z.string().trim().max(2000).optional(),
 });
 
@@ -65,16 +75,33 @@ export async function POST(request: NextRequest) {
     if (!existing.googleVerified) {
       return NextResponse.json({ error: "google_verification_required" }, { status: 403 });
     }
+    // Compliance/licensing questions only apply to clinical (IPS) roles — enforce
+    // that server-side rather than trusting the client to have gated its own UI.
+    if (existing.segment === "IPS" && (!result.data.complianceIncidents || !result.data.licenseStanding)) {
+      return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+    }
 
     await submitRefereeForm(payload.refCheckId, payload.refereeNum, {
       relationship: result.data.relationship,
+      directlySupervised: result.data.directlySupervised,
       durationKnown: result.data.durationKnown,
+      employmentFrom: result.data.employmentFrom,
+      employmentTo: result.data.employmentTo,
+      stillEmployed: result.data.stillEmployed,
       techScore: result.data.techScore,
       reliabilityScore: result.data.reliabilityScore,
       teamworkScore: result.data.teamworkScore,
+      problemSolvingScore: result.data.problemSolvingScore,
+      adaptabilityScore: result.data.adaptabilityScore,
       wouldRehire: result.data.wouldRehire,
-      strengthExample: result.data.strengthExample,
-      developmentAreas: result.data.developmentAreas,
+      strengthsAndDevelopment: result.data.strengthsAndDevelopment,
+      conflictExample: result.data.conflictExample,
+      honestyConcerns: result.data.honestyConcerns,
+      complianceIncidents: result.data.complianceIncidents,
+      licenseStanding: result.data.licenseStanding,
+      preferPhoneNumber: result.data.preferPhoneNumber,
+      overallRecommendScore: result.data.overallRecommendScore,
+      consentToContact: result.data.consentToContact,
       notes: result.data.notes,
     });
     return NextResponse.json({ ok: true });
