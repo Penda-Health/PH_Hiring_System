@@ -86,14 +86,13 @@ type RecruitmentDataContextValue = {
   /** General-purpose edit (e.g. fixing a referee's name/email/phone after the fact) — unlike
    *  verifyAndInitiateReferenceCheck, this never changes status/verifiedAt/initiatedAt. */
   updateReferenceCheck: (id: string, patch: Partial<ReferenceCheck>) => void;
-  /** TA reviews a candidate-submitted (unverified) record, corrects any typos, and sends — moves it from "Awaiting Verification" to "Awaiting Responses". */
+  /** TA reviews a candidate-submitted (unverified) record, corrects any typos, and sends — moves it from "Awaiting Verification" to "Awaiting Responses". 2-4 referees, in order. */
   verifyAndInitiateReferenceCheck: (
     id: string,
-    referee1: { name: string; email: string; phone: string },
-    referee2: { name: string; email: string; phone: string }
+    referees: { name: string; email: string; phone: string }[]
   ) => Promise<void>;
   /** TA manually confirms a referee's identity despite a Google sign-in mismatch (or no sign-in at all). */
-  overrideRefereeGoogleVerification: (id: string, refereeNum: 1 | 2) => Promise<void>;
+  overrideRefereeGoogleVerification: (id: string, refereeNum: 1 | 2 | 3 | 4) => Promise<void>;
   /** Generates (or regenerates) the AI insights layer for a reference check and persists it to Airtable.
    *  Throws (e.g. "not_complete" if no referee has responded yet, or "generation_failed") — callers should
    *  surface the error rather than assume success, since the AI-generated values can't be known ahead of time. */
@@ -494,17 +493,16 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   );
 
   const verifyAndInitiateReferenceCheck = React.useCallback(
-    async (
-      id: string,
-      referee1: { name: string; email: string; phone: string },
-      referee2: { name: string; email: string; phone: string }
-    ) => {
+    async (id: string, referees: { name: string; email: string; phone: string }[]) => {
       if (!guardEdit(canEdit, "verifyAndInitiateReferenceCheck")) return;
       const now = new Date().toISOString();
       const existing = referenceChecks.find((c) => c.id === id);
       const patch: Partial<ReferenceCheck> = {
-        referee1: existing ? { ...existing.referee1, ...referee1 } : { ...referee1, emailSent: false, smsSent: false, responded: false },
-        referee2: existing ? { ...existing.referee2, ...referee2 } : { ...referee2, emailSent: false, smsSent: false, responded: false },
+        referees: referees.map((referee, i) =>
+          existing?.referees[i]
+            ? { ...existing.referees[i], ...referee }
+            : { ...referee, emailSent: false, smsSent: false, responded: false }
+        ),
         status: "Awaiting Responses",
         verifiedAt: now,
         verifiedBy: user?.name || user?.email || "",
@@ -517,15 +515,15 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   );
 
   const overrideRefereeGoogleVerification = React.useCallback(
-    async (id: string, refereeNum: 1 | 2) => {
+    async (id: string, refereeNum: 1 | 2 | 3 | 4) => {
       if (!guardEdit(canEdit, "overrideRefereeGoogleVerification")) return;
       const existing = referenceChecks.find((c) => c.id === id);
       if (!existing) return;
       const overriddenBy = user?.name || user?.email || "";
-      const key = refereeNum === 1 ? "referee1" : "referee2";
-      const patch: Partial<ReferenceCheck> = {
-        [key]: { ...existing[key], googleVerifiedOverrideBy: overriddenBy },
-      } as Partial<ReferenceCheck>;
+      const referees = existing.referees.map((r, i) =>
+        i === refereeNum - 1 ? { ...r, googleVerifiedOverrideBy: overriddenBy } : r
+      );
+      const patch: Partial<ReferenceCheck> = { referees };
       persist<ReferenceCheck>("reference-checks", id, patch);
       setReferenceChecks((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
     },

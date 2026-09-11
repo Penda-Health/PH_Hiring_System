@@ -26,7 +26,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const data = await loadReferenceCheckReportData(params.id);
     if (!data) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-    if (!data.referee1.responded && !data.referee2.responded) {
+    if (data.referees.every((r) => !r.responded)) {
       return NextResponse.json({ error: "not_complete" }, { status: 409 });
     }
 

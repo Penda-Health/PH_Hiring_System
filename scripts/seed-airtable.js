@@ -250,31 +250,33 @@ async function seedWorkTrials(candidateIdMap, branchIdMap) {
   await createRecords("Work Trials", records);
 }
 
+// Mirrors the app's REFEREE_PREFIXES convention (src/lib/airtable/mappers.ts)
+// — 2 to 4 referees per check, in flat REFEREE{N}_* field slots.
+const REFEREE_NUM_PREFIXES = ["REFEREE1", "REFEREE2", "REFEREE3", "REFEREE4"];
+
 async function seedReferenceChecks(candidateIdMap) {
   console.log(`Seeding Reference Checks (${referenceChecks.length})...`);
-  const records = referenceChecks.map((rc) =>
-    clean({
+  const records = referenceChecks.map((rc) => {
+    const refereeFields = {};
+    REFEREE_NUM_PREFIXES.forEach((prefix, i) => {
+      const referee = rc.referees[i];
+      refereeFields[F.ReferenceChecks[`${prefix}_NAME`]] = referee?.name;
+      refereeFields[F.ReferenceChecks[`${prefix}_EMAIL`]] = referee?.email;
+      refereeFields[F.ReferenceChecks[`${prefix}_PHONE`]] = referee?.phone;
+      refereeFields[F.ReferenceChecks[`${prefix}_EMAIL_SENT`]] = referee?.emailSent;
+      refereeFields[F.ReferenceChecks[`${prefix}_SMS_SENT`]] = referee?.smsSent;
+      refereeFields[F.ReferenceChecks[`${prefix}_RESPONDED`]] = referee?.responded;
+      refereeFields[F.ReferenceChecks[`${prefix}_RESPONDED_AT`]] = referee?.respondedAt?.slice(0, 10);
+    });
+    return clean({
       [F.ReferenceChecks.REF_ID]: rc.refId,
       [F.ReferenceChecks.CANDIDATE]: link(candidateIdMap.get(rc.candidateId)),
-      [F.ReferenceChecks.REFEREE1_NAME]: rc.referee1?.name,
-      [F.ReferenceChecks.REFEREE1_EMAIL]: rc.referee1?.email,
-      [F.ReferenceChecks.REFEREE1_PHONE]: rc.referee1?.phone,
-      [F.ReferenceChecks.REFEREE1_EMAIL_SENT]: rc.referee1?.emailSent,
-      [F.ReferenceChecks.REFEREE1_SMS_SENT]: rc.referee1?.smsSent,
-      [F.ReferenceChecks.REFEREE1_RESPONDED]: rc.referee1?.responded,
-      [F.ReferenceChecks.REFEREE1_RESPONDED_AT]: rc.referee1?.respondedAt?.slice(0, 10),
-      [F.ReferenceChecks.REFEREE2_NAME]: rc.referee2?.name,
-      [F.ReferenceChecks.REFEREE2_EMAIL]: rc.referee2?.email,
-      [F.ReferenceChecks.REFEREE2_PHONE]: rc.referee2?.phone,
-      [F.ReferenceChecks.REFEREE2_EMAIL_SENT]: rc.referee2?.emailSent,
-      [F.ReferenceChecks.REFEREE2_SMS_SENT]: rc.referee2?.smsSent,
-      [F.ReferenceChecks.REFEREE2_RESPONDED]: rc.referee2?.responded,
-      [F.ReferenceChecks.REFEREE2_RESPONDED_AT]: rc.referee2?.respondedAt?.slice(0, 10),
+      ...refereeFields,
       [F.ReferenceChecks.OUTCOME]: rc.outcome,
       [F.ReferenceChecks.DRIVE_FOLDER_URL]: rc.driveFolderUrl,
       [F.ReferenceChecks.CREATED_AT]: rc.createdAt,
-    })
-  );
+    });
+  });
   await createRecords("Reference Checks", records);
 }
 

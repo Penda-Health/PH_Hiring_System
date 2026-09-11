@@ -25,7 +25,7 @@ export type RefereeTokenPayload = {
   type: "referee";
   refCheckId: string;
   candidateId: string;
-  refereeNum: 1 | 2;
+  refereeNum: 1 | 2 | 3 | 4;
 };
 
 export type ConfirmEmploymentTokenPayload = {

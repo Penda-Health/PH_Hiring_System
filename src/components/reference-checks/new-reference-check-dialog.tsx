@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 
 interface Props {
@@ -20,18 +20,35 @@ const EMPTY_REFEREE: RefereeStatus = {
   emailSent: false, smsSent: false, responded: false,
 };
 
+export const MIN_REFEREES = 2;
+export const MAX_REFEREES = 4;
+
 export function RefereeFields({
   label,
   value,
   onChange,
+  onRemove,
 }: {
   label: string;
   value: { name: string; email: string; phone: string };
   onChange: (v: { name: string; email: string; phone: string }) => void;
+  onRemove?: () => void;
 }) {
   return (
     <fieldset className="space-y-2 rounded-md border border-border p-3">
-      <legend className="px-1 text-sm font-medium">{label}</legend>
+      <div className="flex items-center justify-between px-1">
+        <legend className="text-sm font-medium">{label}</legend>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Remove ${label}`}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
       <div className="space-y-1.5">
         <Label className="text-xs">Name</Label>
         <Input
@@ -66,18 +83,24 @@ export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [candidateId, setCandidateId] = React.useState("");
-  const [ref1, setRef1] = React.useState({ name: "", email: "", phone: "" });
-  const [ref2, setRef2] = React.useState({ name: "", email: "", phone: "" });
+  const [referees, setReferees] = React.useState<{ name: string; email: string; phone: string }[]>([
+    { name: "", email: "", phone: "" },
+    { name: "", email: "", phone: "" },
+  ]);
 
   function reset() {
     setCandidateId("");
-    setRef1({ name: "", email: "", phone: "" });
-    setRef2({ name: "", email: "", phone: "" });
+    setReferees([
+      { name: "", email: "", phone: "" },
+      { name: "", email: "", phone: "" },
+    ]);
   }
+
+  const allNamed = referees.every((r) => r.name);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!candidateId || !ref1.name || !ref2.name) return;
+    if (!candidateId || !allNamed) return;
     setSaving(true);
     try {
       const now = new Date().toISOString();
@@ -85,8 +108,7 @@ export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
         id: "",
         refId: "",
         candidateId,
-        referee1: { ...EMPTY_REFEREE, ...ref1 },
-        referee2: { ...EMPTY_REFEREE, ...ref2 },
+        referees: referees.map((r) => ({ ...EMPTY_REFEREE, ...r })),
         outcome: "Pending",
         driveFolderUrl: null,
         createdAt: now,
@@ -134,13 +156,35 @@ export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
               </SelectContent>
             </Select>
           </div>
-          <RefereeFields label="Referee 1" value={ref1} onChange={setRef1} />
-          <RefereeFields label="Referee 2" value={ref2} onChange={setRef2} />
+          {referees.map((referee, i) => (
+            <RefereeFields
+              key={i}
+              label={`Referee ${i + 1}`}
+              value={referee}
+              onChange={(v) => setReferees((prev) => prev.map((r, idx) => (idx === i ? v : r)))}
+              onRemove={
+                referees.length > MIN_REFEREES
+                  ? () => setReferees((prev) => prev.filter((_, idx) => idx !== i))
+                  : undefined
+              }
+            />
+          ))}
+          {referees.length < MAX_REFEREES && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setReferees((prev) => [...prev, { name: "", email: "", phone: "" }])}
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add referee
+            </Button>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button
               type="submit"
-              disabled={saving || !candidateId || !ref1.name || !ref2.name}
+              disabled={saving || !candidateId || !allNamed}
               className="bg-penda-blue hover:bg-penda-blue-dark text-white"
             >
               {saving ? "Creating…" : "Create"}

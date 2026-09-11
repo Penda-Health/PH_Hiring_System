@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormShell, FormStatusCard, type FormShellBrand } from "@/components/forms/form-shell";
+import { Plus, X } from "lucide-react";
 
 const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · Reference Check",
   headline: "Tell us who can speak to your work.",
-  lede: "Two people who've worked with you — a manager, a senior colleague, a peer. We'll reach out to them directly.",
+  lede: "2 to 4 people who've worked with you — a manager, a senior colleague, a peer. We'll reach out to them directly.",
   footer: "Questions? careers@pendahealth.com",
 };
 
@@ -23,6 +24,8 @@ type FormData = {
 type RefereeInput = { name: string; email: string; phone: string };
 const EMPTY_REFEREE: RefereeInput = { name: "", email: "", phone: "" };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_REFEREES = 2;
+const MAX_REFEREES = 4;
 
 function isCompleteReferee(r: RefereeInput) {
   return r.name.trim().length > 0 && EMAIL_RE.test(r.email.trim()) && r.phone.trim().length > 0;
@@ -32,14 +35,23 @@ function RefereeFieldset({
   label,
   value,
   onChange,
+  onRemove,
 }: {
   label: string;
   value: RefereeInput;
   onChange: (v: RefereeInput) => void;
+  onRemove?: () => void;
 }) {
   return (
     <fieldset className="space-y-3 rounded-lg border border-border p-4">
-      <legend className="px-1 text-sm font-medium">{label}</legend>
+      <div className="flex items-center justify-between px-1">
+        <legend className="text-sm font-medium">{label}</legend>
+        {onRemove && (
+          <button type="button" onClick={onRemove} aria-label={`Remove ${label}`} className="text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
       <div className="space-y-1.5">
         <Label>Full name</Label>
         <Input value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} placeholder="Full name" required />
@@ -67,8 +79,7 @@ function ReferenceCheckRequestForm() {
   const [data, setData] = React.useState<FormData | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
 
-  const [referee1, setReferee1] = React.useState<RefereeInput>(EMPTY_REFEREE);
-  const [referee2, setReferee2] = React.useState<RefereeInput>(EMPTY_REFEREE);
+  const [referees, setReferees] = React.useState<RefereeInput[]>([{ ...EMPTY_REFEREE }, { ...EMPTY_REFEREE }]);
 
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
@@ -146,8 +157,9 @@ function ReferenceCheckRequestForm() {
     );
   }
 
-  const distinctEmails = referee1.email.trim().toLowerCase() !== referee2.email.trim().toLowerCase();
-  const canSubmit = isCompleteReferee(referee1) && isCompleteReferee(referee2) && distinctEmails;
+  const emails = referees.map((r) => r.email.trim().toLowerCase());
+  const distinctEmails = new Set(emails).size === emails.length;
+  const canSubmit = referees.every(isCompleteReferee) && distinctEmails;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -157,7 +169,7 @@ function ReferenceCheckRequestForm() {
       const res = await fetch("/api/public/reference-check-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, referee1, referee2 }),
+        body: JSON.stringify({ token, referees }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -177,14 +189,36 @@ function ReferenceCheckRequestForm() {
     <FormShell
       brand={BRAND}
       title="Add your referees"
-      subtitle={`Hi ${data.candidateName}, please share two people we can contact about your work${data.roleTitle ? ` for the ${data.roleTitle} role` : ""}.`}
+      subtitle={`Hi ${data.candidateName}, please share 2 to 4 people we can contact about your work${data.roleTitle ? ` for the ${data.roleTitle} role` : ""}.`}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        {!distinctEmails && referee1.email && referee2.email && (
-          <p className="text-sm text-destructive">Please use two different email addresses for your referees.</p>
+        {!distinctEmails && referees.every((r) => r.email) && (
+          <p className="text-sm text-destructive">Please use a different email address for each referee.</p>
         )}
-        <RefereeFieldset label="Referee 1" value={referee1} onChange={setReferee1} />
-        <RefereeFieldset label="Referee 2" value={referee2} onChange={setReferee2} />
+        {referees.map((referee, i) => (
+          <RefereeFieldset
+            key={i}
+            label={`Referee ${i + 1}`}
+            value={referee}
+            onChange={(v) => setReferees((prev) => prev.map((r, idx) => (idx === i ? v : r)))}
+            onRemove={
+              referees.length > MIN_REFEREES
+                ? () => setReferees((prev) => prev.filter((_, idx) => idx !== i))
+                : undefined
+            }
+          />
+        ))}
+        {referees.length < MAX_REFEREES && (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => setReferees((prev) => [...prev, { ...EMPTY_REFEREE }])}
+          >
+            <Plus className="h-4 w-4 mr-1.5" />
+            Add another referee
+          </Button>
+        )}
 
         {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 

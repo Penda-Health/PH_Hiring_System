@@ -33,13 +33,13 @@ async function main() {
   if (!["work-trial", "bm-feedback", "referee", "reference-check-request"].includes(type)) {
     console.error(
       "Usage: --type work-trial|bm-feedback --work-trial-id <recId> [--base <url>]\n" +
-        "   or: --type referee --ref-check-id <recId> --referee-num 1|2 [--base <url>]\n" +
+        "   or: --type referee --ref-check-id <recId> --referee-num 1|2|3|4 [--base <url>]\n" +
         "   or: --type reference-check-request --candidate-id <recId> [--base <url>]"
     );
     process.exit(1);
   }
-  if (type === "referee" && (!refCheckId || !["1", "2"].includes(refereeNum))) {
-    console.error("Missing --ref-check-id <recId> and/or --referee-num 1|2");
+  if (type === "referee" && (!refCheckId || !["1", "2", "3", "4"].includes(refereeNum))) {
+    console.error("Missing --ref-check-id <recId> and/or --referee-num 1|2|3|4");
     process.exit(1);
   }
   if (type === "reference-check-request" && !candidateId) {

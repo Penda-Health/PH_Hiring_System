@@ -15,8 +15,7 @@ export type ReferenceCheckReportData = {
   status: ReferenceCheckStatus;
   outcome: "Pending" | "Positive" | "Negative" | "Mixed";
   createdAt: string;
-  referee1: RefereeStatus;
-  referee2: RefereeStatus;
+  referees: RefereeStatus[];
   /** Previously-persisted AI insights, if any — see ai/reference-check-summary.ts. */
   aiInsights: ReferenceCheckAiInsights | null;
 };
@@ -43,8 +42,7 @@ export async function loadReferenceCheckReportData(refCheckId: string): Promise<
     status: refCheck.status,
     outcome: refCheck.outcome,
     createdAt: refCheck.createdAt,
-    referee1: refCheck.referee1,
-    referee2: refCheck.referee2,
+    referees: refCheck.referees,
     aiInsights: refCheck.aiInsights,
   };
 }

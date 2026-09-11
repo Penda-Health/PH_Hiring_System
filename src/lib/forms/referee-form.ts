@@ -18,7 +18,7 @@ export type RefereeFormData = {
   googleVerified: boolean;
 };
 
-export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2): Promise<RefereeFormData | null> {
+export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2 | 3 | 4): Promise<RefereeFormData | null> {
   const record = await getRecord(TABLE_NAMES.ReferenceChecks, refCheckId);
   if (!record) return null;
   const refCheck = referenceCheckFromAirtable(record);
@@ -41,7 +41,8 @@ export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2)
     }
   }
 
-  const referee = refereeNum === 1 ? refCheck.referee1 : refCheck.referee2;
+  const referee = refCheck.referees[refereeNum - 1];
+  if (!referee) return null;
 
   return {
     candidateName: candidate.name,
@@ -87,16 +88,19 @@ export type RefereeSubmission = {
 // see google-verify.ts. `googleVerifiedEmail` is stamped on every attempt
 // (even a mismatch) so TA has visibility into what account was tried when
 // deciding whether to override.
+const REFEREE_NUM_PREFIXES = ["REFEREE1", "REFEREE2", "REFEREE3", "REFEREE4"] as const;
+
 export async function recordGoogleVerification(
   refCheckId: string,
-  refereeNum: 1 | 2,
+  refereeNum: 1 | 2 | 3 | 4,
   googleEmail: string
 ): Promise<{ verified: boolean; refereeEmailOnFile: string }> {
   const record = await getRecord(TABLE_NAMES.ReferenceChecks, refCheckId);
   if (!record) throw new Error(`Reference check ${refCheckId} not found`);
   const refCheck = referenceCheckFromAirtable(record);
-  const referee = refereeNum === 1 ? refCheck.referee1 : refCheck.referee2;
-  const prefix = refereeNum === 1 ? "REFEREE1" : "REFEREE2";
+  const referee = refCheck.referees[refereeNum - 1];
+  if (!referee) throw new Error(`Referee ${refereeNum} not found on reference check ${refCheckId}`);
+  const prefix = REFEREE_NUM_PREFIXES[refereeNum - 1];
   const keys = F.ReferenceChecks as Record<string, string>;
 
   const matches = referee.email.trim().toLowerCase() === googleEmail.trim().toLowerCase();
@@ -113,10 +117,10 @@ export async function recordGoogleVerification(
 
 export async function submitRefereeForm(
   refCheckId: string,
-  refereeNum: 1 | 2,
+  refereeNum: 1 | 2 | 3 | 4,
   submission: RefereeSubmission
 ): Promise<void> {
-  const prefix = refereeNum === 1 ? "REFEREE1" : "REFEREE2";
+  const prefix = REFEREE_NUM_PREFIXES[refereeNum - 1];
   const keys = F.ReferenceChecks as Record<string, string>;
   await updateRecord(
     TABLE_NAMES.ReferenceChecks,
@@ -155,7 +159,7 @@ export async function submitRefereeForm(
   const fresh = await getRecord(TABLE_NAMES.ReferenceChecks, refCheckId);
   if (!fresh) return;
   const refCheck = referenceCheckFromAirtable(fresh);
-  const respondedCount = [refCheck.referee1.responded, refCheck.referee2.responded].filter(Boolean).length;
+  const respondedCount = refCheck.referees.filter((r) => r.responded).length;
   const nextStatus: ReferenceCheckStatus =
     respondedCount >= 2 ? "Ready for Offer" : respondedCount === 1 ? "1 Referee In" : refCheck.status;
 

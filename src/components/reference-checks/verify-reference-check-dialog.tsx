@@ -9,39 +9,30 @@ import * as React from "react";
 import { ReferenceCheck } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ShieldCheck } from "lucide-react";
-import { RefereeFields } from "./new-reference-check-dialog";
+import { Plus, ShieldCheck } from "lucide-react";
+import { MAX_REFEREES, MIN_REFEREES, RefereeFields } from "./new-reference-check-dialog";
 
 interface Props {
   refCheck: ReferenceCheck;
   candidateName: string;
-  onVerify: (
-    id: string,
-    referee1: { name: string; email: string; phone: string },
-    referee2: { name: string; email: string; phone: string }
-  ) => Promise<void>;
+  onVerify: (id: string, referees: { name: string; email: string; phone: string }[]) => Promise<void>;
 }
 
 export function VerifyReferenceCheckDialog({ refCheck, candidateName, onVerify }: Props) {
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [ref1, setRef1] = React.useState({
-    name: refCheck.referee1.name,
-    email: refCheck.referee1.email,
-    phone: refCheck.referee1.phone,
-  });
-  const [ref2, setRef2] = React.useState({
-    name: refCheck.referee2.name,
-    email: refCheck.referee2.email,
-    phone: refCheck.referee2.phone,
-  });
+  const [referees, setReferees] = React.useState<{ name: string; email: string; phone: string }[]>(() =>
+    refCheck.referees.map((r) => ({ name: r.name, email: r.email, phone: r.phone }))
+  );
+
+  const allNamed = referees.every((r) => r.name);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!ref1.name || !ref2.name) return;
+    if (!allNamed) return;
     setSaving(true);
     try {
-      await onVerify(refCheck.id, ref1, ref2);
+      await onVerify(refCheck.id, referees);
       setOpen(false);
     } finally {
       setSaving(false);
@@ -65,13 +56,35 @@ export function VerifyReferenceCheckDialog({ refCheck, candidateName, onVerify }
           what emails each referee their link.
         </p>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          <RefereeFields label="Referee 1" value={ref1} onChange={setRef1} />
-          <RefereeFields label="Referee 2" value={ref2} onChange={setRef2} />
+          {referees.map((referee, i) => (
+            <RefereeFields
+              key={i}
+              label={`Referee ${i + 1}`}
+              value={referee}
+              onChange={(v) => setReferees((prev) => prev.map((r, idx) => (idx === i ? v : r)))}
+              onRemove={
+                referees.length > MIN_REFEREES
+                  ? () => setReferees((prev) => prev.filter((_, idx) => idx !== i))
+                  : undefined
+              }
+            />
+          ))}
+          {referees.length < MAX_REFEREES && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setReferees((prev) => [...prev, { name: "", email: "", phone: "" }])}
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add referee
+            </Button>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button
               type="submit"
-              disabled={saving || !ref1.name || !ref2.name}
+              disabled={saving || !allNamed}
               className="bg-penda-blue hover:bg-penda-blue-dark text-white"
             >
               {saving ? "Sending…" : "Verify & send"}
