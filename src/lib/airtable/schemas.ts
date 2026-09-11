@@ -14,10 +14,22 @@ export const branchSchema = z.object({
   city: z.string().trim().min(1).max(100),
   region: z.string().trim().min(1).max(100),
   branchManager: z.string().trim().min(1).max(150),
+  // Optional: a plain z.object() PATCH schema silently strips any key it
+  // doesn't declare (Zod's default "strip unknown keys" behavior), so a
+  // field missing here doesn't fail loudly — it just never reaches
+  // Airtable while the client's optimistic UI update makes it *look*
+  // saved. bmEmail/bmPhone/address/mapPinUrl were missing for exactly
+  // that reason (BM contact edits from Settings were silently dropped);
+  // keep every editable Branch field declared here, even ones that are
+  // "" by default and not required by the form's own validation.
+  bmEmail: z.string().trim().max(255).optional(),
+  bmPhone: z.string().trim().max(30).optional(),
   regionalManager: z.string().trim().min(1).max(150),
   capacity: z.number().int().min(0).max(1000),
   active: z.boolean(),
   workTrialActive: z.boolean().optional(),
+  address: z.string().trim().max(500).optional(),
+  mapPinUrl: z.string().trim().max(2000).optional(),
   expansionBranch: z.boolean().optional(),
   segment,
 });
@@ -196,6 +208,24 @@ export const workTrialSchema = z.object({
   formSubmittedAt: z.string().max(40).nullable(),
   reminder12hSent: z.boolean(),
   escalation24hSent: z.boolean(),
+  // These are written directly via updateRecord() from bm-feedback-form.ts,
+  // bypassing this schema entirely (same pattern as referee-form.ts) — so
+  // their absence here has never been a live bug. Declared anyway so a
+  // future dashboard edit affordance that *does* go through the generic
+  // PATCH /api/work-trials/[id] route doesn't silently drop them, the way
+  // Branch's bmEmail/bmPhone/address/mapPinUrl did.
+  submittedByRole: z.enum(["BM", "Incharge"]).nullable().optional(),
+  bmApprovedAt: z.string().max(40).nullable().optional(),
+  commentCulture: z.string().trim().max(2000).optional(),
+  commentPatient: z.string().trim().max(2000).optional(),
+  commentTechnical: z.string().trim().max(2000).optional(),
+  strengths: z.string().trim().max(2000).optional(),
+  areasOfDevelopment: z.string().trim().max(2000).optional(),
+  overallRecommendation: z.string().trim().max(2000).optional(),
+  submissionMethod: z.enum(["Online", "Uploaded"]).nullable().optional(),
+  uploadedFormFiles: z.array(z.object({ url: z.string().max(2000), filename: z.string().max(300) })).optional(),
+  roleCategory: z.enum(["General", "Specialist"]).optional(),
+  specialty: z.string().trim().max(150).optional(),
 });
 
 const refereeStatusSchema = z.object({
