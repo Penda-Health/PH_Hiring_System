@@ -778,17 +778,75 @@ NEXT_PUBLIC_APP_URL=      # your deployed URL, e.g. https://ph-hiring-system.ver
 5. Repeat the same pattern for the branch-manager feedback link, triggered
    off the work trial's date (e.g. "the morning of Trial Date") with
    `type: "bm-feedback"` and the BM's email instead.
-6. For referee links, trigger on `Reference Checks` record **create or
-   update** where `Initiated At` is not blank — **not** on record creation.
+6. For referee links, trigger on `Reference Checks` record **matches
+   conditions**, `Initiated At` is not empty — **not** on record creation.
    A reference check can be created two ways (see §4.5.6): a TA-added record
    sets `Initiated At` immediately, so create and initiate happen in the same
    moment; a candidate-submitted record is created with `Initiated At` blank
    and only gets it set once a TA reviews and verifies it, which can be
    hours or days after the record first appears. Triggering off record
    creation would email referees before their details have ever been
-   checked. Run the script twice (once per referee) with
-   `{ "type": "referee", "refCheckId": "<recId>", "refereeNum": 1 }` (and `2`
-   for the second referee), sending each to that referee's email.
+   checked. Airtable only fires a "matches conditions" trigger the moment a
+   record newly starts matching, so this won't retroactively fire for
+   records that already had `Initiated At` set before the automation was
+   turned on, and won't re-fire on later, unrelated edits to the record.
+
+   Build one **Run a script** action that looks up both referees and mints
+   both links in one call (cheaper than two separate script steps), then two
+   **Send email** actions reading its output:
+
+   ```javascript
+   // Input variable: recordId — map it to the trigger record's Reference
+   // Checks record ID (Automation → this step → + Add input variable).
+   let { recordId } = input.config();
+
+   let table = base.getTable("Reference Checks");
+   let rec = await table.selectRecordAsync(recordId);
+   let candidateLink = rec.getCellValue("Candidate");
+   let candidateName = candidateLink?.[0]?.name ?? "the candidate";
+
+   async function mintLink(refereeNum) {
+     let res = await fetch("https://YOUR_APP_URL/api/forms/issue-link", {
+       method: "POST",
+       headers: {
+         "Content-Type": "application/json",
+         "Authorization": "Bearer YOUR_FORMS_ISSUE_SECRET",
+       },
+       body: JSON.stringify({ type: "referee", refCheckId: recordId, refereeNum }),
+     });
+     let { url } = await res.json();
+     return url;
+   }
+
+   output.set("candidateName", candidateName);
+   output.set("referee1Link", await mintLink(1));
+   output.set("referee2Link", await mintLink(2));
+   ```
+
+   **Send email #1** — To `Referee 1 Email`, Subject
+   `Reference request for {candidateName} — Penda Health`, body:
+
+   > Hi {Referee 1 Name},
+   >
+   > {candidateName} has listed you as a professional reference as part of
+   > their application to Penda Health. We'd be grateful if you could take
+   > 5–10 minutes to share your feedback on their work using the secure link
+   > below:
+   >
+   > {referee1Link}
+   >
+   > This link is unique to you and expires in 14 days. Thank you for your
+   > time.
+   >
+   > Penda Health Recruitment Team
+
+   **Send email #2** — same body, `To: Referee 2 Email`,
+   `{Referee 2 Name}` / `{referee2Link}` in place of referee 1's.
+
+   ({candidateName}, {referee1Link}, {referee2Link} are inserted via
+   Airtable's "Insert dynamic content" picker → this Run Script step's
+   output, not typed literally; {Referee 1/2 Name} come straight from the
+   trigger record's own fields.)
 
 To test without waiting on a real automation run, mint a link manually:
 
@@ -884,6 +942,40 @@ submitted/approved it.
   "candidateId": "recXXXX..." }` — typically from an Airtable automation
   triggered off `Candidates.Stage = "Reference Check"`, same recipe as
   §4.5.2. The token is valid 30 days.
+
+  Build it the same shape as §4.5.2 step 6's script, minus the two-referee
+  loop:
+
+  ```javascript
+  let { recordId } = input.config(); // map to the trigger record's Candidates record ID
+  let res = await fetch("https://YOUR_APP_URL/api/forms/issue-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer YOUR_FORMS_ISSUE_SECRET" },
+    body: JSON.stringify({ type: "reference-check-request", candidateId: recordId }),
+  });
+  let { url } = await res.json();
+  output.set("link", url);
+  ```
+
+  **Send email** — To the candidate's own `Email` field, Subject
+  `Please share your references — Penda Health`, body:
+
+  > Hi {Name},
+  >
+  > Congratulations on progressing with Penda Health! The next step is a
+  > reference check — please share the contact details of two professional
+  > referees (e.g. a former supervisor or manager) using the secure link
+  > below. It only takes about 2 minutes:
+  >
+  > {link}
+  >
+  > Our recruitment team will review what you submit and reach out to your
+  > referees shortly after.
+  >
+  > Penda Health Recruitment Team
+
+  ({link} is this script step's output; {Name} is the trigger record's own
+  field.)
 
 **Status field.** `Reference Checks.Status` is server-written only (never
 edited by hand) and drives the verification queue, the card's badge, and
@@ -1039,6 +1131,38 @@ shape as §4.5.2/§4.5.3; all key off `Reference Checks` fields):
    lookup), noting which referee responded and, when `Status` is now
    `"Ready for Offer"`, that the candidate has cleared both and moved to
    Offer.
+4. **Notify the TA team's Google Chat space when a reference check
+   completes.** Trigger: *When a record matches conditions*, table
+   `Reference Checks`, condition `Status = "Ready for Offer"` — this is the
+   moment both referees have responded (deliberately not on `1 Referee In`,
+   so the space gets one message per completed check, not two). Action:
+   **Run a script** posting to the space's [Incoming
+   Webhook](https://developers.google.com/workspace/chat/quickstart/webhooks)
+   URL (Space name → **Apps & integrations** → **Webhooks** → **Add
+   webhook** if one doesn't exist yet):
+
+   ```javascript
+   // Input variable: recordId — map to the trigger record's Reference
+   // Checks record ID.
+   let { recordId } = input.config();
+
+   let table = base.getTable("Reference Checks");
+   let rec = await table.selectRecordAsync(recordId);
+   let candidateName = rec.getCellValue("Candidate")?.[0]?.name ?? "A candidate";
+   let refId = rec.getCellValue("Ref ID");
+
+   await fetch("YOUR_GOOGLE_CHAT_WEBHOOK_URL", {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({
+       text: `✅ *Reference check complete* — *${candidateName}* (${refId}). Both referees have responded; ready to move to Offer.`,
+     }),
+   });
+   ```
+
+   Google Chat's incoming-webhook endpoint accepts a plain
+   `{ "text": "..." }` POST body — no extra library needed. `*text*` renders
+   bold in Chat.
 
 ### 4.5.7 Work trial booking window (`/settings` → "Work trial booking window")
 
