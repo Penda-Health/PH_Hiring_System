@@ -3,11 +3,15 @@
 import { getRecord, updateRecord, cleanFields } from "@/lib/airtable/client";
 import { TABLE_NAMES, F } from "@/lib/airtable/field-names";
 import { candidateFromAirtable, openRoleFromAirtable, referenceCheckFromAirtable } from "@/lib/airtable/mappers";
-import { RehireAnswer, ReferenceCheckStatus } from "@/types";
+import { RehireAnswer, ReferenceCheckStatus, Segment } from "@/types";
 
 export type RefereeFormData = {
   candidateName: string;
   roleTitle: string;
+  /** The role's assigned recruiter — shown on the redesigned form's intro screen ("Requested by ..."). */
+  recruiterName: string;
+  /** Gates the clinical-only compliance/license questions (step 3) to IPS roles. "" if the candidate has none on file. */
+  segment: Segment | "";
   refereeName: string;
   refereeEmail: string;
   alreadySubmitted: boolean;
@@ -27,9 +31,14 @@ export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2)
   const candidate = candidateFromAirtable(candidateRecord);
 
   let roleTitle = "";
+  let recruiterName = "";
   if (candidate.roleId) {
     const roleRecord = await getRecord(TABLE_NAMES.OpenRoles, candidate.roleId);
-    roleTitle = roleRecord ? openRoleFromAirtable(roleRecord).title : "";
+    if (roleRecord) {
+      const role = openRoleFromAirtable(roleRecord);
+      roleTitle = role.title;
+      recruiterName = role.recruiter;
+    }
   }
 
   const referee = refereeNum === 1 ? refCheck.referee1 : refCheck.referee2;
@@ -37,6 +46,8 @@ export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2)
   return {
     candidateName: candidate.name,
     roleTitle,
+    recruiterName,
+    segment: candidate.segment ?? "",
     refereeName: referee.name,
     refereeEmail: referee.email,
     alreadySubmitted: referee.responded,
@@ -46,13 +57,26 @@ export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2)
 
 export type RefereeSubmission = {
   relationship: string;
+  directlySupervised: boolean;
   durationKnown: string;
+  employmentFrom?: string;
+  employmentTo?: string;
+  stillEmployed: boolean;
   techScore: number;
   reliabilityScore: number;
   teamworkScore: number;
+  problemSolvingScore: number;
+  adaptabilityScore: number;
   wouldRehire: RehireAnswer;
-  strengthExample: string;
-  developmentAreas: string;
+  strengthsAndDevelopment: string;
+  conflictExample: string;
+  honestyConcerns: "No concerns" | "Some concerns" | "Prefer to discuss by phone";
+  // Clinical (IPS) roles only — the form omits these for Support Office referees.
+  complianceIncidents?: "None that I know of" | "Yes" | "Prefer to discuss by phone";
+  licenseStanding?: "Yes" | "No" | "N/A" | "Not sure";
+  preferPhoneNumber?: string;
+  overallRecommendScore: number;
+  consentToContact: boolean;
   notes?: string;
 };
 
@@ -101,13 +125,25 @@ export async function submitRefereeForm(
       [keys[`${prefix}_RESPONDED`]]: true,
       [keys[`${prefix}_RESPONDED_AT`]]: new Date().toISOString().slice(0, 10),
       [keys[`${prefix}_RELATIONSHIP`]]: submission.relationship,
+      [keys[`${prefix}_DIRECTLY_SUPERVISED`]]: submission.directlySupervised,
       [keys[`${prefix}_DURATION_KNOWN`]]: submission.durationKnown,
+      [keys[`${prefix}_EMPLOYMENT_FROM`]]: submission.employmentFrom,
+      [keys[`${prefix}_EMPLOYMENT_TO`]]: submission.employmentTo,
+      [keys[`${prefix}_STILL_EMPLOYED`]]: submission.stillEmployed,
       [keys[`${prefix}_TECH_SCORE`]]: submission.techScore,
       [keys[`${prefix}_RELIABILITY_SCORE`]]: submission.reliabilityScore,
       [keys[`${prefix}_TEAMWORK_SCORE`]]: submission.teamworkScore,
+      [keys[`${prefix}_PROBLEM_SOLVING_SCORE`]]: submission.problemSolvingScore,
+      [keys[`${prefix}_ADAPTABILITY_SCORE`]]: submission.adaptabilityScore,
       [keys[`${prefix}_WOULD_REHIRE`]]: submission.wouldRehire,
-      [keys[`${prefix}_STRENGTH_EXAMPLE`]]: submission.strengthExample,
-      [keys[`${prefix}_DEVELOPMENT_AREAS`]]: submission.developmentAreas,
+      [keys[`${prefix}_STRENGTHS_AND_DEVELOPMENT`]]: submission.strengthsAndDevelopment,
+      [keys[`${prefix}_CONFLICT_EXAMPLE`]]: submission.conflictExample,
+      [keys[`${prefix}_HONESTY_CONCERNS`]]: submission.honestyConcerns,
+      [keys[`${prefix}_COMPLIANCE_INCIDENTS`]]: submission.complianceIncidents,
+      [keys[`${prefix}_LICENSE_STANDING`]]: submission.licenseStanding,
+      [keys[`${prefix}_PREFER_PHONE_NUMBER`]]: submission.preferPhoneNumber,
+      [keys[`${prefix}_OVERALL_RECOMMEND_SCORE`]]: submission.overallRecommendScore,
+      [keys[`${prefix}_CONSENT_TO_CONTACT`]]: submission.consentToContact,
       [keys[`${prefix}_NOTES`]]: submission.notes,
     })
   );

@@ -119,6 +119,21 @@ function drawHeader(ctx: Ctx, title: string) {
   ctx.y = PAGE_H - barHeight - 28;
 }
 
+// Thin rule drawn after a top-level section (AI analysis, each referee) so
+// the boundary stays legible now that sections flow continuously instead of
+// each getting a forced page of its own.
+function drawDivider(ctx: Ctx) {
+  ensureSpace(ctx, 24);
+  ctx.y -= 4;
+  ctx.page.drawLine({
+    start: { x: MARGIN, y: ctx.y },
+    end: { x: MARGIN + CONTENT_W, y: ctx.y },
+    thickness: 0.75,
+    color: rgb(0.87, 0.87, 0.89),
+  });
+  ctx.y -= 20;
+}
+
 function drawSectionHeading(ctx: Ctx, text: string) {
   ensureSpace(ctx, 26);
   ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - 12, width: 3, height: 14, color: BLUE });
@@ -196,11 +211,16 @@ function drawBulletListSection(ctx: Ctx, heading: string, items: string[]) {
   ctx.y -= 12;
 }
 
-function fmtDateTime(iso: string | null | undefined): string {
+// Reference check "created" / referee "responded" timestamps are written to
+// Airtable as date-only (see rc.createdAt / respondedAt handling in
+// mappers.ts, which slices to YYYY-MM-DD) — there's no real time-of-day
+// captured, so showing one (e.g. "17 Aug 2026, 00:00") would just be noise
+// that looks like broken data. Format as a plain date instead.
+function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }
 
 function scoreLabel(v: number | undefined): string {
@@ -324,12 +344,21 @@ function drawRefereeSection(ctx: Ctx, num: 1 | 2, referee: RefereeStatus) {
       ? `Manually verified by ${referee.googleVerifiedOverrideBy}`
       : "Not verified";
 
+  const employmentPeriod =
+    referee.employmentFrom || referee.employmentTo || referee.stillEmployed
+      ? `${referee.employmentFrom ?? "—"} to ${referee.stillEmployed ? "present" : referee.employmentTo ?? "—"}`
+      : "—";
+
   drawFactGrid(ctx, [
     { label: "Email", value: referee.email },
     { label: "Phone", value: referee.phone },
-    { label: "Relationship to candidate", value: referee.relationship ?? "—" },
+    {
+      label: "Relationship to candidate",
+      value: referee.relationship ? `${referee.relationship}${referee.directlySupervised ? " (direct supervisor)" : ""}` : "—",
+    },
     { label: "How long they've known the candidate", value: referee.durationKnown ?? "—" },
-    { label: "Responded", value: fmtDateTime(referee.respondedAt) },
+    { label: "Employment period", value: employmentPeriod },
+    { label: "Responded", value: fmtDate(referee.respondedAt) },
     { label: "Identity verification", value: verificationLabel },
   ]);
 
@@ -337,11 +366,24 @@ function drawRefereeSection(ctx: Ctx, num: 1 | 2, referee: RefereeStatus) {
     { label: "Technical score", value: scoreLabel(referee.techScore) },
     { label: "Reliability score", value: scoreLabel(referee.reliabilityScore) },
     { label: "Teamwork score", value: scoreLabel(referee.teamworkScore) },
+    { label: "Problem solving score", value: scoreLabel(referee.problemSolvingScore) },
+    { label: "Adaptability score", value: scoreLabel(referee.adaptabilityScore) },
+    { label: "Overall recommendation", value: scoreLabel(referee.overallRecommendScore) },
     { label: "Would rehire", value: referee.wouldRehire ?? "—" },
+    { label: "Honesty/integrity concerns", value: referee.honestyConcerns ?? "—" },
+    ...(referee.complianceIncidents ? [{ label: "Compliance incidents", value: referee.complianceIncidents }] : []),
+    ...(referee.licenseStanding ? [{ label: "License/registration standing", value: referee.licenseStanding }] : []),
   ]);
 
-  drawParagraphSection(ctx, "Example of a strength", referee.strengthExample);
-  drawParagraphSection(ctx, "Areas for development", referee.developmentAreas);
+  // Historical records only have the old two-field strengthExample/
+  // developmentAreas pair; the redesigned form writes one merged field.
+  const strengthsAndDevelopment =
+    referee.strengthsAndDevelopment?.trim() ||
+    [referee.strengthExample?.trim(), referee.developmentAreas?.trim()].filter(Boolean).join("\n\n") ||
+    undefined;
+
+  drawParagraphSection(ctx, "Strengths and areas for development", strengthsAndDevelopment);
+  drawParagraphSection(ctx, "Handling pressure, conflict, or a tough decision", referee.conflictExample);
   drawParagraphSection(ctx, "Additional notes", referee.notes, "No additional notes.");
 }
 
@@ -359,7 +401,7 @@ export async function generateReferenceCheckReportPdf(
   drawFactGrid(ctx, [
     { label: "Candidate", value: data.candidateName },
     { label: "Role", value: data.roleTitle || "—" },
-    { label: "Reference check started", value: fmtDateTime(data.createdAt) },
+    { label: "Reference check started", value: fmtDate(data.createdAt) },
   ]);
   drawStatusBanner(ctx, data);
 
@@ -367,16 +409,21 @@ export async function generateReferenceCheckReportPdf(
   // src/lib/ai/reference-check-summary.ts) — omitted silently on failure or
   // when it's not configured, same graceful-degradation approach as the
   // logo above.
-  if (aiInsights) drawAiSummarySection(ctx, aiInsights);
+  if (aiInsights) {
+    drawAiSummarySection(ctx, aiInsights);
+    drawDivider(ctx);
+  }
 
-  // Each referee's report gets its own page rather than flowing on wherever
-  // there happens to be room — keeps the two reports visually distinct and
-  // means printing/sharing "Referee 1's report" as its own page never risks
-  // pulling in a stray line from the candidate summary or the other referee.
-  newPage(ctx);
+  // Content flows continuously rather than forcing each referee onto its own
+  // page — a referee with short answers no longer leaves most of a page
+  // blank. ensureSpace() (called throughout drawRefereeSection) still breaks
+  // to a new page whenever content actually doesn't fit. The divider line
+  // after each section keeps the boundaries clear even when two sections
+  // share a page.
   drawRefereeSection(ctx, 1, data.referee1);
-  newPage(ctx);
+  drawDivider(ctx);
   drawRefereeSection(ctx, 2, data.referee2);
+  drawDivider(ctx);
 
   drawFooter(ctx);
   return doc.save();

@@ -95,16 +95,28 @@ type GeneratedInsights = z.infer<typeof referenceCheckAiInsightsSchema>;
 // this differs from the earlier, more conservative version of this function.
 function describeReferee(num: 1 | 2, r: RefereeStatus): string {
   if (!r.responded) return `Referee ${num} (${r.name || "not provided"}): did not respond.`;
+  // Historical records only have the old two-field strengthExample/
+  // developmentAreas pair; the redesigned form writes one merged field.
+  const strengthsAndDevelopment =
+    r.strengthsAndDevelopment?.trim() ||
+    [r.strengthExample?.trim(), r.developmentAreas?.trim()].filter(Boolean).join("\n") ||
+    "not provided";
   return [
     `Referee ${num}: ${r.name || "not provided"} (${r.email || "no email on file"})`,
-    `- Relationship to candidate: ${r.relationship ?? "not stated"}`,
+    `- Relationship to candidate: ${r.relationship ?? "not stated"}${r.directlySupervised ? " (directly supervised the candidate)" : ""}`,
     `- How long they've known the candidate: ${r.durationKnown ?? "not stated"}`,
     `- Technical score: ${r.techScore ?? "—"}/5`,
     `- Reliability score: ${r.reliabilityScore ?? "—"}/5`,
     `- Teamwork score: ${r.teamworkScore ?? "—"}/5`,
+    `- Problem solving score: ${r.problemSolvingScore ?? "—"}/5`,
+    `- Adaptability score: ${r.adaptabilityScore ?? "—"}/5`,
     `- Would rehire: ${r.wouldRehire ?? "not stated"}`,
-    `- Strength example: ${r.strengthExample?.trim() || "not provided"}`,
-    `- Areas for development: ${r.developmentAreas?.trim() || "not provided"}`,
+    `- Strengths and areas for development: ${strengthsAndDevelopment}`,
+    `- How they handle pressure, conflict, or a tough decision: ${r.conflictExample?.trim() || "not provided"}`,
+    `- Honesty/integrity concerns: ${r.honestyConcerns ?? "not stated"}`,
+    ...(r.complianceIncidents ? [`- Compliance incidents: ${r.complianceIncidents}`] : []),
+    ...(r.licenseStanding ? [`- License/registration standing: ${r.licenseStanding}`] : []),
+    `- Overall recommendation score: ${r.overallRecommendScore ?? "—"}/5`,
     `- Additional notes: ${r.notes?.trim() || "none"}`,
   ].join("\n");
 }

@@ -314,7 +314,18 @@ export interface WorkTrial {
   specialty?: string;
 }
 
-export type RehireAnswer = "Yes, without hesitation" | "Yes, with some reservations" | "No, I would not recommend them";
+// The 4-option set is what the redesigned /referee form writes going
+// forward. The last two are legacy values from before the redesign — still
+// valid on old records (never removed from the live Airtable single-select
+// to avoid orphaning historical data), but no longer offered or accepted on
+// new submissions.
+export type RehireAnswer =
+  | "Yes, without hesitation"
+  | "Yes, with reservations"
+  | "No"
+  | "Unsure"
+  | "Yes, with some reservations"
+  | "No, I would not recommend them";
 
 export interface RefereeStatus {
   name: string;
@@ -325,13 +336,40 @@ export interface RefereeStatus {
   responded: boolean;
   respondedAt?: string;
   relationship?: string;
+  /** Whether the referee directly supervised the candidate (redesigned form, step 2). */
+  directlySupervised?: boolean;
   durationKnown?: string;
+  /** Employment period the referee is speaking to, "YYYY-MM". */
+  employmentFrom?: string;
+  /** Absent + stillEmployed=true reads as "present". */
+  employmentTo?: string;
+  stillEmployed?: boolean;
   techScore?: number;
   reliabilityScore?: number;
   teamworkScore?: number;
+  /** Added in the redesign, alongside tech/reliability/teamwork. */
+  problemSolvingScore?: number;
+  adaptabilityScore?: number;
   wouldRehire?: RehireAnswer;
+  /** @deprecated Pre-redesign field. Kept for historical records; new submissions write `strengthsAndDevelopment` instead. */
   strengthExample?: string;
+  /** @deprecated Pre-redesign field. Kept for historical records; new submissions write `strengthsAndDevelopment` instead. */
   developmentAreas?: string;
+  /** Merged replacement for strengthExample + developmentAreas, introduced in the redesign. */
+  strengthsAndDevelopment?: string;
+  /** "How did they handle pressure, conflict, or a tough decision?" — redesigned form, step 3. */
+  conflictExample?: string;
+  honestyConcerns?: "No concerns" | "Some concerns" | "Prefer to discuss by phone";
+  /** Clinical (IPS) roles only — not asked of Support Office referees. */
+  complianceIncidents?: "None that I know of" | "Yes" | "Prefer to discuss by phone";
+  /** Clinical (IPS) roles only — not asked of Support Office referees. */
+  licenseStanding?: "Yes" | "No" | "N/A" | "Not sure";
+  /** Shown/collected only when honestyConcerns or complianceIncidents is "Prefer to discuss by phone". */
+  preferPhoneNumber?: string;
+  /** The referee's own overall 1-5 recommendation — distinct from the AI's recommendationScore. */
+  overallRecommendScore?: number;
+  /** "OK to contact you again if we have follow-up questions?" */
+  consentToContact?: boolean;
   notes?: string;
   /** True once this referee signed in with Google on /referee and it matched the email on file. */
   googleVerified?: boolean;
