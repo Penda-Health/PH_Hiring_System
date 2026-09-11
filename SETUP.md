@@ -795,6 +795,7 @@ To test without waiting on a real automation run, mint a link manually:
 ```
 node scripts/generate-form-link.js --type work-trial --work-trial-id recXXXXXXXXXXXXXX
 node scripts/generate-form-link.js --type referee --ref-check-id recXXXXXXXXXXXXXX --referee-num 1
+node scripts/generate-form-link.js --type reference-check-request --candidate-id recXXXXXXXXXXXXXX
 ```
 
 ### What's deferred

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// Manually mints a work-trial, bm-feedback, or referee link for testing, by
-// calling the same /api/forms/issue-link endpoint the Airtable automation
-// calls.
+// Manually mints a work-trial, bm-feedback, referee, or reference-check-request
+// link for testing, by calling the same /api/forms/issue-link endpoint the
+// Airtable automation calls.
 //
 // Usage:
 //   node scripts/generate-form-link.js --type work-trial --work-trial-id rec123
 //   node scripts/generate-form-link.js --type bm-feedback --work-trial-id rec123
 //   node scripts/generate-form-link.js --type referee --ref-check-id rec123 --referee-num 1
+//   node scripts/generate-form-link.js --type reference-check-request --candidate-id rec123
 //
 // Add --base http://localhost:3000 to target a local dev server instead of
 // NEXT_PUBLIC_APP_URL.
@@ -25,13 +26,15 @@ async function main() {
   const workTrialId = arg("work-trial-id");
   const refCheckId = arg("ref-check-id");
   const refereeNum = arg("referee-num");
+  const candidateId = arg("candidate-id");
   const base = arg("base") || process.env.NEXT_PUBLIC_APP_URL;
   const secret = process.env.FORMS_ISSUE_SECRET;
 
-  if (!["work-trial", "bm-feedback", "referee"].includes(type)) {
+  if (!["work-trial", "bm-feedback", "referee", "reference-check-request"].includes(type)) {
     console.error(
       "Usage: --type work-trial|bm-feedback --work-trial-id <recId> [--base <url>]\n" +
-        "   or: --type referee --ref-check-id <recId> --referee-num 1|2 [--base <url>]"
+        "   or: --type referee --ref-check-id <recId> --referee-num 1|2 [--base <url>]\n" +
+        "   or: --type reference-check-request --candidate-id <recId> [--base <url>]"
     );
     process.exit(1);
   }
@@ -39,7 +42,11 @@ async function main() {
     console.error("Missing --ref-check-id <recId> and/or --referee-num 1|2");
     process.exit(1);
   }
-  if (type !== "referee" && !workTrialId) {
+  if (type === "reference-check-request" && !candidateId) {
+    console.error("Missing --candidate-id <recId>");
+    process.exit(1);
+  }
+  if (!["referee", "reference-check-request"].includes(type) && !workTrialId) {
     console.error("Missing --work-trial-id <recId>");
     process.exit(1);
   }
@@ -55,7 +62,9 @@ async function main() {
   const body =
     type === "referee"
       ? { type, refCheckId, refereeNum: Number(refereeNum) }
-      : { type, workTrialId };
+      : type === "reference-check-request"
+        ? { type, candidateId }
+        : { type, workTrialId };
 
   const res = await fetch(`${base.replace(/\/$/, "")}/api/forms/issue-link`, {
     method: "POST",
