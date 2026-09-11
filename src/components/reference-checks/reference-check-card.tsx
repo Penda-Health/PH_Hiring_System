@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Copy, Download, FolderOpen, RefreshCw, ShieldAlert, Sparkles } from "lucide-react";
+import { Check, Copy, Download, FolderOpen, RefreshCw, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { ReferenceCheck } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RefereeStatusRow } from "./referee-status-row";
 import { VerifyReferenceCheckDialog } from "./verify-reference-check-dialog";
+import { EditReferenceCheckDialog } from "./edit-reference-check-dialog";
 import { AI_STATUS_STYLES, getCandidateForRefCheck, OUTCOME_STYLES, STATUS_STYLES } from "@/lib/reference-check-helpers";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 
@@ -35,9 +36,12 @@ export function ReferenceCheckCard({
   const {
     candidates,
     canEdit,
+    canDelete,
     verifyAndInitiateReferenceCheck,
+    updateReferenceCheck,
     overrideRefereeGoogleVerification,
     generateReferenceCheckAiInsights,
+    deleteReferenceCheck,
   } = useRecruitmentData();
   const candidate = getCandidateForRefCheck(refCheck, candidates);
   const [copied, setCopied] = React.useState<1 | 2 | null>(null);
@@ -101,6 +105,14 @@ export function ReferenceCheckCard({
     }
   }
 
+  function handleDelete() {
+    const name = candidate?.name ?? "this candidate";
+    if (!window.confirm(`Delete ${name}'s reference check? You'll have 30 seconds to undo before it's permanent.`)) {
+      return;
+    }
+    deleteReferenceCheck(refCheck.id);
+  }
+
   function needsOverride(num: 1 | 2) {
     const referee = num === 1 ? refCheck.referee1 : refCheck.referee2;
     return referee.responded && !referee.googleVerified && !referee.googleVerifiedOverrideBy;
@@ -127,6 +139,20 @@ export function ReferenceCheckCard({
           <p className="text-xs text-muted-foreground">{refCheck.refId}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-0.5">
+            {canEdit && <EditReferenceCheckDialog refCheck={refCheck} onSave={updateReferenceCheck} />}
+            {canDelete && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 shrink-0 text-destructive/60 hover:text-destructive"
+                title="Delete reference check"
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
           <Badge className={STATUS_STYLES[refCheck.status]}>{refCheck.status}</Badge>
           <Badge className={OUTCOME_STYLES[refCheck.outcome]}>{refCheck.outcome}</Badge>
         </div>

@@ -83,6 +83,9 @@ type RecruitmentDataContextValue = {
   referenceChecks: ReferenceCheck[];
   createReferenceCheck: (refCheck: ReferenceCheck) => Promise<void>;
   updateReferenceCheckOutcome: (id: string, outcome: ReferenceCheck["outcome"]) => void;
+  /** General-purpose edit (e.g. fixing a referee's name/email/phone after the fact) — unlike
+   *  verifyAndInitiateReferenceCheck, this never changes status/verifiedAt/initiatedAt. */
+  updateReferenceCheck: (id: string, patch: Partial<ReferenceCheck>) => void;
   /** TA reviews a candidate-submitted (unverified) record, corrects any typos, and sends — moves it from "Awaiting Verification" to "Awaiting Responses". */
   verifyAndInitiateReferenceCheck: (
     id: string,
@@ -95,6 +98,8 @@ type RecruitmentDataContextValue = {
    *  Throws (e.g. "not_complete" if no referee has responded yet, or "generation_failed") — callers should
    *  surface the error rather than assume success, since the AI-generated values can't be known ahead of time. */
   generateReferenceCheckAiInsights: (id: string) => Promise<void>;
+  /** Manager-only — permanently removes a reference check (e.g. cleaning up test records). Undo-toast delayed like deleteWorkTrial/deleteCandidate. */
+  deleteReferenceCheck: (id: string) => void;
 
   offers: Offer[];
   createOffer: (offer: Offer) => Promise<void>;
@@ -479,6 +484,15 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit]
   );
 
+  const updateReferenceCheck = React.useCallback(
+    (id: string, patch: Partial<ReferenceCheck>) => {
+      if (!guardEdit(canEdit, "updateReferenceCheck")) return;
+      persist<ReferenceCheck>("reference-checks", id, patch);
+      setReferenceChecks((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    },
+    [canEdit]
+  );
+
   const verifyAndInitiateReferenceCheck = React.useCallback(
     async (
       id: string,
@@ -528,6 +542,32 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       setReferenceChecks((prev) => prev.map((c) => (c.id === id ? updated : c)));
     },
     [canEdit]
+  );
+
+  const deleteReferenceCheck = React.useCallback(
+    (id: string) => {
+      // Manager-only tier — see the comment on deleteWorkTrial above.
+      if (!guardEdit(canDelete, "deleteReferenceCheck")) return;
+      // referenceChecks is refetched by refreshCoreData (the 60s/focus
+      // background sync), so guard against it resurrecting the record in
+      // local state before the delayed real delete actually commits — same
+      // pattern as deleteWorkTrial/deleteCandidate.
+      suppressRefreshUntilRef.current = Date.now() + DEFAULT_UNDO_WINDOW_MS + 5_000;
+      const removed = referenceChecks.find((c) => c.id === id);
+      const candidateName = removed ? candidates.find((cand) => cand.id === removed.candidateId)?.name : undefined;
+      setReferenceChecks((prev) => prev.filter((c) => c.id !== id));
+      scheduleDelete({
+        label: `${candidateName ?? "Reference check"}'s reference check`,
+        onCommit: () =>
+          deleteResource("reference-checks", id).catch((err) =>
+            console.error("Failed to delete reference check from Airtable:", err)
+          ),
+        onUndo: () => {
+          if (removed) setReferenceChecks((prev) => [removed, ...prev]);
+        },
+      });
+    },
+    [canDelete, referenceChecks, candidates, scheduleDelete]
   );
 
   const createOffer = React.useCallback(
@@ -868,9 +908,11 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       referenceChecks,
       createReferenceCheck,
       updateReferenceCheckOutcome,
+      updateReferenceCheck,
       verifyAndInitiateReferenceCheck,
       overrideRefereeGoogleVerification,
       generateReferenceCheckAiInsights,
+      deleteReferenceCheck,
       offers,
       createOffer,
       acceptOffer,
@@ -924,9 +966,11 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       referenceChecks,
       createReferenceCheck,
       updateReferenceCheckOutcome,
+      updateReferenceCheck,
       verifyAndInitiateReferenceCheck,
       overrideRefereeGoogleVerification,
       generateReferenceCheckAiInsights,
+      deleteReferenceCheck,
       offers,
       createOffer,
       acceptOffer,

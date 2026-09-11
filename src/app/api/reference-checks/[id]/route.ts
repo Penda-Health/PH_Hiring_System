@@ -3,7 +3,7 @@ import { referenceCheckFromAirtable, referenceCheckToAirtable } from "@/lib/airt
 import { TABLE_NAMES } from "@/lib/airtable/field-names";
 import { referenceCheckSchema } from "@/lib/airtable/schemas";
 
-export const { PATCH } = makeItemHandlers(
+export const { PATCH, DELETE } = makeItemHandlers(
   TABLE_NAMES.ReferenceChecks,
   referenceCheckFromAirtable,
   referenceCheckToAirtable,
