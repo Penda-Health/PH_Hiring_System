@@ -1,7 +1,7 @@
 // Streams a Penda-branded PDF report for one reference check. Dashboard-only
 // (Supabase session required) — mirrors work-trials/[id]/report. Unlike the
-// work-trial report, a partial report (only one referee has responded) is
-// allowed and useful — the 409 only fires when neither referee has answered
+// work-trial report, a partial report (only some referees have responded) is
+// allowed and useful — the 409 only fires when none of them have answered
 // yet, i.e. there's nothing at all to report on.
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const data = await loadReferenceCheckReportData(params.id);
     if (!data) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-    if (!data.referee1.responded && !data.referee2.responded) {
+    if (data.referees.every((r) => !r.responded)) {
       return NextResponse.json({ error: "not_complete" }, { status: 409 });
     }
 

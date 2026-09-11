@@ -278,8 +278,7 @@ const refereeStatusSchema = z.object({
 export const referenceCheckSchema = z.object({
   refId: z.string().max(30).optional(),
   candidateId: z.string().min(1).max(30),
-  referee1: refereeStatusSchema,
-  referee2: refereeStatusSchema,
+  referees: z.array(refereeStatusSchema).min(2).max(4),
   outcome: z.enum(["Pending", "Positive", "Negative", "Mixed"]),
   driveFolderUrl: z.string().max(2000).nullable(),
   createdAt: z.string().max(40),

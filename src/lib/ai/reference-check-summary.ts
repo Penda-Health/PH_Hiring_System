@@ -1,6 +1,6 @@
 // Generates the AI "intelligence and insights layer" for a reference check:
 // not just a summary paragraph, but a structured read — status, three
-// scores, concrete strengths and concerns, a note on how consistent the two
+// scores, concrete strengths and concerns, a note on how consistent the
 // referees' accounts are with each other, suggested follow-up questions for
 // a TA to ask, and a one-line takeaway per referee. Used in three places
 // that all share this one generator so they never drift apart: page 1 of
@@ -74,26 +74,25 @@ export const referenceCheckAiInsightsSchema = z.object({
   consistencyNotes: z
     .string()
     .describe(
-      "1-2 sentences on how well the two referees' accounts agree with each other (scores, tone, specific claims). If only one referee responded, say so plainly and leave deeper comparison for when the second comes in."
+      "1-2 sentences on how well the referees' accounts agree with each other (scores, tone, specific claims). If only one referee has responded so far, say so plainly and leave deeper comparison for when another comes in."
     ),
   suggestedFollowUps: z
     .array(z.string())
     .describe(
       "0-3 specific questions a TA could ask in a follow-up call to resolve a gap, a vague answer, or a concern raised above. Empty array if the responses are thorough enough that none are needed."
     ),
-  referee1Takeaway: z
-    .string()
-    .describe("One-sentence headline of referee 1's overall take. Empty string if referee 1 has not responded."),
-  referee2Takeaway: z
-    .string()
-    .describe("One-sentence headline of referee 2's overall take. Empty string if referee 2 has not responded."),
+  refereeTakeaways: z
+    .array(z.string())
+    .describe(
+      "One-sentence headline per referee's overall take, in the same order as the referees were listed above. Empty string for any referee who has not responded."
+    ),
 });
 
 type GeneratedInsights = z.infer<typeof referenceCheckAiInsightsSchema>;
 
 // Deliberately named/PII-inclusive — see the module comment above for why
 // this differs from the earlier, more conservative version of this function.
-function describeReferee(num: 1 | 2, r: RefereeStatus): string {
+function describeReferee(num: number, r: RefereeStatus): string {
   if (!r.responded) return `Referee ${num} (${r.name || "not provided"}): did not respond.`;
   // Historical records only have the old two-field strengthExample/
   // developmentAreas pair; the redesigned form writes one merged field.
@@ -126,15 +125,13 @@ export async function generateReferenceCheckInsights(
 ): Promise<ReferenceCheckAiInsights | null> {
   // Nothing to analyze yet — callers already gate on this, but stay
   // defensive since this function is now called from multiple places.
-  if (!data.referee1.responded && !data.referee2.responded) return null;
+  if (data.referees.every((r) => !r.responded)) return null;
 
   const prompt = [
     `Candidate: ${data.candidateName || "not specified"}`,
     `Role: ${data.roleTitle || "not specified"}`,
     "",
-    describeReferee(1, data.referee1),
-    "",
-    describeReferee(2, data.referee2),
+    data.referees.map((r, i) => describeReferee(i + 1, r)).join("\n\n"),
     "",
     "Analyze the reference check responses above and produce a hiring-manager-facing assessment. " +
       "Ground every claim in what a referee actually said — never invent detail, and never attribute a " +
@@ -150,8 +147,8 @@ export async function generateReferenceCheckInsights(
       system:
         "You are assisting a healthcare recruitment team by analyzing reference check responses. Be concise, " +
         "balanced, and specific — ground every claim in what the referee(s) actually said rather than inventing " +
-        "detail. If a referee didn't respond, factor that into your confidence score and leave their takeaway " +
-        "field as an empty string. Use the candidate's and referees' names naturally rather than generic labels.",
+        "detail. If a referee didn't respond, factor that into your confidence score and leave their entry in " +
+        "refereeTakeaways as an empty string. Use the candidate's and referees' names naturally rather than generic labels.",
       prompt,
     });
 
@@ -163,17 +160,17 @@ export async function generateReferenceCheckInsights(
 }
 
 function finalizeInsights(object: GeneratedInsights, data: ReferenceCheckReportData): ReferenceCheckAiInsights {
-  // Guardrail independent of the model's own judgment: with only one of two
-  // referees in, cap how confident this report is allowed to claim to be,
-  // regardless of what the model itself returned.
-  const respondedCount = [data.referee1.responded, data.referee2.responded].filter(Boolean).length;
-  const confidenceScore = respondedCount < 2 ? Math.min(object.confidenceScore, 60) : object.confidenceScore;
+  // Guardrail independent of the model's own judgment: until every contacted
+  // referee has responded, cap how confident this report is allowed to claim
+  // to be, regardless of what the model itself returned.
+  const respondedCount = data.referees.filter((r) => r.responded).length;
+  const confidenceScore =
+    respondedCount === data.referees.length ? object.confidenceScore : Math.min(object.confidenceScore, 60);
 
   return {
     ...object,
     confidenceScore,
-    referee1Takeaway: data.referee1.responded ? object.referee1Takeaway : "",
-    referee2Takeaway: data.referee2.responded ? object.referee2Takeaway : "",
+    refereeTakeaways: data.referees.map((r, i) => (r.responded ? object.refereeTakeaways[i] ?? "" : "")),
     generatedAt: new Date().toISOString(),
   };
 }

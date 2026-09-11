@@ -177,8 +177,7 @@ export function buildAiContext(data: {
       candidateName: candidate?.name || "(no name)",
       status: rc.status,
       outcome: rc.outcome,
-      referee1Responded: rc.referee1.responded,
-      referee2Responded: rc.referee2.responded,
+      refereesResponded: rc.referees.map((r) => r.responded),
       aiInsights: rc.aiInsights
         ? {
             overallStatus: rc.aiInsights.overallStatus,

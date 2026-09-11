@@ -718,7 +718,8 @@ Supabase auth (see `src/middleware.ts`, which exempts them):
 - `/bm-feedback?token=...` — the branch manager confirms arrival and, if the
   candidate showed up, submits the work-trial score.
 - `/referee?token=...` — a referee submits their reference check, scoped to
-  one candidate and one of the two referee slots (`refereeNum: 1 | 2`).
+  one candidate and one of that check's 2-4 referee slots
+  (`refereeNum: 1 | 2 | 3 | 4`).
 
 These forms read/write the existing `Work Trials` and `Reference Checks`
 Airtable tables the rest of the app uses — there's no separate database for
@@ -786,9 +787,31 @@ NEXT_PUBLIC_APP_URL=      # your deployed URL, e.g. https://ph-hiring-system.ver
    and only gets it set once a TA reviews and verifies it, which can be
    hours or days after the record first appears. Triggering off record
    creation would email referees before their details have ever been
-   checked. Run the script twice (once per referee) with
-   `{ "type": "referee", "refCheckId": "<recId>", "refereeNum": 1 }` (and `2`
-   for the second referee), sending each to that referee's email.
+   checked. A check holds 2-4 referees (`Referee{1,2,3,4} *` field blocks) —
+   loop the script call over however many slots actually have a name filled
+   in, e.g.:
+   ```javascript
+   let record = input.config(); // the Reference Checks record
+   for (let n = 1; n <= 4; n++) {
+     let name = record[`Referee${n} Name`];
+     let email = record[`Referee${n} Email`];
+     if (!name || !email) continue; // slot 3/4 is often unused — skip it, don't error
+     let response = await fetch("https://YOUR_APP_URL/api/forms/issue-link", {
+       method: "POST",
+       headers: { "Content-Type": "application/json", "Authorization": "Bearer YOUR_FORMS_ISSUE_SECRET" },
+       body: JSON.stringify({ type: "referee", refCheckId: record.id, refereeNum: n }),
+     });
+     let { url } = await response.json();
+     // Send email to `email` with `url` here (Airtable's native email action
+     // only fires once per automation run, so this loop needs a scripting
+     // step that sends the email itself — e.g. a Gmail/SendGrid API call —
+     // rather than a native "Send email" action after the script step).
+   }
+   ```
+   A record is still considered done — `Status = "Ready for Offer"`, which
+   auto-advances the candidate's `Stage` to `Offer` — the moment any 2 of
+   however many referees have responded, so a 3rd/4th referee left
+   unresponded never blocks anything.
 
 To test without waiting on a real automation run, mint a link manually:
 
@@ -863,21 +886,29 @@ submitted/approved it.
 **Two ways a reference check gets started:**
 
 - **TA-added** (`NewReferenceCheckDialog`, existing) — a Recruitment
-  User/Manager types both referees' name/email/phone directly on
-  `/reference-checks`. The record is created already `source: "TA Added"`,
-  `status: "Awaiting Responses"`, with `verifiedAt`/`verifiedBy`/
-  `initiatedAt` all set immediately (self-verified by construction — a
-  staff member typed it in).
+  User/Manager types 2-4 referees' name/email/phone directly on
+  `/reference-checks` (an "Add referee" control appears up to 4; a "remove"
+  control on each row down to 2). The record is created already
+  `source: "TA Added"`, `status: "Awaiting Responses"`, with
+  `verifiedAt`/`verifiedBy`/`initiatedAt` all set immediately
+  (self-verified by construction — a staff member typed it in).
 - **Candidate self-serve** (`/reference-check-request?token=...`, new) —
-  the candidate fills in their own two referees' details. This creates the
-  record as `source: "Candidate Submitted"`, `status: "Awaiting
-  Verification"`, `initiatedAt: null` — **no referee emails go out yet**.
+  the candidate fills in 2-4 of their own referees' details (same add/remove
+  UI as the TA path). This creates the record as
+  `source: "Candidate Submitted"`, `status: "Awaiting Verification"`,
+  `initiatedAt: null` — **no referee emails go out yet**.
   It sits in the "Awaiting verification" queue at the top of
   `/reference-checks` until a TA opens **Verify & send**
-  (`VerifyReferenceCheckDialog`), corrects any typos, and confirms. That
-  action is what sets `verifiedAt`/`verifiedBy`/`initiatedAt` and flips
-  `status` to `"Awaiting Responses"` — the moment that actually triggers
-  the referee-link email (see the corrected §4.5.2 step 6 above).
+  (`VerifyReferenceCheckDialog`), corrects any typos (and can add/remove
+  referees before sending), and confirms. That action is what sets
+  `verifiedAt`/`verifiedBy`/`initiatedAt` and flips `status` to
+  `"Awaiting Responses"` — the moment that actually triggers the
+  referee-link email (see the corrected §4.5.2 step 6 above).
+
+  A referee can only be **added**, never **removed**, once a check has been
+  initiated (`EditReferenceCheckDialog`) — e.g. adding a backup referee
+  because the original two have gone unresponsive — since removing one that
+  may already hold a real response would silently discard it.
 
   Mint this link the same way as the other public forms —
   `POST /api/forms/issue-link` with `{ "type": "reference-check-request",
@@ -892,16 +923,16 @@ every automation below:
 | Status | Meaning |
 |---|---|
 | `Awaiting Verification` | Candidate-submitted, not yet reviewed by a TA. |
-| `Awaiting Responses` | Sent to both referees; 0 have responded. |
+| `Awaiting Responses` | Sent to all referees (2-4 of them); 0 have responded. |
 | `1 Referee In` | Exactly one referee has responded. |
-| `Ready for Offer` | Both referees have responded. The candidate's `Stage` is auto-advanced to `Offer` the moment this is reached — guarded to only fire if the candidate is still on `Reference Check`, so it never overwrites a stage a recruiter already changed by hand. |
+| `Ready for Offer` | At least 2 referees have responded — the check is done regardless of how many referees were sent a link (a 3rd/4th referee left unresponded never blocks this). The candidate's `Stage` is auto-advanced to `Offer` the moment this is reached — guarded to only fire if the candidate is still on `Reference Check`, so it never overwrites a stage a recruiter already changed by hand. |
 
 **Referee form (`/referee`).** A 4-step wizard (intro/landing screen, then
 verify → relationship & ratings → feedback & character → recommendation),
 matching Penda's redesigned reference-check mockup. Two things worth
 knowing when reading the data:
 
-- `Reference Checks.Referee{1,2} Would Rehire` is a `singleSelect` field
+- `Reference Checks.Referee{1-4} Would Rehire` is a `singleSelect` field
   whose choices are **not** purely additive across this redesign: the
   original 3 options (`Yes, without hesitation`, `Yes, with some
   reservations`, `No, I would not recommend them`) are kept in the field's
@@ -909,12 +940,17 @@ knowing when reading the data:
   and writes the new 4-option set (`Yes, without hesitation`, `Yes, with
   reservations`, `No`, `Unsure`). The old 3 are legal-but-deprecated —
   never removed, since that would orphan already-submitted records.
-- The old two-field `Referee{1,2} Strength Example` /
-  `Referee{1,2} Development Areas` pair is likewise kept for history only.
-  New submissions write one merged `Referee{1,2} Strengths And
+- The old two-field `Referee{1-4} Strength Example` /
+  `Referee{1-4} Development Areas` pair is likewise kept for history only.
+  New submissions write one merged `Referee{1-4} Strengths And
   Development` field instead. The PDF report and AI insights generator
   both fall back to the old two fields when the new one is empty, so
   pre-redesign records still render correctly.
+- `Referee3 *`/`Referee4 *` are additive fields from the variable-referee-
+  count change — a 2-referee check simply leaves them blank. The app reads
+  the whole `Referee1`-`Referee4` block into one `referees: RefereeStatus[]`
+  array (dropping unused trailing slots by blank name), so historical
+  2-referee records read back and render exactly as before.
 - The character/compliance block (honesty concerns, compliance incidents,
   license standing) — the latter two are asked only when the candidate's
   `Segment` is `IPS` (clinical roles); Support Office referees never see
@@ -935,7 +971,7 @@ try a different account, or email `careers@pendahealth.com`.
 For legitimate mismatches (e.g. a referee has a personal Gmail on file but
 signs in with a work Google account), a Recruitment User/Manager can
 manually clear it from the referee's card on `/reference-checks` — **"Mark
-verified anyway"** — which stamps `Referee{1,2} Google Verified Override
+verified anyway"** — which stamps `Referee{1-4} Google Verified Override
 By` with their name and unblocks that referee's already-submitted answers
 without requiring a resubmission.
 
@@ -972,7 +1008,8 @@ TA override above is for.
 User/Manager can download a Penda-branded PDF from the card
 (`GET /api/reference-checks/[id]/report`, dashboard-only). Page 1 covers the
 candidate, the human-set status/outcome, and (see below) an AI insights
-section; each referee then gets their own page — relationship (and whether
+section; each of the check's 2-4 referees then gets their own page —
+relationship (and whether
 they directly supervised the candidate), employment period, all 5 rating
 categories (technical, reliability, teamwork, problem solving,
 adaptability), would-rehire, overall recommendation score, strengths and
@@ -989,10 +1026,11 @@ convention as the work-trial report.
 Penny (§7 — defaults to Groq's Llama 3.3) to produce a genuine analysis, not
 just a one-line summary: an overall recommendation status, a plain-English
 summary, a recommendation score and overall score (both 1–5), a confidence
-score (0–100%, capped at 60% when only one of the two referees has
+score (0–100%, capped at 60% until every referee who was sent a link has
 responded), key strengths, areas of concern, a note on how consistent the
-two referees were with each other, suggested follow-up questions for the
-hiring manager, and a one-line takeaway per referee. This is a supplement to
+referees were with each other, suggested follow-up questions for the
+hiring manager, and a one-line takeaway per referee (`refereeTakeaways`,
+index-aligned with the check's `referees` array). This is a supplement to
 the human-set outcome dropdown, never a replacement.
 
 Unlike Penny's aggregate/PII-free default (§7), this analysis is a deliberate,
@@ -1017,15 +1055,17 @@ shape as §4.5.2/§4.5.3; all key off `Reference Checks` fields):
 
 1. **24h no-response reminder.** Trigger: *At a scheduled time* (daily).
    Find records where `Initiated At` is ≤24h ago, the referee hasn't
-   responded (`Referee{1,2} Responded` unchecked), and that referee's
-   `Referee{1,2} Reminder 24h Sent` is unchecked. Action: **Run a script**
+   responded (`Referee{1-4} Responded` unchecked), and that referee's
+   `Referee{1-4} Reminder 24h Sent` is unchecked. Action: **Run a script**
    calling `POST /api/forms/get-link` (same route the dashboard's copy-link
    button uses) with `{ "type": "referee", "refCheckId": input.config().recordId,
    "refereeNum": 1 }` to fetch that referee's existing link, then **Send
    email** a reminder, then check `Referee1 Reminder 24h Sent`. Build the
-   automation once and duplicate it for `refereeNum: 2` /
-   `Referee2 Reminder 24h Sent`, same "run it twice" pattern as §4.5.2 step
-   6.
+   automation once and duplicate it for each populated referee slot —
+   `refereeNum: 2`/`Referee2 Reminder 24h Sent`, and `3`/`4` when that check
+   actually has a 3rd/4th referee (skip the slot when its name field is
+   blank rather than erroring) — same "run it once per slot" pattern as
+   §4.5.2 step 6.
 2. **Notify TA on candidate submission.** Trigger: *When a record matches
    conditions*, `Status = "Awaiting Verification"` (record created or
    updated). Send to the TA team's shared inbox/Slack email, linking to
@@ -1033,12 +1073,14 @@ shape as §4.5.2/§4.5.3; all key off `Reference Checks` fields):
    that page).
 3. **Notify recruiter on referee response.** Trigger: *When a record
    matches conditions*, `Referee1 Responded = checked` **or**
-   `Referee2 Responded = checked` (build as two automations, one per
-   field — Airtable's OR conditions across a single trigger are limited).
-   Send to the candidate's assigned recruiter (`Candidates.Recruiter`
-   lookup), noting which referee responded and, when `Status` is now
-   `"Ready for Offer"`, that the candidate has cleared both and moved to
-   Offer.
+   `Referee2 Responded = checked` **or** `Referee3 Responded = checked`
+   **or** `Referee4 Responded = checked` (build as separate automations, one
+   per field — Airtable's OR conditions across a single trigger are
+   limited). Send to the candidate's assigned recruiter
+   (`Candidates.Recruiter` lookup), noting which referee responded and,
+   when `Status` is now `"Ready for Offer"`, that the candidate has cleared
+   2 referees and moved to Offer (regardless of whether every referee sent
+   a link has answered yet).
 
 ### 4.5.7 Work trial booking window (`/settings` → "Work trial booking window")
 

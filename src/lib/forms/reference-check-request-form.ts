@@ -50,8 +50,8 @@ export async function loadReferenceCheckRequestData(candidateId: string): Promis
 }
 
 export type ReferenceCheckRequestSubmission = {
-  referee1: { name: string; email: string; phone: string };
-  referee2: { name: string; email: string; phone: string };
+  // 2-4 referees, in the order the candidate entered them.
+  referees: { name: string; email: string; phone: string }[];
 };
 
 export async function submitReferenceCheckRequest(
@@ -61,8 +61,7 @@ export async function submitReferenceCheckRequest(
   const now = new Date().toISOString();
   const refCheck: Partial<ReferenceCheck> = {
     candidateId,
-    referee1: { ...submission.referee1, emailSent: false, smsSent: false, responded: false },
-    referee2: { ...submission.referee2, emailSent: false, smsSent: false, responded: false },
+    referees: submission.referees.map((referee) => ({ ...referee, emailSent: false, smsSent: false, responded: false })),
     outcome: "Pending",
     driveFolderUrl: null,
     createdAt: now,

@@ -38,13 +38,15 @@ const refereeSchema = z.object({
 const submitSchema = z
   .object({
     token: z.string().min(1).max(4000),
-    referee1: refereeSchema,
-    referee2: refereeSchema,
+    referees: z.array(refereeSchema).min(2).max(4),
   })
-  .refine((data) => data.referee1.email.trim().toLowerCase() !== data.referee2.email.trim().toLowerCase(), {
-    message: "Referees must have different email addresses",
-    path: ["referee2", "email"],
-  });
+  .refine(
+    (data) => {
+      const emails = data.referees.map((r) => r.email.trim().toLowerCase());
+      return new Set(emails).size === emails.length;
+    },
+    { message: "Referees must have different email addresses", path: ["referees"] }
+  );
 
 export async function POST(request: NextRequest) {
   const limited = rateLimit(request, "public:reference-check-request:post", { limit: 10, windowMs: 10 * 60 * 1000 });
@@ -63,8 +65,7 @@ export async function POST(request: NextRequest) {
     if (existing.alreadySubmitted) return NextResponse.json({ error: "already_submitted" }, { status: 409 });
 
     await submitReferenceCheckRequest(payload.candidateId, {
-      referee1: result.data.referee1,
-      referee2: result.data.referee2,
+      referees: result.data.referees,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -418,13 +418,17 @@ export interface ReferenceCheckAiInsights {
   keyStrengths: string[];
   /** Concrete concerns or gaps worth probing further, one per entry. */
   areasOfConcern: string[];
-  /** How well the two referees' accounts agree with each other — blank when only one responded. */
+  /** How well the referees' accounts agree with each other — blank when fewer than two have responded. */
   consistencyNotes: string;
   /** Questions a TA could ask in a follow-up call to resolve gaps or thin answers. */
   suggestedFollowUps: string[];
-  /** One-sentence headline per referee, empty string for a referee who hasn't responded. */
-  referee1Takeaway: string;
-  referee2Takeaway: string;
+  /**
+   * One-sentence headline per referee, index-aligned with ReferenceCheck.referees
+   * (empty string for a referee who hasn't responded). Was two named fields
+   * (referee1Takeaway/referee2Takeaway) before the variable-referee-count change —
+   * see the read-side fallback in mappers.ts for historical records.
+   */
+  refereeTakeaways: string[];
   /** When this was generated — drives "Refresh" vs "Generate" on the dashboard card. */
   generatedAt: string;
 }
@@ -433,8 +437,8 @@ export interface ReferenceCheck {
   id: string;
   refId: string;
   candidateId: string;
-  referee1: RefereeStatus;
-  referee2: RefereeStatus;
+  /** 2 to 4 referees, in the order they were added. Was fixed referee1/referee2 fields before this could vary. */
+  referees: RefereeStatus[];
   outcome: "Pending" | "Positive" | "Negative" | "Mixed";
   driveFolderUrl: string | null;
   createdAt: string;

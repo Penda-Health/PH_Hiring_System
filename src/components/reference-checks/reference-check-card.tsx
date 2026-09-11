@@ -15,7 +15,7 @@ import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 
 const OUTCOMES: ReferenceCheck["outcome"][] = ["Pending", "Positive", "Negative", "Mixed"];
 
-async function copyRefereeLink(refCheckId: string, candidateId: string, refereeNum: 1 | 2) {
+async function copyRefereeLink(refCheckId: string, candidateId: string, refereeNum: 1 | 2 | 3 | 4) {
   const res = await fetch("/api/forms/get-link", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -44,14 +44,14 @@ export function ReferenceCheckCard({
     deleteReferenceCheck,
   } = useRecruitmentData();
   const candidate = getCandidateForRefCheck(refCheck, candidates);
-  const [copied, setCopied] = React.useState<1 | 2 | null>(null);
+  const [copied, setCopied] = React.useState<1 | 2 | 3 | 4 | null>(null);
   const [downloadingReport, setDownloadingReport] = React.useState(false);
   const [reportError, setReportError] = React.useState<string | null>(null);
-  const [overriding, setOverriding] = React.useState<1 | 2 | null>(null);
+  const [overriding, setOverriding] = React.useState<1 | 2 | 3 | 4 | null>(null);
   const [generatingInsights, setGeneratingInsights] = React.useState(false);
   const [insightsError, setInsightsError] = React.useState<string | null>(null);
 
-  async function handleCopy(num: 1 | 2) {
+  async function handleCopy(num: 1 | 2 | 3 | 4) {
     try {
       await copyRefereeLink(refCheck.id, refCheck.candidateId, num);
       setCopied(num);
@@ -61,7 +61,7 @@ export function ReferenceCheckCard({
     }
   }
 
-  async function handleOverride(num: 1 | 2) {
+  async function handleOverride(num: 1 | 2 | 3 | 4) {
     setOverriding(num);
     try {
       await overrideRefereeGoogleVerification(refCheck.id, num);
@@ -72,7 +72,7 @@ export function ReferenceCheckCard({
 
   // A report needs at least one referee's answers to say anything — see the
   // route's matching 409 check.
-  const reportReady = refCheck.referee1.responded || refCheck.referee2.responded;
+  const reportReady = refCheck.referees.some((r) => r.responded);
 
   async function downloadReport() {
     setReportError(null);
@@ -113,8 +113,8 @@ export function ReferenceCheckCard({
     deleteReferenceCheck(refCheck.id);
   }
 
-  function needsOverride(num: 1 | 2) {
-    const referee = num === 1 ? refCheck.referee1 : refCheck.referee2;
+  function needsOverride(num: 1 | 2 | 3 | 4) {
+    const referee = refCheck.referees[num - 1];
     return referee.responded && !referee.googleVerified && !referee.googleVerifiedOverrideBy;
   }
 
@@ -166,56 +166,38 @@ export function ReferenceCheckCard({
           />
         ) : (
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <RefereeStatusRow referee={refCheck.referee1} />
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 shrink-0"
-                title="Copy referee 1 link"
-                onClick={() => handleCopy(1)}
-              >
-                {copied === 1 ? <Check className="h-3.5 w-3.5 text-penda-blue" /> : <Copy className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
-            {needsOverride(1) && canEdit && (
-              <button
-                type="button"
-                onClick={() => handleOverride(1)}
-                disabled={overriding === 1}
-                className="flex items-center gap-1.5 text-xs text-amber-700 hover:underline"
-              >
-                <ShieldAlert className="h-3 w-3" />
-                {overriding === 1 ? "Marking…" : "Referee 1 wasn't Google-verified — mark verified anyway"}
-              </button>
-            )}
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <RefereeStatusRow referee={refCheck.referee2} />
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 shrink-0"
-                title="Copy referee 2 link"
-                onClick={() => handleCopy(2)}
-              >
-                {copied === 2 ? <Check className="h-3.5 w-3.5 text-penda-blue" /> : <Copy className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
-            {needsOverride(2) && canEdit && (
-              <button
-                type="button"
-                onClick={() => handleOverride(2)}
-                disabled={overriding === 2}
-                className="flex items-center gap-1.5 text-xs text-amber-700 hover:underline"
-              >
-                <ShieldAlert className="h-3 w-3" />
-                {overriding === 2 ? "Marking…" : "Referee 2 wasn't Google-verified — mark verified anyway"}
-              </button>
-            )}
+            {refCheck.referees.map((referee, i) => {
+              const num = (i + 1) as 1 | 2 | 3 | 4;
+              return (
+                <React.Fragment key={num}>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <RefereeStatusRow referee={referee} />
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 shrink-0"
+                      title={`Copy referee ${num} link`}
+                      onClick={() => handleCopy(num)}
+                    >
+                      {copied === num ? <Check className="h-3.5 w-3.5 text-penda-blue" /> : <Copy className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                  {needsOverride(num) && canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => handleOverride(num)}
+                      disabled={overriding === num}
+                      className="flex items-center gap-1.5 text-xs text-amber-700 hover:underline"
+                    >
+                      <ShieldAlert className="h-3 w-3" />
+                      {overriding === num ? "Marking…" : `Referee ${num} wasn't Google-verified — mark verified anyway`}
+                    </button>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </div>
         )}
 

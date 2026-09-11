@@ -83,7 +83,8 @@ export function getPendingTasks(user: User, data: PendingTasksInput): PendingTas
   for (const refCheck of data.referenceChecks) {
     const role = roleForCandidate(refCheck.candidateId);
     if (!matchesUser(role?.recruiter, user)) continue;
-    for (const [num, referee] of [[1, refCheck.referee1], [2, refCheck.referee2]] as const) {
+    for (const [i, referee] of Array.from(refCheck.referees.entries())) {
+      const num = i + 1;
       if (referee.responded || !referee.emailSent) continue;
       const waitDays = daysSince(refCheck.createdAt);
       if (waitDays < 2) continue;

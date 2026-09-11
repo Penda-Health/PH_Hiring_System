@@ -18,7 +18,7 @@ const schema = z.union([
     type: z.literal("referee"),
     refCheckId: z.string().min(1),
     candidateId: z.string().min(1),
-    refereeNum: z.union([z.literal(1), z.literal(2)]),
+    refereeNum: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   }),
 ]);
 

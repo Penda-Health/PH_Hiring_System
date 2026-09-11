@@ -474,9 +474,15 @@ export function appSettingsToAirtable(s: Partial<AppSettings> & { updatedBy?: st
 }
 
 // ---------- Reference Checks ----------
+// A check holds 2-4 referees; Airtable stores them as flat REFEREE1-4 field
+// blocks (no linked child table), so this prefix list is the single bridge
+// between that flat storage and the ordered `referees` array.
+const REFEREE_PREFIXES = ["REFEREE1", "REFEREE2", "REFEREE3", "REFEREE4"] as const;
+type RefereePrefix = (typeof REFEREE_PREFIXES)[number];
+
 function refereeFromAirtable(
   f: Record<string, unknown>,
-  prefix: "REFEREE1" | "REFEREE2"
+  prefix: RefereePrefix
 ): RefereeStatus {
   const keys = F.ReferenceChecks as Record<string, string>;
   return {
@@ -516,6 +522,50 @@ function refereeFromAirtable(
     reminder24hSent: bool(f[keys[`${prefix}_REMINDER_24H_SENT`]]),
   };
 }
+// Symmetric write side of refereeFromAirtable. `referee` is undefined for a
+// slot beyond how many referees are on the check (2-4 total) — in that case
+// every field is written as `null` so removing a referee via edit actually
+// clears any stale data left in that Airtable slot, rather than stranding it.
+function refereeToAirtable(prefix: RefereePrefix, referee: RefereeStatus | undefined) {
+  const keys = F.ReferenceChecks as Record<string, string>;
+  const v = <T>(value: T | undefined): T | null => value ?? null;
+  return {
+    [keys[`${prefix}_NAME`]]: v(referee?.name),
+    [keys[`${prefix}_EMAIL`]]: v(referee?.email),
+    [keys[`${prefix}_PHONE`]]: v(referee?.phone),
+    [keys[`${prefix}_EMAIL_SENT`]]: v(referee?.emailSent),
+    [keys[`${prefix}_SMS_SENT`]]: v(referee?.smsSent),
+    [keys[`${prefix}_RESPONDED`]]: v(referee?.responded),
+    [keys[`${prefix}_RESPONDED_AT`]]: v(referee?.respondedAt?.slice(0, 10)),
+    [keys[`${prefix}_RELATIONSHIP`]]: v(referee?.relationship),
+    [keys[`${prefix}_DIRECTLY_SUPERVISED`]]: v(referee?.directlySupervised),
+    [keys[`${prefix}_DURATION_KNOWN`]]: v(referee?.durationKnown),
+    [keys[`${prefix}_EMPLOYMENT_FROM`]]: v(referee?.employmentFrom),
+    [keys[`${prefix}_EMPLOYMENT_TO`]]: v(referee?.employmentTo),
+    [keys[`${prefix}_STILL_EMPLOYED`]]: v(referee?.stillEmployed),
+    [keys[`${prefix}_TECH_SCORE`]]: v(referee?.techScore),
+    [keys[`${prefix}_RELIABILITY_SCORE`]]: v(referee?.reliabilityScore),
+    [keys[`${prefix}_TEAMWORK_SCORE`]]: v(referee?.teamworkScore),
+    [keys[`${prefix}_PROBLEM_SOLVING_SCORE`]]: v(referee?.problemSolvingScore),
+    [keys[`${prefix}_ADAPTABILITY_SCORE`]]: v(referee?.adaptabilityScore),
+    [keys[`${prefix}_WOULD_REHIRE`]]: v(referee?.wouldRehire),
+    [keys[`${prefix}_STRENGTH_EXAMPLE`]]: v(referee?.strengthExample),
+    [keys[`${prefix}_DEVELOPMENT_AREAS`]]: v(referee?.developmentAreas),
+    [keys[`${prefix}_STRENGTHS_AND_DEVELOPMENT`]]: v(referee?.strengthsAndDevelopment),
+    [keys[`${prefix}_CONFLICT_EXAMPLE`]]: v(referee?.conflictExample),
+    [keys[`${prefix}_HONESTY_CONCERNS`]]: v(referee?.honestyConcerns),
+    [keys[`${prefix}_COMPLIANCE_INCIDENTS`]]: v(referee?.complianceIncidents),
+    [keys[`${prefix}_LICENSE_STANDING`]]: v(referee?.licenseStanding),
+    [keys[`${prefix}_PREFER_PHONE_NUMBER`]]: v(referee?.preferPhoneNumber),
+    [keys[`${prefix}_OVERALL_RECOMMEND_SCORE`]]: v(referee?.overallRecommendScore),
+    [keys[`${prefix}_CONSENT_TO_CONTACT`]]: v(referee?.consentToContact),
+    [keys[`${prefix}_NOTES`]]: v(referee?.notes),
+    [keys[`${prefix}_GOOGLE_VERIFIED`]]: v(referee?.googleVerified),
+    [keys[`${prefix}_GOOGLE_VERIFIED_EMAIL`]]: v(referee?.googleVerifiedEmail),
+    [keys[`${prefix}_GOOGLE_VERIFIED_OVERRIDE_BY`]]: v(referee?.googleVerifiedOverrideBy),
+    [keys[`${prefix}_REMINDER_24H_SENT`]]: v(referee?.reminder24hSent),
+  };
+}
 // Array-shaped AI fields are stored as newline-joined plain text rather than
 // JSON — matches this table's existing convention of human-readable text
 // fields (no JSON.stringify/parse anywhere else in this file), so a TA
@@ -546,8 +596,15 @@ function aiInsightsFromAirtable(f: Record<string, unknown>): ReferenceCheckAiIns
     areasOfConcern: linesFromAirtable(f[keys.AI_AREAS_OF_CONCERN]),
     consistencyNotes: str(f[keys.AI_CONSISTENCY_NOTES]),
     suggestedFollowUps: linesFromAirtable(f[keys.AI_FOLLOW_UP_QUESTIONS]),
-    referee1Takeaway: str(f[keys.AI_REFEREE1_TAKEAWAY]),
-    referee2Takeaway: str(f[keys.AI_REFEREE2_TAKEAWAY]),
+    // Index-aligned with `referees`. Historical 2-referee records simply have
+    // the 2 newer AI_REFEREE3/4_TAKEAWAY fields blank, so this reads back as
+    // a shorter array with no special-casing needed.
+    refereeTakeaways: [
+      str(f[keys.AI_REFEREE1_TAKEAWAY]),
+      str(f[keys.AI_REFEREE2_TAKEAWAY]),
+      str(f[keys.AI_REFEREE3_TAKEAWAY]),
+      str(f[keys.AI_REFEREE4_TAKEAWAY]),
+    ],
     generatedAt,
   };
 }
@@ -569,6 +626,8 @@ function aiInsightsToAirtable(insights: ReferenceCheckAiInsights | null | undefi
       [F.ReferenceChecks.AI_FOLLOW_UP_QUESTIONS]: null,
       [F.ReferenceChecks.AI_REFEREE1_TAKEAWAY]: null,
       [F.ReferenceChecks.AI_REFEREE2_TAKEAWAY]: null,
+      [F.ReferenceChecks.AI_REFEREE3_TAKEAWAY]: null,
+      [F.ReferenceChecks.AI_REFEREE4_TAKEAWAY]: null,
       [F.ReferenceChecks.AI_GENERATED_AT]: null,
     };
   }
@@ -582,8 +641,10 @@ function aiInsightsToAirtable(insights: ReferenceCheckAiInsights | null | undefi
     [F.ReferenceChecks.AI_AREAS_OF_CONCERN]: linesToAirtable(insights.areasOfConcern),
     [F.ReferenceChecks.AI_CONSISTENCY_NOTES]: insights.consistencyNotes,
     [F.ReferenceChecks.AI_FOLLOW_UP_QUESTIONS]: linesToAirtable(insights.suggestedFollowUps),
-    [F.ReferenceChecks.AI_REFEREE1_TAKEAWAY]: insights.referee1Takeaway,
-    [F.ReferenceChecks.AI_REFEREE2_TAKEAWAY]: insights.referee2Takeaway,
+    [F.ReferenceChecks.AI_REFEREE1_TAKEAWAY]: insights.refereeTakeaways[0] ?? "",
+    [F.ReferenceChecks.AI_REFEREE2_TAKEAWAY]: insights.refereeTakeaways[1] ?? "",
+    [F.ReferenceChecks.AI_REFEREE3_TAKEAWAY]: insights.refereeTakeaways[2] ?? "",
+    [F.ReferenceChecks.AI_REFEREE4_TAKEAWAY]: insights.refereeTakeaways[3] ?? "",
     [F.ReferenceChecks.AI_GENERATED_AT]: insights.generatedAt,
   };
 }
@@ -594,8 +655,10 @@ export function referenceCheckFromAirtable(r: AirtableRecord): ReferenceCheck {
     id: r.id,
     refId: str(f[F.ReferenceChecks.REF_ID]),
     candidateId: firstLink(f[F.ReferenceChecks.CANDIDATE]) ?? "",
-    referee1: refereeFromAirtable(f, "REFEREE1"),
-    referee2: refereeFromAirtable(f, "REFEREE2"),
+    // Trailing unused slots (a check with fewer than 4 referees) come back
+    // blank from Airtable — filter them out by empty name rather than
+    // carrying "phantom" empty referees through the app.
+    referees: REFEREE_PREFIXES.map((prefix) => refereeFromAirtable(f, prefix)).filter((r) => r.name),
     outcome: f[F.ReferenceChecks.OUTCOME] as ReferenceCheck["outcome"],
     driveFolderUrl: opt(f[F.ReferenceChecks.DRIVE_FOLDER_URL]) ?? null,
     createdAt: str(f[F.ReferenceChecks.CREATED_AT]),
@@ -608,77 +671,20 @@ export function referenceCheckFromAirtable(r: AirtableRecord): ReferenceCheck {
   };
 }
 export function referenceCheckToAirtable(rc: Partial<ReferenceCheck>) {
+  // Only touch the REFEREE1-4 field blocks when `referees` is actually part
+  // of this write (e.g. AI-insights-only saves pass `{ aiInsights }` and must
+  // leave every referee field alone). When it is present, it's always the
+  // full list (2-4), so every slot is rewritten — including blanking any
+  // slot beyond the new length, so removing a referee actually clears it.
+  const refereeWrites = rc.referees === undefined
+    ? {}
+    : Object.fromEntries(
+        REFEREE_PREFIXES.flatMap((prefix, i) => Object.entries(refereeToAirtable(prefix, rc.referees![i])))
+      );
   return cleanFields({
     [F.ReferenceChecks.REF_ID]: rc.refId,
     [F.ReferenceChecks.CANDIDATE]: rc.candidateId !== undefined ? link(rc.candidateId) : undefined,
-    [F.ReferenceChecks.REFEREE1_NAME]: rc.referee1?.name,
-    [F.ReferenceChecks.REFEREE1_EMAIL]: rc.referee1?.email,
-    [F.ReferenceChecks.REFEREE1_PHONE]: rc.referee1?.phone,
-    [F.ReferenceChecks.REFEREE1_EMAIL_SENT]: rc.referee1?.emailSent,
-    [F.ReferenceChecks.REFEREE1_SMS_SENT]: rc.referee1?.smsSent,
-    [F.ReferenceChecks.REFEREE1_RESPONDED]: rc.referee1?.responded,
-    [F.ReferenceChecks.REFEREE1_RESPONDED_AT]: rc.referee1?.respondedAt?.slice(0, 10),
-    [F.ReferenceChecks.REFEREE1_RELATIONSHIP]: rc.referee1?.relationship,
-    [F.ReferenceChecks.REFEREE1_DIRECTLY_SUPERVISED]: rc.referee1?.directlySupervised,
-    [F.ReferenceChecks.REFEREE1_DURATION_KNOWN]: rc.referee1?.durationKnown,
-    [F.ReferenceChecks.REFEREE1_EMPLOYMENT_FROM]: rc.referee1?.employmentFrom,
-    [F.ReferenceChecks.REFEREE1_EMPLOYMENT_TO]: rc.referee1?.employmentTo,
-    [F.ReferenceChecks.REFEREE1_STILL_EMPLOYED]: rc.referee1?.stillEmployed,
-    [F.ReferenceChecks.REFEREE1_TECH_SCORE]: rc.referee1?.techScore,
-    [F.ReferenceChecks.REFEREE1_RELIABILITY_SCORE]: rc.referee1?.reliabilityScore,
-    [F.ReferenceChecks.REFEREE1_TEAMWORK_SCORE]: rc.referee1?.teamworkScore,
-    [F.ReferenceChecks.REFEREE1_PROBLEM_SOLVING_SCORE]: rc.referee1?.problemSolvingScore,
-    [F.ReferenceChecks.REFEREE1_ADAPTABILITY_SCORE]: rc.referee1?.adaptabilityScore,
-    [F.ReferenceChecks.REFEREE1_WOULD_REHIRE]: rc.referee1?.wouldRehire,
-    [F.ReferenceChecks.REFEREE1_STRENGTH_EXAMPLE]: rc.referee1?.strengthExample,
-    [F.ReferenceChecks.REFEREE1_DEVELOPMENT_AREAS]: rc.referee1?.developmentAreas,
-    [F.ReferenceChecks.REFEREE1_STRENGTHS_AND_DEVELOPMENT]: rc.referee1?.strengthsAndDevelopment,
-    [F.ReferenceChecks.REFEREE1_CONFLICT_EXAMPLE]: rc.referee1?.conflictExample,
-    [F.ReferenceChecks.REFEREE1_HONESTY_CONCERNS]: rc.referee1?.honestyConcerns,
-    [F.ReferenceChecks.REFEREE1_COMPLIANCE_INCIDENTS]: rc.referee1?.complianceIncidents,
-    [F.ReferenceChecks.REFEREE1_LICENSE_STANDING]: rc.referee1?.licenseStanding,
-    [F.ReferenceChecks.REFEREE1_PREFER_PHONE_NUMBER]: rc.referee1?.preferPhoneNumber,
-    [F.ReferenceChecks.REFEREE1_OVERALL_RECOMMEND_SCORE]: rc.referee1?.overallRecommendScore,
-    [F.ReferenceChecks.REFEREE1_CONSENT_TO_CONTACT]: rc.referee1?.consentToContact,
-    [F.ReferenceChecks.REFEREE1_NOTES]: rc.referee1?.notes,
-    [F.ReferenceChecks.REFEREE1_GOOGLE_VERIFIED]: rc.referee1?.googleVerified,
-    [F.ReferenceChecks.REFEREE1_GOOGLE_VERIFIED_EMAIL]: rc.referee1?.googleVerifiedEmail,
-    [F.ReferenceChecks.REFEREE1_GOOGLE_VERIFIED_OVERRIDE_BY]: rc.referee1?.googleVerifiedOverrideBy,
-    [F.ReferenceChecks.REFEREE1_REMINDER_24H_SENT]: rc.referee1?.reminder24hSent,
-    [F.ReferenceChecks.REFEREE2_NAME]: rc.referee2?.name,
-    [F.ReferenceChecks.REFEREE2_EMAIL]: rc.referee2?.email,
-    [F.ReferenceChecks.REFEREE2_PHONE]: rc.referee2?.phone,
-    [F.ReferenceChecks.REFEREE2_EMAIL_SENT]: rc.referee2?.emailSent,
-    [F.ReferenceChecks.REFEREE2_SMS_SENT]: rc.referee2?.smsSent,
-    [F.ReferenceChecks.REFEREE2_RESPONDED]: rc.referee2?.responded,
-    [F.ReferenceChecks.REFEREE2_RESPONDED_AT]: rc.referee2?.respondedAt?.slice(0, 10),
-    [F.ReferenceChecks.REFEREE2_RELATIONSHIP]: rc.referee2?.relationship,
-    [F.ReferenceChecks.REFEREE2_DIRECTLY_SUPERVISED]: rc.referee2?.directlySupervised,
-    [F.ReferenceChecks.REFEREE2_DURATION_KNOWN]: rc.referee2?.durationKnown,
-    [F.ReferenceChecks.REFEREE2_EMPLOYMENT_FROM]: rc.referee2?.employmentFrom,
-    [F.ReferenceChecks.REFEREE2_EMPLOYMENT_TO]: rc.referee2?.employmentTo,
-    [F.ReferenceChecks.REFEREE2_STILL_EMPLOYED]: rc.referee2?.stillEmployed,
-    [F.ReferenceChecks.REFEREE2_TECH_SCORE]: rc.referee2?.techScore,
-    [F.ReferenceChecks.REFEREE2_RELIABILITY_SCORE]: rc.referee2?.reliabilityScore,
-    [F.ReferenceChecks.REFEREE2_TEAMWORK_SCORE]: rc.referee2?.teamworkScore,
-    [F.ReferenceChecks.REFEREE2_PROBLEM_SOLVING_SCORE]: rc.referee2?.problemSolvingScore,
-    [F.ReferenceChecks.REFEREE2_ADAPTABILITY_SCORE]: rc.referee2?.adaptabilityScore,
-    [F.ReferenceChecks.REFEREE2_WOULD_REHIRE]: rc.referee2?.wouldRehire,
-    [F.ReferenceChecks.REFEREE2_STRENGTH_EXAMPLE]: rc.referee2?.strengthExample,
-    [F.ReferenceChecks.REFEREE2_DEVELOPMENT_AREAS]: rc.referee2?.developmentAreas,
-    [F.ReferenceChecks.REFEREE2_STRENGTHS_AND_DEVELOPMENT]: rc.referee2?.strengthsAndDevelopment,
-    [F.ReferenceChecks.REFEREE2_CONFLICT_EXAMPLE]: rc.referee2?.conflictExample,
-    [F.ReferenceChecks.REFEREE2_HONESTY_CONCERNS]: rc.referee2?.honestyConcerns,
-    [F.ReferenceChecks.REFEREE2_COMPLIANCE_INCIDENTS]: rc.referee2?.complianceIncidents,
-    [F.ReferenceChecks.REFEREE2_LICENSE_STANDING]: rc.referee2?.licenseStanding,
-    [F.ReferenceChecks.REFEREE2_PREFER_PHONE_NUMBER]: rc.referee2?.preferPhoneNumber,
-    [F.ReferenceChecks.REFEREE2_OVERALL_RECOMMEND_SCORE]: rc.referee2?.overallRecommendScore,
-    [F.ReferenceChecks.REFEREE2_CONSENT_TO_CONTACT]: rc.referee2?.consentToContact,
-    [F.ReferenceChecks.REFEREE2_NOTES]: rc.referee2?.notes,
-    [F.ReferenceChecks.REFEREE2_GOOGLE_VERIFIED]: rc.referee2?.googleVerified,
-    [F.ReferenceChecks.REFEREE2_GOOGLE_VERIFIED_EMAIL]: rc.referee2?.googleVerifiedEmail,
-    [F.ReferenceChecks.REFEREE2_GOOGLE_VERIFIED_OVERRIDE_BY]: rc.referee2?.googleVerifiedOverrideBy,
-    [F.ReferenceChecks.REFEREE2_REMINDER_24H_SENT]: rc.referee2?.reminder24hSent,
+    ...refereeWrites,
     [F.ReferenceChecks.OUTCOME]: rc.outcome,
     [F.ReferenceChecks.DRIVE_FOLDER_URL]: rc.driveFolderUrl,
     [F.ReferenceChecks.CREATED_AT]: rc.createdAt,

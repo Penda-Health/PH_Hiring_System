@@ -1,10 +1,10 @@
 // Renders a single reference check into a Penda-branded PDF: a cover with
-// candidate/role/status, then one section per referee. Unlike the work-trial
-// report there's no "uploaded source document" case to merge in — every
-// reference check is structured data collected through /referee — so there's
-// just the one layout, and it degrades gracefully when only one of the two
-// referees has responded (the other section says so plainly rather than
-// showing blanks).
+// candidate/role/status, then one section per referee (2-4 of them). Unlike
+// the work-trial report there's no "uploaded source document" case to merge
+// in — every reference check is structured data collected through /referee —
+// so there's just the one layout, and it degrades gracefully when not every
+// referee has responded yet (an unresponded referee's section says so
+// plainly rather than showing blanks).
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
 import fs from "fs";
 import path from "path";
@@ -301,10 +301,9 @@ function drawAiSummarySection(ctx: Ctx, insights: ReferenceCheckAiInsights) {
   }
   drawBulletListSection(ctx, "Suggested follow-up questions", insights.suggestedFollowUps);
 
-  const takeaways = [
-    insights.referee1Takeaway.trim() ? `Referee 1: ${insights.referee1Takeaway.trim()}` : null,
-    insights.referee2Takeaway.trim() ? `Referee 2: ${insights.referee2Takeaway.trim()}` : null,
-  ].filter((t): t is string => t !== null);
+  const takeaways = insights.refereeTakeaways
+    .map((t, i) => (t.trim() ? `Referee ${i + 1}: ${t.trim()}` : null))
+    .filter((t): t is string => t !== null);
   if (takeaways.length > 0) {
     drawSectionHeading(ctx, "Referee takeaways");
     for (const t of takeaways) {
@@ -319,7 +318,7 @@ function drawAiSummarySection(ctx: Ctx, insights: ReferenceCheckAiInsights) {
   }
 }
 
-function drawRefereeSection(ctx: Ctx, num: 1 | 2, referee: RefereeStatus) {
+function drawRefereeSection(ctx: Ctx, num: number, referee: RefereeStatus) {
   ensureSpace(ctx, 40);
   drawSectionHeading(ctx, `Referee ${num}: ${referee.name || "—"}`);
 
@@ -420,10 +419,10 @@ export async function generateReferenceCheckReportPdf(
   // to a new page whenever content actually doesn't fit. The divider line
   // after each section keeps the boundaries clear even when two sections
   // share a page.
-  drawRefereeSection(ctx, 1, data.referee1);
-  drawDivider(ctx);
-  drawRefereeSection(ctx, 2, data.referee2);
-  drawDivider(ctx);
+  for (const [i, referee] of Array.from(data.referees.entries())) {
+    drawRefereeSection(ctx, i + 1, referee);
+    drawDivider(ctx);
+  }
 
   drawFooter(ctx);
   return doc.save();
