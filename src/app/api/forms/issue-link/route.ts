@@ -1,8 +1,8 @@
 // Called by an Airtable automation's "Run script" step (via fetch) when a
-// candidate's Stage changes to "Work Trial", when a Work Trial's branch
-// manager needs to confirm arrival / submit scores, or when a reference
-// check is created. Returns a signed link the automation's "Send email"
-// step embeds in the candidate/BM/referee email.
+// candidate's Stage changes to "Work Trial" or "Reference Check", when a
+// Work Trial's branch manager needs to confirm arrival / submit scores, or
+// when a reference check is created/initiated. Returns a signed link the
+// automation's "Send email" step embeds in the candidate/BM/referee email.
 // Authenticated with a static bearer secret (FORMS_ISSUE_SECRET) rather than
 // Supabase — Airtable automations can't carry a staff login session.
 import { NextRequest, NextResponse } from "next/server";
@@ -10,7 +10,13 @@ import { z } from "zod";
 import { getRecord } from "@/lib/airtable/client";
 import { TABLE_NAMES } from "@/lib/airtable/field-names";
 import { workTrialFromAirtable, referenceCheckFromAirtable } from "@/lib/airtable/mappers";
-import { signWorkTrialToken, signBmFeedbackToken, signRefereeToken, signConfirmEmploymentToken } from "@/lib/forms/tokens";
+import {
+  signWorkTrialToken,
+  signBmFeedbackToken,
+  signRefereeToken,
+  signConfirmEmploymentToken,
+  signReferenceCheckRequestToken,
+} from "@/lib/forms/tokens";
 
 const schema = z.union([
   z.object({
@@ -25,6 +31,10 @@ const schema = z.union([
   z.object({
     type: z.literal("confirm-employment"),
     newEmployeeId: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("reference-check-request"),
+    candidateId: z.string().min(1),
   }),
 ]);
 
@@ -65,6 +75,11 @@ export async function POST(request: NextRequest) {
     if (result.data.type === "confirm-employment") {
       const token = await signConfirmEmploymentToken({ newEmployeeId: result.data.newEmployeeId });
       return NextResponse.json({ url: `${appUrl()}/confirm-employment?token=${token}` });
+    }
+
+    if (result.data.type === "reference-check-request") {
+      const token = await signReferenceCheckRequestToken({ candidateId: result.data.candidateId });
+      return NextResponse.json({ url: `${appUrl()}/reference-check-request?token=${token}` });
     }
 
     const record = await getRecord(TABLE_NAMES.WorkTrials, result.data.workTrialId);
