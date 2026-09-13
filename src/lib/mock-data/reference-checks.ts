@@ -32,6 +32,7 @@ export const referenceChecks: ReferenceCheck[] = [
     verifiedAt: "2026-06-16",
     verifiedBy: "TA Team",
     initiatedAt: "2026-06-16",
+    reportPdfUrl: null,
     aiInsights: null,
   },
   {
@@ -64,6 +65,7 @@ export const referenceChecks: ReferenceCheck[] = [
     verifiedAt: "2026-06-17",
     verifiedBy: "TA Team",
     initiatedAt: "2026-06-17",
+    reportPdfUrl: null,
     aiInsights: null,
   },
   {
@@ -98,6 +100,7 @@ export const referenceChecks: ReferenceCheck[] = [
     verifiedAt: "2026-06-08",
     verifiedBy: "TA Team",
     initiatedAt: "2026-06-08",
+    reportPdfUrl: null,
     aiInsights: {
       overallStatus: "Strong Recommend",
       summary:

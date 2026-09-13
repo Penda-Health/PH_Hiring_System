@@ -28,17 +28,25 @@ const DEFAULT_BRAND: FormShellBrand = {
   lede: "This link is part of Penda Health's hiring process — we appreciate the time.",
 };
 
-/** The hands + heart mark, in the brand's blue-panel-safe colors — no background. */
-function PendaMark() {
+/**
+ * The real Penda hands+heart mark (same path data as public/assets/favicon.svg),
+ * exported so other public forms can reuse the actual logo instead of a
+ * placeholder icon. `variant="dark"` (default) renders the hands in white for
+ * this panel's blue-gradient background; `variant="light"` renders them in
+ * the brand blue for use on a white/light background. The heart stays pink
+ * (the brand's actual heart color) in both variants.
+ */
+export function PendaMark({ variant = "dark", size = 30 }: { variant?: "dark" | "light"; size?: number }) {
+  const hands = variant === "dark" ? "#FFFFFF" : "#1E55FF";
   return (
-    <svg width="30" height="30" viewBox="0 0 64 64" fill="none" aria-hidden="true" className="shrink-0">
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true" className="shrink-0">
       <path
         d="M30 56 C18 54, 6 42, 8 20 C9 13, 14 10, 18 15 C23 21, 25 32, 28 40 C29 44, 30 50, 30 56 Z"
-        fill="#FFFFFF"
+        fill={hands}
       />
       <path
         d="M34 56 C46 54, 58 42, 56 20 C55 13, 50 10, 46 15 C41 21, 39 32, 36 40 C35 44, 34 50, 34 56 Z"
-        fill="#FFFFFF"
+        fill={hands}
       />
       <path
         d="M32 38 C26 33, 19 28, 19 21 C19 15, 24 12, 28 16 C30 18, 31 19, 32 21 C33 19, 34 18, 36 16 C40 12, 45 15, 45 21 C45 28, 38 33, 32 38 Z"

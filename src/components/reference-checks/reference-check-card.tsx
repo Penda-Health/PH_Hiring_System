@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Check, Copy, Download, FolderOpen, RefreshCw, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Check, Copy, Eye, FolderOpen, RefreshCw, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { ReferenceCheck } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,9 +45,8 @@ export function ReferenceCheckCard({
     deleteReferenceCheck,
   } = useRecruitmentData();
   const candidate = getCandidateForRefCheck(refCheck, candidates);
+  const router = useRouter();
   const [copied, setCopied] = React.useState<1 | 2 | 3 | 4 | null>(null);
-  const [downloadingReport, setDownloadingReport] = React.useState(false);
-  const [reportError, setReportError] = React.useState<string | null>(null);
   const [overriding, setOverriding] = React.useState<1 | 2 | 3 | 4 | null>(null);
   const [generatingInsights, setGeneratingInsights] = React.useState(false);
   const [insightsError, setInsightsError] = React.useState<string | null>(null);
@@ -73,37 +73,6 @@ export function ReferenceCheckCard({
   // A report needs at least one referee's answers to say anything — see the
   // route's matching 409 check.
   const reportReady = refCheck.referees.some((r) => r.responded);
-
-  async function downloadReport() {
-    setReportError(null);
-    setDownloadingReport(true);
-    try {
-      const res = await fetch(`/api/reference-checks/${refCheck.id}/report`);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-          err.error === "not_complete" ? "No referee has responded yet." : "Failed to generate report."
-        );
-      }
-      const blob = await res.blob();
-      const disposition = res.headers.get("content-disposition") ?? "";
-      const filename =
-        disposition.match(/filename="(.+)"/)?.[1] ?? `Reference Check Report - ${candidate?.name ?? refCheck.refId}.pdf`;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setReportError(err instanceof Error ? err.message : "Failed to download report");
-      setTimeout(() => setReportError(null), 4000);
-    } finally {
-      setDownloadingReport(false);
-    }
-  }
 
   function handleDelete() {
     const name = candidate?.name ?? "this candidate";
@@ -318,12 +287,16 @@ export function ReferenceCheckCard({
         </Select>
 
         {reportReady && (
-          <Button size="sm" variant="outline" onClick={downloadReport} disabled={downloadingReport} className="w-full gap-1">
-            <Download className="h-3.5 w-3.5" />
-            {downloadingReport ? "Preparing…" : "Download report"}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => router.push(`/reference-checks/${refCheck.id}/report`)}
+            className="w-full gap-1"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            Preview report
           </Button>
         )}
-        {reportError && <p className="text-xs text-destructive">{reportError}</p>}
       </CardContent>
     </Card>
   );
