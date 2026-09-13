@@ -20,7 +20,7 @@
 //
 // Reuses the same provider/model setup as the "Penny" chat assistant
 // (./providers.ts), defaulting to the same provider the chat UI defaults to
-// (Groq's Llama 3.3 — see ai-assistant-launcher.tsx). If the AI call fails
+// (Groq's GPT-OSS 120B — see ai-assistant-launcher.tsx). If the AI call fails
 // for any reason (missing API key, rate limit, model unavailable) this
 // returns `null` rather than throwing — the caller degrades gracefully
 // (report section omitted, card shows a "generate" prompt instead of

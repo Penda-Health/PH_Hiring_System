@@ -17,9 +17,13 @@ export type ProviderDefinition = {
 export const AI_PROVIDERS: ProviderDefinition[] = [
   {
     id: "llama",
-    label: "Llama 3.3 (Groq)",
-    description: "Fast, free-tier Groq-hosted Llama 3.3 70B.",
-    getModel: () => createGroq({ apiKey: process.env.GROQ_API_KEY })("llama-3.3-70b-versatile"),
+    label: "GPT-OSS 120B (Groq)",
+    // Was Llama 3.3 70B — Groq deprecated it (and llama-3.1-8b-instant) on
+    // the free/developer tier on 2026-06-17, recommending openai/gpt-oss-120b
+    // as the replacement for the 70B-class model. Same GROQ_API_KEY, same
+    // free tier — just a different model string.
+    description: "Fast, free-tier Groq-hosted GPT-OSS 120B.",
+    getModel: () => createGroq({ apiKey: process.env.GROQ_API_KEY })("openai/gpt-oss-120b"),
   },
   {
     id: "gemini",

@@ -449,7 +449,7 @@ export function AiAssistantLauncher() {
                   let msg = error.message;
                   try { const parsed = JSON.parse(msg); msg = parsed.error ?? parsed.message ?? msg; } catch { /* plain text */ }
                   if (msg.includes("503") || msg.includes("not configured"))
-                    return `${AI_PROVIDERS.find((p) => p.id === providerId)?.label ?? "This model"} isn't configured on this deployment. Try switching to Llama 3.3 (Groq).`;
+                    return `${AI_PROVIDERS.find((p) => p.id === providerId)?.label ?? "This model"} isn't configured on this deployment. Try switching to GPT-OSS 120B (Groq).`;
                   return msg;
                 })()}</span>
               </div>
