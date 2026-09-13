@@ -4,18 +4,22 @@
 // Verify, RelationshipRatings, FeedbackCharacter, Recommendation, ThankYou,
 // Stepper) "exactly the same" — a distinct, self-contained visual system
 // local to this one form (not the shared FormShell other public forms use),
-// down to the exact copy, colors (#2f5fe0 accent, #e4e7ec borders, etc.) and
-// layout of each screen. The one deliberate departure from the canvas: its
-// generic circle+heart-path icon is replaced everywhere with the real Penda
-// mark (see PendaMark in form-shell.tsx / favicon.svg) per the user's request.
+// down to the exact copy and layout of each screen. Two deliberate
+// departures from the canvas, per explicit user feedback on the rendered
+// page: (1) the canvas's generic circle+heart-path icon is replaced
+// everywhere with the actual Penda Health logo (public/assets/logo.webp —
+// same asset the dashboard's own Logo component uses), and (2) the canvas's
+// literal accent blue/purple palette is replaced with Penda's real brand
+// tokens (`penda-blue` etc., tailwind.config.ts) and FormShell's existing
+// blue-only hero gradient, instead of the canvas's own invented hex values.
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Loader2, AlertTriangle, Info, CheckCircle2, Lock, ArrowRight, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GoogleSignInButton } from "@/components/forms/google-sign-in-button";
-import { PendaMark } from "@/components/forms/form-shell";
 import { RefereeTopBar } from "@/components/forms/referee/top-bar";
 import { ChoiceGroup } from "@/components/forms/referee/choice-group";
 import { RatingScale } from "@/components/forms/referee/rating-scale";
@@ -65,9 +69,9 @@ const MIN_TEXT_LENGTH = 10;
 // ---------------------------------------------------------------------------
 
 const fieldClass =
-  "h-auto w-full rounded-[10px] border-[#e4e7ec] px-[13px] py-[11px] text-[13.5px] text-[#101828] placeholder:text-[#98a2b3] focus-visible:ring-[#2f5fe0]/30";
+  "h-auto w-full rounded-[10px] border-[#e4e7ec] px-[13px] py-[11px] text-[13.5px] text-[#101828] placeholder:text-[#98a2b3] focus-visible:ring-penda-blue/30";
 const selectTriggerClass =
-  "h-auto w-full rounded-[10px] border-[#e4e7ec] px-[13px] py-[11px] text-[13.5px] text-[#101828] focus:ring-[#2f5fe0]/30 data-[placeholder]:text-[#98a2b3]";
+  "h-auto w-full rounded-[10px] border-[#e4e7ec] px-[13px] py-[11px] text-[13.5px] text-[#101828] focus:ring-penda-blue/30 data-[placeholder]:text-[#98a2b3]";
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <div className="mb-1.5 text-[12.5px] font-semibold text-[#344054]">{children}</div>;
@@ -107,7 +111,7 @@ function TextArea({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full resize-none rounded-[10px] border border-[#e4e7ec] px-3 py-3 text-[13.5px] leading-[1.55] text-[#101828] placeholder:text-[#98a2b3] focus:outline-none focus:ring-2 focus:ring-[#2f5fe0]/30"
+        className="w-full resize-none rounded-[10px] border border-[#e4e7ec] px-3 py-3 text-[13.5px] leading-[1.55] text-[#101828] placeholder:text-[#98a2b3] focus:outline-none focus:ring-2 focus:ring-penda-blue/30"
       />
       {minLength !== undefined && (
         <p className={cn("mt-1 text-xs", meetsMin ? "text-[#98a2b3]" : "text-red-500")}>
@@ -169,7 +173,7 @@ function ContinueButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex items-center gap-2 rounded-[10px] bg-[#2f5fe0] px-6 py-3 text-[15px] font-bold text-white transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+      className="inline-flex items-center gap-2 rounded-[10px] bg-penda-blue px-6 py-3 text-[15px] font-bold text-white transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {children}
       <ArrowRight className="h-[15px] w-[15px]" strokeWidth={2.4} />
@@ -223,8 +227,8 @@ function GoogleVerificationStep({
 
   return (
     <div className="rounded-[14px] border border-[#e4e7ec] bg-[#f9fafb] p-8 text-center">
-      <div className="mx-auto mb-[18px] flex h-11 w-11 items-center justify-center rounded-full bg-[#eef2ff]">
-        <Lock className="h-[22px] w-[22px] text-[#2f5fe0]" strokeWidth={2} />
+      <div className="mx-auto mb-[18px] flex h-11 w-11 items-center justify-center rounded-full bg-penda-blue-light">
+        <Lock className="h-[22px] w-[22px] text-penda-blue" strokeWidth={2} />
       </div>
       <div className={checking ? "pointer-events-none opacity-60" : undefined}>
         <GoogleSignInButton onCredential={handleCredential} disabled={checking} />
@@ -235,7 +239,7 @@ function GoogleVerificationStep({
           You signed in as <span className="font-semibold text-[#101828]">{mismatch.googleEmail}</span>, but we have{" "}
           <span className="font-semibold text-[#101828]">{data.refereeEmail}</span> on file for this reference. Try a
           different Google account, or email{" "}
-          <a className="text-[#2f5fe0] underline" href="mailto:careers@pendahealth.com">
+          <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
             careers@pendahealth.com
           </a>{" "}
           if that&apos;s correct and it just doesn&apos;t match what {data.candidateName} gave us.
@@ -254,7 +258,7 @@ function GoogleVerificationStep({
 // ---------------------------------------------------------------------------
 function StatusScreen({
   icon,
-  iconTone = "bg-[#eef2ff] text-[#2f5fe0]",
+  iconTone = "bg-penda-blue-light text-penda-blue",
   title,
   children,
 }: {
@@ -266,10 +270,7 @@ function StatusScreen({
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <div className="flex items-center gap-2.5 px-5 py-6 sm:px-16">
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#eef2ff]">
-          <PendaMark variant="light" size={17} />
-        </span>
-        <span className="text-[15px] font-extrabold text-[#101828]">PENDA HEALTH</span>
+        <Image src="/assets/logo.webp" alt="Penda Health" width={200} height={80} className="h-8 w-auto object-contain" />
       </div>
       <div className="flex flex-1 items-center justify-center px-6 py-10">
         <div className="max-w-[420px] text-center">
@@ -358,7 +359,7 @@ function RefereeForm() {
       <StatusScreen icon={<AlertTriangle className="h-6 w-6" />} iconTone="bg-amber-50 text-amber-600" title="Link expired">
         <p className="text-[15px] leading-relaxed text-[#475467]">
           This reference check link is no longer valid. Please contact{" "}
-          <a className="text-[#2f5fe0] underline" href="mailto:careers@pendahealth.com">
+          <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
             careers@pendahealth.com
           </a>{" "}
           for a new one.
@@ -372,7 +373,7 @@ function RefereeForm() {
       <StatusScreen icon={<AlertTriangle className="h-6 w-6" />} iconTone="bg-red-50 text-red-500" title="Something went wrong">
         <p className="text-[15px] leading-relaxed text-[#475467]">
           Please try again later, or contact{" "}
-          <a className="text-[#2f5fe0] underline" href="mailto:careers@pendahealth.com">
+          <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
             careers@pendahealth.com
           </a>
           .
@@ -402,7 +403,7 @@ function RefereeForm() {
       <StatusScreen icon={<Info className="h-6 w-6" />} title="Already submitted">
         <p className="text-[15px] leading-relaxed text-[#475467]">
           You&apos;ve already submitted a reference for {data.candidateName}. Contact{" "}
-          <a className="text-[#2f5fe0] underline" href="mailto:careers@pendahealth.com">
+          <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
             careers@pendahealth.com
           </a>{" "}
           if you need to make a correction.
@@ -513,19 +514,17 @@ function RefereeForm() {
   if (screen === 0) {
     return (
       <div className="flex min-h-screen flex-col bg-white lg:flex-row">
-        <div
-          className="relative flex flex-col justify-between overflow-hidden px-8 py-10 sm:px-12 sm:py-14 lg:w-[560px] lg:shrink-0"
-          style={{ background: "linear-gradient(155deg,#12195a 0%,#22308c 45%,#5b3aa8 100%)" }}
-        >
+        <div className="relative flex flex-col justify-between overflow-hidden bg-gradient-to-br from-penda-blue via-[#1442D6] to-penda-blue-dark px-8 py-10 sm:px-12 sm:py-14 lg:w-[560px] lg:shrink-0">
           <div
-            className="pointer-events-none absolute inset-0"
-            style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)", backgroundSize: "18px 18px" }}
+            className="pointer-events-none absolute inset-0 opacity-[0.07]"
+            style={{ backgroundImage: "radial-gradient(circle, #FFFFFF 1px, transparent 1px)", backgroundSize: "18px 18px" }}
           />
-          <div className="relative z-10 flex items-center gap-2.5">
-            <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/[0.14]">
-              <PendaMark variant="dark" size={20} />
+          <div className="pointer-events-none absolute -bottom-20 -right-10 h-56 w-56 rounded-full bg-penda-pink/30 blur-3xl" />
+          <div className="pointer-events-none absolute -top-16 -left-10 h-48 w-48 rounded-full bg-white/5 blur-3xl" />
+          <div className="relative z-10 flex items-center">
+            <span className="inline-flex items-center rounded-lg bg-white px-2.5 py-[7px] shadow-sm">
+              <Image src="/assets/logo.webp" alt="Penda Health" width={200} height={80} className="h-8 w-auto object-contain" />
             </span>
-            <span className="text-lg font-extrabold tracking-tight text-white">PENDA HEALTH</span>
           </div>
 
           <div className="relative z-10 my-10 lg:my-0">
@@ -577,15 +576,15 @@ function RefereeForm() {
             </div>
 
             <div className="mb-6 flex flex-wrap gap-2.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eef2ff] px-[13px] py-[7px] text-[13px] font-bold text-[#2f5fe0]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2f5fe0" strokeWidth="2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-penda-blue-light px-[13px] py-[7px] text-[13px] font-bold text-penda-blue">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E55FF" strokeWidth="2">
                   <circle cx="12" cy="12" r="9" />
                   <path d="M12 7v5l3.5 2" strokeLinecap="round" />
                 </svg>
                 About 4 minutes
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eef2ff] px-[13px] py-[7px] text-[13px] font-bold text-[#2f5fe0]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2f5fe0" strokeWidth="2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-penda-blue-light px-[13px] py-[7px] text-[13px] font-bold text-penda-blue">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E55FF" strokeWidth="2">
                   <rect x="4" y="4" width="6" height="6" rx="1" />
                   <rect x="14" y="4" width="6" height="6" rx="1" />
                   <rect x="4" y="14" width="6" height="6" rx="1" />
@@ -616,7 +615,7 @@ function RefereeForm() {
         <RefereeTopBar candidateName={data.candidateName} step={1} totalSteps={4} />
         <div className="flex flex-1 items-center justify-center px-5 py-10 sm:px-16">
           <div className="w-full max-w-[480px]">
-            <p className="mb-3.5 text-xs font-bold uppercase tracking-[0.6px] text-[#2f5fe0]">Step 1 of 4 · Verify it&apos;s you</p>
+            <p className="mb-3.5 text-xs font-bold uppercase tracking-[0.6px] text-penda-blue">Step 1 of 4 · Verify it&apos;s you</p>
             <h1 className="mb-3 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[28px]">Let&apos;s confirm it&apos;s really you</h1>
             <p className="mb-8 text-[15px] leading-relaxed text-[#475467]">
               To keep reference checks trustworthy, sign in with the Google account matching{" "}
@@ -650,7 +649,7 @@ function RefereeForm() {
         <RefereeTopBar candidateName={data.candidateName} step={2} totalSteps={4} />
         <div className="flex-1 px-5 py-8 sm:px-16">
           <div className="mx-auto max-w-[1180px]">
-            <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.6px] text-[#2f5fe0]">Step 2 of 4 · Referee &amp; employment details</p>
+            <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.6px] text-penda-blue">Step 2 of 4 · Referee &amp; employment details</p>
             <h1 className="mb-2 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[26px]">Tell us about your role, and theirs</h1>
             {verifiedNote}
 
@@ -725,7 +724,7 @@ function RefereeForm() {
                       type="checkbox"
                       checked={stillEmployed}
                       onChange={(e) => setStillEmployed(e.target.checked)}
-                      className="h-[15px] w-[15px] accent-[#2f5fe0]"
+                      className="h-[15px] w-[15px] accent-penda-blue"
                     />
                     Still employed there, as far as I know
                   </label>
@@ -826,7 +825,7 @@ function RefereeForm() {
         <RefereeTopBar candidateName={data.candidateName} step={3} totalSteps={4} />
         <div className="flex-1 px-5 py-8 sm:px-16">
           <div className="mx-auto max-w-[1260px]">
-            <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.6px] text-[#2f5fe0]">Step 3 of 4 · Performance feedback</p>
+            <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.6px] text-penda-blue">Step 3 of 4 · Performance feedback</p>
             <h1 className="mb-1.5 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[26px]">Rate their work — with an example for each</h1>
             <p className="mb-6 text-sm text-[#475467]">A specific example is more useful to us than the rating alone.</p>
             {verifiedNote}
@@ -835,7 +834,7 @@ function RefereeForm() {
               {cards.map((c) => (
                 <div key={c.key} className="rounded-[14px] border border-[#e4e7ec] p-[22px]">
                   <div className="mb-4 flex items-center gap-2.5">
-                    <div className="flex h-[26px] w-[26px] items-center justify-center rounded-[8px] bg-[#2f5fe0] text-[13px] font-extrabold text-white">
+                    <div className="flex h-[26px] w-[26px] items-center justify-center rounded-[8px] bg-penda-blue text-[13px] font-extrabold text-white">
                       {c.badge}
                     </div>
                     <div className="text-[14.5px] font-bold text-[#101828]">{c.title}</div>
@@ -865,7 +864,7 @@ function RefereeForm() {
       <RefereeTopBar candidateName={data.candidateName} step={4} totalSteps={4} />
       <form onSubmit={handleSubmit} className="flex-1 px-5 py-8 sm:px-16">
         <div className="mx-auto max-w-[1180px]">
-          <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.6px] text-[#2f5fe0]">Step 4 of 4 · Strengths &amp; recommendation</p>
+          <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.6px] text-penda-blue">Step 4 of 4 · Strengths &amp; recommendation</p>
           <h1 className="mb-2 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[26px]">Last few things</h1>
           {verifiedNote}
 
@@ -900,7 +899,7 @@ function RefereeForm() {
                   <div>
                     <div className="mb-2 flex items-center gap-1.5">
                       <p className="text-[12.5px] font-semibold text-[#344054]">Any compliance, safety, or patient-care incidents you&apos;re aware of?</p>
-                      <span className="rounded-full bg-[#f4effc] px-[7px] py-[2px] text-[10px] font-bold uppercase tracking-[0.3px] text-[#5b3aa8]">
+                      <span className="rounded-full bg-ips-bg px-[7px] py-[2px] text-[10px] font-bold uppercase tracking-[0.3px] text-ips-fg">
                         Clinical roles
                       </span>
                     </div>
@@ -943,7 +942,7 @@ function RefereeForm() {
                 type="checkbox"
                 checked={consentToContact}
                 onChange={(e) => setConsentToContact(e.target.checked)}
-                className="mt-0.5 h-4 w-4 accent-[#2f5fe0]"
+                className="mt-0.5 h-4 w-4 accent-penda-blue"
               />
               I&apos;m comfortable being contacted if Penda Health needs to follow up on my answers.
             </label>

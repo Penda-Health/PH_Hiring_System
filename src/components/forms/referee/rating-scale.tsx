@@ -18,7 +18,7 @@ export function RatingScale({ value, onChange }: { value: number; onChange: (n: 
             onClick={() => onChange(n)}
             className={cn(
               "flex-1 border-r border-[#e4e7ec] py-2.5 text-center text-[10.5px] leading-tight last:border-r-0",
-              selected ? "bg-[#eef2ff] font-bold text-[#2f5fe0]" : "font-semibold text-[#98a2b3]"
+              selected ? "bg-penda-blue-light font-bold text-penda-blue" : "font-semibold text-[#98a2b3]"
             )}
           >
             {n}
