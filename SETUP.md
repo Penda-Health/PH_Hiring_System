@@ -1023,7 +1023,7 @@ convention as the work-trial report.
 
 **AI insights layer (page 1, dashboard card, and Penny).**
 `src/lib/ai/reference-check-summary.ts` calls the same AI provider setup as
-Penny (§7 — defaults to Groq's Llama 3.3) to produce a genuine analysis, not
+Penny (§7 — defaults to Groq's GPT-OSS 120B) to produce a genuine analysis, not
 just a one-line summary: an overall recommendation status, a plain-English
 summary, a recommendation score and overall score (both 1–5), a confidence
 score (0–100%, capped at 60% until every referee who was sent a link has
@@ -1251,9 +1251,11 @@ decision also includes candidate and referee names so its summaries read as
 specific and useful rather than generic; that's a scoped exception, not a
 blanket relaxation of this policy.
 
-1. **Groq** (hosts Llama 3.3) — sign up at
+1. **Groq** (hosts GPT-OSS 120B) — sign up at
    [console.groq.com/keys](https://console.groq.com/keys), create a key, put
-   it in `GROQ_API_KEY`.
+   it in `GROQ_API_KEY`. (Groq deprecated the previous default, Llama 3.3
+   70B, on its free/developer tier on 2026-06-17 — GPT-OSS 120B is their
+   recommended replacement, same free tier, same key.)
 2. **Gemini** — get a free key at
    [aistudio.google.com/apikey](https://aistudio.google.com/apikey), put it
    in `GOOGLE_GENERATIVE_AI_API_KEY`. Note: Google's free/AI-Studio tier ToS
