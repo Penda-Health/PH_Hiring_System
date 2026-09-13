@@ -27,6 +27,7 @@ const GREY = rgb(0.42, 0.43, 0.46);
 const WHITE = rgb(1, 1, 1);
 const GREEN = rgb(0.11, 0.5, 0.24);
 const RED = rgb(0.83, 0.19, 0.19);
+const AMBER = rgb(0.72, 0.5, 0.09);
 
 const LOGO_PATH = path.join(process.cwd(), "public", "assets", "logo.png");
 
@@ -318,6 +319,46 @@ function drawAiSummarySection(ctx: Ctx, insights: ReferenceCheckAiInsights) {
   }
 }
 
+// Colors for the overall recommend-hire badge — bucketed the same way for
+// both the current 4-option scale and a legacy 1-5 overallRecommendScore
+// (see recommendHireFromLegacyScore) so old and new reports render a
+// comparable badge.
+function recommendHireColor(label: string) {
+  if (label === "Strongly Recommend" || label === "Recommend") return GREEN;
+  if (label === "Recommend with Reservations") return AMBER;
+  if (label === "Do Not Recommend") return RED;
+  return GREY;
+}
+
+function recommendHireFromLegacyScore(score: number): string {
+  if (score >= 5) return "Strongly Recommend";
+  if (score >= 4) return "Recommend";
+  if (score >= 2) return "Recommend with Reservations";
+  return "Do Not Recommend";
+}
+
+function drawRecommendBadge(ctx: Ctx, label: string) {
+  const rowH = 26;
+  ensureSpace(ctx, rowH + 12);
+  const text = label.toUpperCase();
+  const textSize = 10;
+  const textW = ctx.bold.widthOfTextAtSize(text, textSize);
+  const badgeW = textW + 24;
+  const badgeH = 20;
+  const labelY = ctx.y - rowH / 2 - 3;
+  ctx.page.drawText("OVERALL RECOMMENDATION", { x: MARGIN, y: labelY, size: 8.5, font: ctx.bold, color: GREY });
+  const badgeX = MARGIN + 170;
+  ctx.page.drawRectangle({
+    x: badgeX,
+    y: ctx.y - rowH / 2 - badgeH / 2,
+    width: badgeW,
+    height: badgeH,
+    color: recommendHireColor(label),
+  });
+  ctx.page.drawText(text, { x: badgeX + 12, y: ctx.y - rowH / 2 - 4, size: textSize, font: ctx.bold, color: WHITE });
+  ctx.y -= rowH + 10;
+}
+
 function drawRefereeSection(ctx: Ctx, num: number, referee: RefereeStatus) {
   ensureSpace(ctx, 40);
   drawSectionHeading(ctx, `Referee ${num}: ${referee.name || "—"}`);
@@ -348,41 +389,86 @@ function drawRefereeSection(ctx: Ctx, num: number, referee: RefereeStatus) {
       ? `${referee.employmentFrom ?? "—"} to ${referee.stillEmployed ? "present" : referee.employmentTo ?? "—"}`
       : "—";
 
+  // `reportingRelationship` replaces the old standalone directlySupervised
+  // yes/no question — historical records only have the latter.
+  const reportingRelationship =
+    referee.reportingRelationship ?? (referee.directlySupervised ? "Reported directly to me" : undefined);
+
   drawFactGrid(ctx, [
     { label: "Email", value: referee.email },
     { label: "Phone", value: referee.phone },
-    {
-      label: "Relationship to candidate",
-      value: referee.relationship ? `${referee.relationship}${referee.directlySupervised ? " (direct supervisor)" : ""}` : "—",
-    },
-    { label: "How long they've known the candidate", value: referee.durationKnown ?? "—" },
-    { label: "Employment period", value: employmentPeriod },
     { label: "Responded", value: fmtDate(referee.respondedAt) },
     { label: "Identity verification", value: verificationLabel },
   ]);
 
   drawFactGrid(ctx, [
-    { label: "Technical score", value: scoreLabel(referee.techScore) },
-    { label: "Reliability score", value: scoreLabel(referee.reliabilityScore) },
-    { label: "Teamwork score", value: scoreLabel(referee.teamworkScore) },
-    { label: "Problem solving score", value: scoreLabel(referee.problemSolvingScore) },
-    { label: "Adaptability score", value: scoreLabel(referee.adaptabilityScore) },
-    { label: "Overall recommendation", value: scoreLabel(referee.overallRecommendScore) },
-    { label: "Would rehire", value: referee.wouldRehire ?? "—" },
+    {
+      label: "Relationship to candidate",
+      value: referee.relationship
+        ? `${referee.relationship}${reportingRelationship ? ` (${reportingRelationship})` : ""}`
+        : "—",
+    },
+    { label: "Referee's organization", value: referee.refereeOrganization ?? "—" },
+    { label: "How long they've known the candidate", value: referee.durationKnown ?? "—" },
+    { label: "How often they interacted", value: referee.interactionFrequency ?? "—" },
+    { label: "Candidate's job title (as recalled)", value: referee.jobTitleRecalled ?? "—" },
+    { label: "Employment period", value: employmentPeriod },
+    { label: "Who the candidate reported to", value: referee.reportedTo ?? "—" },
+    { label: "Reason for leaving", value: referee.leavingReason ?? "—" },
+  ]);
+
+  drawParagraphSection(ctx, "Main responsibilities", referee.mainResponsibilities);
+
+  // Execution/teamwork/communication is the current form's core performance
+  // block, each rating paired with a supporting example. Historical records
+  // only have the old tech/reliability scores and never collected an
+  // example for them — those fall back onto the execution rating.
+  const executionScore = referee.executionScore ?? referee.techScore ?? referee.reliabilityScore;
+  drawParagraphSection(ctx, `Execution & performance — ${scoreLabel(executionScore)}`, referee.executionExample);
+  drawParagraphSection(ctx, `Teamwork & collaboration — ${scoreLabel(referee.teamworkScore)}`, referee.teamworkExample);
+  drawParagraphSection(ctx, `Communication — ${scoreLabel(referee.communicationScore)}`, referee.communicationExample);
+  if (referee.problemSolvingScore !== undefined || referee.adaptabilityScore !== undefined) {
+    drawFactGrid(ctx, [
+      { label: "Problem solving score (legacy field)", value: scoreLabel(referee.problemSolvingScore) },
+      { label: "Adaptability score (legacy field)", value: scoreLabel(referee.adaptabilityScore) },
+    ]);
+  }
+
+  // Historical records only have the old two-field strengthExample/
+  // developmentAreas pair, or the previous redesign's merged field.
+  const topStrengths =
+    referee.topStrengths?.trim() ||
+    referee.strengthExample?.trim() ||
+    referee.strengthsAndDevelopment?.trim() ||
+    undefined;
+  const coachingArea = referee.coachingArea?.trim() || referee.developmentAreas?.trim() || undefined;
+  drawParagraphSection(ctx, "Three greatest strengths", topStrengths);
+  drawParagraphSection(ctx, "One area for coaching", coachingArea);
+
+  drawFactGrid(ctx, [
+    {
+      label: "Would rehire",
+      value: referee.wouldRehire
+        ? `${referee.wouldRehire}${referee.wouldRehireExplanation ? ` — ${referee.wouldRehireExplanation}` : ""}`
+        : "—",
+    },
+    { label: "Response to feedback", value: referee.feedbackResponse ?? "—" },
     { label: "Honesty/integrity concerns", value: referee.honestyConcerns ?? "—" },
     ...(referee.complianceIncidents ? [{ label: "Compliance incidents", value: referee.complianceIncidents }] : []),
     ...(referee.licenseStanding ? [{ label: "License/registration standing", value: referee.licenseStanding }] : []),
   ]);
 
-  // Historical records only have the old two-field strengthExample/
-  // developmentAreas pair; the redesigned form writes one merged field.
-  const strengthsAndDevelopment =
-    referee.strengthsAndDevelopment?.trim() ||
-    [referee.strengthExample?.trim(), referee.developmentAreas?.trim()].filter(Boolean).join("\n\n") ||
-    undefined;
+  const recommendHireLabel =
+    referee.recommendHire ??
+    (referee.overallRecommendScore !== undefined ? recommendHireFromLegacyScore(referee.overallRecommendScore) : undefined);
+  if (recommendHireLabel) drawRecommendBadge(ctx, recommendHireLabel);
 
-  drawParagraphSection(ctx, "Strengths and areas for development", strengthsAndDevelopment);
-  drawParagraphSection(ctx, "Handling pressure, conflict, or a tough decision", referee.conflictExample);
+  // Deprecated free-text field — only ever populated on historical records,
+  // so it's omitted entirely (rather than showing "Not provided.") once a
+  // report has nothing there.
+  if (referee.conflictExample?.trim()) {
+    drawParagraphSection(ctx, "Handling pressure, conflict, or a tough decision (legacy field)", referee.conflictExample);
+  }
   drawParagraphSection(ctx, "Additional notes", referee.notes, "No additional notes.");
 }
 

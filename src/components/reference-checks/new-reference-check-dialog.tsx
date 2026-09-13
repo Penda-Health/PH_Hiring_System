@@ -120,6 +120,7 @@ export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
         verifiedAt: now,
         verifiedBy: user?.name || user?.email || "",
         initiatedAt: now,
+        reportPdfUrl: null,
         aiInsights: null,
       };
       await onCreate(refCheck);

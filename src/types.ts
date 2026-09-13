@@ -314,18 +314,26 @@ export interface WorkTrial {
   specialty?: string;
 }
 
-// The 4-option set is what the redesigned /referee form writes going
-// forward. The last two are legacy values from before the redesign — still
-// valid on old records (never removed from the live Airtable single-select
-// to avoid orphaning historical data), but no longer offered or accepted on
-// new submissions.
+// The first 3 are what the current (Sept 2026) /referee redesign writes
+// going forward — a simple Yes / With reservations / No scale. Everything
+// after that is legacy: "Yes, without hesitation" etc. was the *previous*
+// redesign's 4-option set, and "Yes, with some reservations" /
+// "No, I would not recommend them" predate that one. None of the legacy
+// values are ever removed from the live Airtable single-select (that would
+// orphan historical data) — they just stop being offered or accepted on new
+// submissions.
 export type RehireAnswer =
+  | "Yes"
+  | "With reservations"
+  | "No"
   | "Yes, without hesitation"
   | "Yes, with reservations"
-  | "No"
   | "Unsure"
   | "Yes, with some reservations"
   | "No, I would not recommend them";
+
+/** Overall "would you recommend hiring them" scale — step 4 of the current /referee form. Mirrors `ReferenceCheckAiInsights.overallStatus`'s own enum. */
+export type RecommendHireAnswer = "Strongly Recommend" | "Recommend" | "Recommend with Reservations" | "Do Not Recommend";
 
 export interface RefereeStatus {
   name: string;
@@ -336,28 +344,64 @@ export interface RefereeStatus {
   responded: boolean;
   respondedAt?: string;
   relationship?: string;
-  /** Whether the referee directly supervised the candidate (redesigned form, step 2). */
+  /** Derived server-side from `reportingRelationship === "Reported directly to me"` — no longer a standalone question the referee answers directly. */
   directlySupervised?: boolean;
+  /** "Their reporting relationship to you" — redesigned form, step 2. */
+  reportingRelationship?: "Reported directly to me" | "Reported to someone else, but I worked closely with them" | "We were peers / colleagues" | "I reported to them";
+  /** The referee's own organization/employer — redesigned form, step 2. */
+  refereeOrganization?: string;
+  /** "How often did you interact?" — redesigned form, step 2. */
+  interactionFrequency?: "Daily" | "A few times a week" | "Weekly" | "A few times a month" | "Rarely";
   durationKnown?: string;
+  /** The candidate's job title, as the referee recalls it — redesigned form, step 2. */
+  jobTitleRecalled?: string;
   /** Employment period the referee is speaking to, "YYYY-MM". */
   employmentFrom?: string;
   /** Absent + stillEmployed=true reads as "present". */
   employmentTo?: string;
   stillEmployed?: boolean;
+  /** The candidate's main responsibilities, as the referee recalls them — redesigned form, step 2. */
+  mainResponsibilities?: string;
+  /** Who the candidate reported to (name/title) — redesigned form, step 2. */
+  reportedTo?: string;
+  /** Why the candidate left (or that they're still there) — redesigned form, step 2. */
+  leavingReason?: "Still employed there" | "Resigned" | "Contract ended" | "Laid off / restructuring" | "Terminated" | "Not sure";
+  /** @deprecated Pre-redesign field. Kept for historical records only. */
   techScore?: number;
+  /** @deprecated Pre-redesign field. Kept for historical records only. */
   reliabilityScore?: number;
+  /** "Teamwork & collaboration" 1-5 rating — E-T-C framework, step 3. */
   teamworkScore?: number;
-  /** Added in the redesign, alongside tech/reliability/teamwork. */
+  /** @deprecated Pre-redesign field. Kept for historical records only. */
   problemSolvingScore?: number;
+  /** @deprecated Pre-redesign field. Kept for historical records only. */
   adaptabilityScore?: number;
+  /** "Execution & performance" 1-5 rating — E-T-C framework, step 3. */
+  executionScore?: number;
+  /** Specific example backing the execution rating — step 3. */
+  executionExample?: string;
+  /** Specific example backing the teamwork rating — step 3. */
+  teamworkExample?: string;
+  /** "Communication" 1-5 rating — E-T-C framework, step 3. */
+  communicationScore?: number;
+  /** Specific example backing the communication rating — step 3. */
+  communicationExample?: string;
   wouldRehire?: RehireAnswer;
+  /** Free-text explanation backing the `wouldRehire` pill — step 2. */
+  wouldRehireExplanation?: string;
   /** @deprecated Pre-redesign field. Kept for historical records; new submissions write `strengthsAndDevelopment` instead. */
   strengthExample?: string;
   /** @deprecated Pre-redesign field. Kept for historical records; new submissions write `strengthsAndDevelopment` instead. */
   developmentAreas?: string;
-  /** Merged replacement for strengthExample + developmentAreas, introduced in the redesign. */
+  /** @deprecated Previous-redesign field. Kept for historical records; new submissions write `topStrengths` + `coachingArea` instead. */
   strengthsAndDevelopment?: string;
-  /** "How did they handle pressure, conflict, or a tough decision?" — redesigned form, step 3. */
+  /** "Their three greatest strengths" — step 4. */
+  topStrengths?: string;
+  /** "One area where they needed coaching or support" — step 4. */
+  coachingArea?: string;
+  /** "How did they respond to feedback or criticism?" — step 4. */
+  feedbackResponse?: "Openly, and applied it" | "Mixed" | "Defensively";
+  /** @deprecated Previous-redesign field ("How did they handle pressure, conflict, or a tough decision?"). Kept for historical records only. */
   conflictExample?: string;
   honestyConcerns?: "No concerns" | "Some concerns" | "Prefer to discuss by phone";
   /** Clinical (IPS) roles only — not asked of Support Office referees. */
@@ -366,8 +410,10 @@ export interface RefereeStatus {
   licenseStanding?: "Yes" | "No" | "N/A" | "Not sure";
   /** Shown/collected only when honestyConcerns or complianceIncidents is "Prefer to discuss by phone". */
   preferPhoneNumber?: string;
-  /** The referee's own overall 1-5 recommendation — distinct from the AI's recommendationScore. */
+  /** @deprecated Pre-redesign 1-5 field. Kept for historical records; new submissions write `recommendHire` instead. */
   overallRecommendScore?: number;
+  /** Overall "would you recommend hiring them" scale — step 4, replaces `overallRecommendScore`. */
+  recommendHire?: RecommendHireAnswer;
   /** "OK to contact you again if we have follow-up questions?" */
   consentToContact?: boolean;
   notes?: string;
@@ -379,6 +425,8 @@ export interface RefereeStatus {
   googleVerifiedOverrideBy?: string;
   /** True once a reminder email has gone out for this referee's 24h-no-response nudge. */
   reminder24hSent?: boolean;
+  /** True once a reminder has gone out for this referee's 48h-no-response nudge — same convention as reminder24hSent, one stage further out. Not yet wired to an actual send (see the recruiter-facing "chase referee" pending task, which nudges in-app off elapsed time alone); this flag is here so a follow-up automation/script can mark one sent without re-sending on every run. */
+  reminder48hSent?: boolean;
 }
 
 /** How a reference check got started — see the two-initiation-path design in SETUP.md. */
@@ -451,6 +499,13 @@ export interface ReferenceCheck {
   initiatedAt: string | null;
   /** Persisted AI analysis, null until generated (or if generation has never succeeded). */
   aiInsights: ReferenceCheckAiInsights | null;
+  /**
+   * Permanent PDF backup, auto-generated and attached to Airtable the moment
+   * the check reaches "Ready for Offer" (see submitRefereeForm) — independent
+   * of this app so the record survives even if the report route/generation
+   * logic changes later. Null until that first attach succeeds.
+   */
+  reportPdfUrl: string | null;
 }
 
 export interface Offer {

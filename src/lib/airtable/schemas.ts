@@ -238,41 +238,72 @@ const refereeStatusSchema = z.object({
   respondedAt: z.string().max(40).optional(),
   relationship: z.string().trim().max(100).optional(),
   directlySupervised: z.boolean().optional(),
+  reportingRelationship: z
+    .enum([
+      "Reported directly to me",
+      "Reported to someone else, but I worked closely with them",
+      "We were peers / colleagues",
+      "I reported to them",
+    ])
+    .optional(),
+  refereeOrganization: z.string().trim().max(150).optional(),
   durationKnown: z.string().trim().max(100).optional(),
+  interactionFrequency: z.enum(["Daily", "A few times a week", "Weekly", "A few times a month", "Rarely"]).optional(),
+  jobTitleRecalled: z.string().trim().max(150).optional(),
   employmentFrom: z.string().max(40).optional(),
   employmentTo: z.string().max(40).optional(),
   stillEmployed: z.boolean().optional(),
+  mainResponsibilities: z.string().trim().max(2000).optional(),
+  reportedTo: z.string().trim().max(150).optional(),
+  leavingReason: z
+    .enum(["Still employed there", "Resigned", "Contract ended", "Laid off / restructuring", "Terminated", "Not sure"])
+    .optional(),
   techScore: z.number().min(0).max(5).optional(),
   reliabilityScore: z.number().min(0).max(5).optional(),
+  executionScore: z.number().min(0).max(5).optional(),
+  executionExample: z.string().trim().max(3000).optional(),
   teamworkScore: z.number().min(0).max(5).optional(),
+  teamworkExample: z.string().trim().max(3000).optional(),
+  communicationScore: z.number().min(0).max(5).optional(),
+  communicationExample: z.string().trim().max(3000).optional(),
   problemSolvingScore: z.number().min(0).max(5).optional(),
   adaptabilityScore: z.number().min(0).max(5).optional(),
   wouldRehire: z
     .enum([
+      // Current redesign — what the /referee form now offers/writes.
+      "Yes",
+      "With reservations",
+      "No",
+      // Legacy values from two earlier generations of this form — still
+      // valid on old records.
       "Yes, without hesitation",
       "Yes, with reservations",
-      "No",
       "Unsure",
-      // Legacy values from before the redesign — still valid on old records.
       "Yes, with some reservations",
       "No, I would not recommend them",
     ])
     .optional(),
+  wouldRehireExplanation: z.string().trim().max(2000).optional(),
   strengthExample: z.string().trim().max(3000).optional(),
   developmentAreas: z.string().trim().max(3000).optional(),
   strengthsAndDevelopment: z.string().trim().max(3000).optional(),
+  topStrengths: z.string().trim().max(2000).optional(),
+  coachingArea: z.string().trim().max(2000).optional(),
+  feedbackResponse: z.enum(["Openly, and applied it", "Mixed", "Defensively"]).optional(),
   conflictExample: z.string().trim().max(3000).optional(),
   honestyConcerns: z.enum(["No concerns", "Some concerns", "Prefer to discuss by phone"]).optional(),
   complianceIncidents: z.enum(["None that I know of", "Yes", "Prefer to discuss by phone"]).optional(),
   licenseStanding: z.enum(["Yes", "No", "N/A", "Not sure"]).optional(),
   preferPhoneNumber: z.string().trim().max(30).optional(),
   overallRecommendScore: z.number().min(0).max(5).optional(),
+  recommendHire: z.enum(["Strongly Recommend", "Recommend", "Recommend with Reservations", "Do Not Recommend"]).optional(),
   consentToContact: z.boolean().optional(),
   notes: z.string().trim().max(2000).optional(),
   googleVerified: z.boolean().optional(),
   googleVerifiedEmail: z.string().trim().max(255).optional(),
   googleVerifiedOverrideBy: z.string().trim().max(150).optional(),
   reminder24hSent: z.boolean().optional(),
+  reminder48hSent: z.boolean().optional(),
 });
 
 export const referenceCheckSchema = z.object({
@@ -287,6 +318,7 @@ export const referenceCheckSchema = z.object({
   verifiedAt: z.string().max(40).nullable(),
   verifiedBy: z.string().trim().max(150).nullable(),
   initiatedAt: z.string().max(40).nullable(),
+  reportPdfUrl: z.string().max(2000).nullable().optional(),
 });
 
 export const offerSchema = z.object({

@@ -1,9 +1,17 @@
 // Server-only data access for the public, no-login referee reference-check
 // form, prefilled from a signed token rather than a Supabase session.
-import { getRecord, updateRecord, cleanFields } from "@/lib/airtable/client";
+import { getRecord, updateRecord, cleanFields, uploadAttachment } from "@/lib/airtable/client";
 import { TABLE_NAMES, F } from "@/lib/airtable/field-names";
-import { candidateFromAirtable, openRoleFromAirtable, referenceCheckFromAirtable } from "@/lib/airtable/mappers";
-import { RehireAnswer, ReferenceCheckStatus, Segment } from "@/types";
+import {
+  candidateFromAirtable,
+  openRoleFromAirtable,
+  referenceCheckFromAirtable,
+  referenceCheckToAirtable,
+} from "@/lib/airtable/mappers";
+import { RecommendHireAnswer, ReferenceCheckStatus, Segment } from "@/types";
+import { loadReferenceCheckReportData } from "@/lib/reports/reference-check-report";
+import { generateReferenceCheckReportPdf } from "@/lib/reports/reference-check-report-pdf";
+import { generateReferenceCheckInsights } from "@/lib/ai/reference-check-summary";
 
 export type RefereeFormData = {
   candidateName: string;
@@ -14,6 +22,8 @@ export type RefereeFormData = {
   segment: Segment | "";
   refereeName: string;
   refereeEmail: string;
+  /** Phone number captured at intake, if any — prefills step 2's phone field so the referee only has to confirm/correct it. */
+  refereePhone: string;
   alreadySubmitted: boolean;
   googleVerified: boolean;
 };
@@ -51,6 +61,7 @@ export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2 
     segment: candidate.segment ?? "",
     refereeName: referee.name,
     refereeEmail: referee.email,
+    refereePhone: referee.phone,
     alreadySubmitted: referee.responded,
     googleVerified: !!referee.googleVerified || !!referee.googleVerifiedOverrideBy,
   };
@@ -58,25 +69,43 @@ export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2 
 
 export type RefereeSubmission = {
   relationship: string;
-  directlySupervised: boolean;
+  // Replaces the old standalone `directlySupervised` yes/no question —
+  // `directlySupervised` itself is now derived server-side (see below) from
+  // this answer, rather than asked directly.
+  reportingRelationship:
+    | "Reported directly to me"
+    | "Reported to someone else, but I worked closely with them"
+    | "We were peers / colleagues"
+    | "I reported to them";
+  refereeOrganization: string;
+  /** The referee's own confirmed/corrected phone number (prefilled from intake — see RefereeFormData.refereePhone). */
+  phone?: string;
   durationKnown: string;
+  interactionFrequency: "Daily" | "A few times a week" | "Weekly" | "A few times a month" | "Rarely";
+  jobTitleRecalled: string;
   employmentFrom?: string;
   employmentTo?: string;
   stillEmployed: boolean;
-  techScore: number;
-  reliabilityScore: number;
+  mainResponsibilities: string;
+  reportedTo?: string;
+  leavingReason: "Still employed there" | "Resigned" | "Contract ended" | "Laid off / restructuring" | "Terminated" | "Not sure";
+  executionScore: number;
+  executionExample: string;
   teamworkScore: number;
-  problemSolvingScore: number;
-  adaptabilityScore: number;
-  wouldRehire: RehireAnswer;
-  strengthsAndDevelopment: string;
-  conflictExample: string;
+  teamworkExample: string;
+  communicationScore: number;
+  communicationExample: string;
+  wouldRehire: "Yes" | "With reservations" | "No";
+  wouldRehireExplanation: string;
+  topStrengths: string;
+  coachingArea: string;
+  feedbackResponse: "Openly, and applied it" | "Mixed" | "Defensively";
   honestyConcerns: "No concerns" | "Some concerns" | "Prefer to discuss by phone";
   // Clinical (IPS) roles only — the form omits these for Support Office referees.
   complianceIncidents?: "None that I know of" | "Yes" | "Prefer to discuss by phone";
   licenseStanding?: "Yes" | "No" | "N/A" | "Not sure";
   preferPhoneNumber?: string;
-  overallRecommendScore: number;
+  recommendHire: RecommendHireAnswer;
   consentToContact: boolean;
   notes?: string;
 };
@@ -122,6 +151,10 @@ export async function submitRefereeForm(
 ): Promise<void> {
   const prefix = REFEREE_NUM_PREFIXES[refereeNum - 1];
   const keys = F.ReferenceChecks as Record<string, string>;
+  // `directlySupervised` is derived from `reportingRelationship` rather than
+  // asked directly (see RefereeSubmission) — kept as its own field so AI
+  // insights / the PDF report can keep reading it unchanged.
+  const directlySupervised = submission.reportingRelationship === "Reported directly to me";
   await updateRecord(
     TABLE_NAMES.ReferenceChecks,
     refCheckId,
@@ -129,24 +162,35 @@ export async function submitRefereeForm(
       [keys[`${prefix}_RESPONDED`]]: true,
       [keys[`${prefix}_RESPONDED_AT`]]: new Date().toISOString().slice(0, 10),
       [keys[`${prefix}_RELATIONSHIP`]]: submission.relationship,
-      [keys[`${prefix}_DIRECTLY_SUPERVISED`]]: submission.directlySupervised,
+      [keys[`${prefix}_DIRECTLY_SUPERVISED`]]: directlySupervised,
+      [keys[`${prefix}_REPORTING_RELATIONSHIP`]]: submission.reportingRelationship,
+      [keys[`${prefix}_ORGANIZATION`]]: submission.refereeOrganization,
+      [keys[`${prefix}_PHONE`]]: submission.phone,
       [keys[`${prefix}_DURATION_KNOWN`]]: submission.durationKnown,
+      [keys[`${prefix}_INTERACTION_FREQUENCY`]]: submission.interactionFrequency,
+      [keys[`${prefix}_JOB_TITLE_RECALLED`]]: submission.jobTitleRecalled,
       [keys[`${prefix}_EMPLOYMENT_FROM`]]: submission.employmentFrom,
       [keys[`${prefix}_EMPLOYMENT_TO`]]: submission.employmentTo,
       [keys[`${prefix}_STILL_EMPLOYED`]]: submission.stillEmployed,
-      [keys[`${prefix}_TECH_SCORE`]]: submission.techScore,
-      [keys[`${prefix}_RELIABILITY_SCORE`]]: submission.reliabilityScore,
+      [keys[`${prefix}_MAIN_RESPONSIBILITIES`]]: submission.mainResponsibilities,
+      [keys[`${prefix}_REPORTED_TO`]]: submission.reportedTo,
+      [keys[`${prefix}_LEAVING_REASON`]]: submission.leavingReason,
+      [keys[`${prefix}_EXECUTION_SCORE`]]: submission.executionScore,
+      [keys[`${prefix}_EXECUTION_EXAMPLE`]]: submission.executionExample,
       [keys[`${prefix}_TEAMWORK_SCORE`]]: submission.teamworkScore,
-      [keys[`${prefix}_PROBLEM_SOLVING_SCORE`]]: submission.problemSolvingScore,
-      [keys[`${prefix}_ADAPTABILITY_SCORE`]]: submission.adaptabilityScore,
+      [keys[`${prefix}_TEAMWORK_EXAMPLE`]]: submission.teamworkExample,
+      [keys[`${prefix}_COMMUNICATION_SCORE`]]: submission.communicationScore,
+      [keys[`${prefix}_COMMUNICATION_EXAMPLE`]]: submission.communicationExample,
       [keys[`${prefix}_WOULD_REHIRE`]]: submission.wouldRehire,
-      [keys[`${prefix}_STRENGTHS_AND_DEVELOPMENT`]]: submission.strengthsAndDevelopment,
-      [keys[`${prefix}_CONFLICT_EXAMPLE`]]: submission.conflictExample,
+      [keys[`${prefix}_WOULD_REHIRE_EXPLANATION`]]: submission.wouldRehireExplanation,
+      [keys[`${prefix}_TOP_STRENGTHS`]]: submission.topStrengths,
+      [keys[`${prefix}_COACHING_AREA`]]: submission.coachingArea,
+      [keys[`${prefix}_FEEDBACK_RESPONSE`]]: submission.feedbackResponse,
       [keys[`${prefix}_HONESTY_CONCERNS`]]: submission.honestyConcerns,
       [keys[`${prefix}_COMPLIANCE_INCIDENTS`]]: submission.complianceIncidents,
       [keys[`${prefix}_LICENSE_STANDING`]]: submission.licenseStanding,
       [keys[`${prefix}_PREFER_PHONE_NUMBER`]]: submission.preferPhoneNumber,
-      [keys[`${prefix}_OVERALL_RECOMMEND_SCORE`]]: submission.overallRecommendScore,
+      [keys[`${prefix}_RECOMMEND_HIRE`]]: submission.recommendHire,
       [keys[`${prefix}_CONSENT_TO_CONTACT`]]: submission.consentToContact,
       [keys[`${prefix}_NOTES`]]: submission.notes,
     })
@@ -186,5 +230,39 @@ export async function submitRefereeForm(
         );
       }
     }
+
+    // Permanent PDF backup: generate the same report the dashboard's
+    // download/preview uses and attach it to this record, independent of
+    // this app. Best-effort — a failure here must never fail the referee's
+    // submission, which has already been recorded above.
+    await attachReportPdf(refCheckId);
+  }
+}
+
+async function attachReportPdf(refCheckId: string): Promise<void> {
+  try {
+    const data = await loadReferenceCheckReportData(refCheckId);
+    if (!data) return;
+    let aiInsights = data.aiInsights;
+    if (!aiInsights) {
+      aiInsights = await generateReferenceCheckInsights(data);
+      if (aiInsights) {
+        await updateRecord(TABLE_NAMES.ReferenceChecks, refCheckId, referenceCheckToAirtable({ aiInsights }));
+      }
+    }
+    const pdfBytes = await generateReferenceCheckReportPdf(data, aiInsights);
+    const filename = `Reference Check Report - ${data.candidateName} (${data.refId}).pdf`.replace(/[/\\]/g, "-");
+
+    // uploadAttachment only appends — clear the field first so a later
+    // referee's response (3rd/4th, if any) replaces the backup rather than
+    // stacking a duplicate alongside it.
+    await updateRecord(TABLE_NAMES.ReferenceChecks, refCheckId, cleanFields({ [F.ReferenceChecks.REPORT_PDF]: [] }));
+    await uploadAttachment(TABLE_NAMES.ReferenceChecks, refCheckId, F.ReferenceChecks.REPORT_PDF, {
+      filename,
+      contentType: "application/pdf",
+      base64: Buffer.from(pdfBytes).toString("base64"),
+    });
+  } catch (err) {
+    console.error("[referee-form] failed to attach PDF backup:", err);
   }
 }

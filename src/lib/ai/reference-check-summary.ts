@@ -94,30 +94,68 @@ type GeneratedInsights = z.infer<typeof referenceCheckAiInsightsSchema>;
 // this differs from the earlier, more conservative version of this function.
 function describeReferee(num: number, r: RefereeStatus): string {
   if (!r.responded) return `Referee ${num} (${r.name || "not provided"}): did not respond.`;
+
+  // Historical records only ever wrote `directlySupervised` directly; the
+  // redesigned form derives it from this richer field instead.
+  const reportingRelationship = r.reportingRelationship ?? (r.directlySupervised ? "Reported directly to me" : undefined);
   // Historical records only have the old two-field strengthExample/
-  // developmentAreas pair; the redesigned form writes one merged field.
-  const strengthsAndDevelopment =
+  // developmentAreas pair, or the previous redesign's merged field; the
+  // current form splits strengths into topStrengths/coachingArea instead.
+  const legacyStrengthsAndDevelopment =
     r.strengthsAndDevelopment?.trim() ||
     [r.strengthExample?.trim(), r.developmentAreas?.trim()].filter(Boolean).join("\n") ||
-    "not provided";
-  return [
+    undefined;
+
+  const lines = [
     `Referee ${num}: ${r.name || "not provided"} (${r.email || "no email on file"})`,
-    `- Relationship to candidate: ${r.relationship ?? "not stated"}${r.directlySupervised ? " (directly supervised the candidate)" : ""}`,
-    `- How long they've known the candidate: ${r.durationKnown ?? "not stated"}`,
-    `- Technical score: ${r.techScore ?? "—"}/5`,
-    `- Reliability score: ${r.reliabilityScore ?? "—"}/5`,
-    `- Teamwork score: ${r.teamworkScore ?? "—"}/5`,
-    `- Problem solving score: ${r.problemSolvingScore ?? "—"}/5`,
-    `- Adaptability score: ${r.adaptabilityScore ?? "—"}/5`,
-    `- Would rehire: ${r.wouldRehire ?? "not stated"}`,
-    `- Strengths and areas for development: ${strengthsAndDevelopment}`,
-    `- How they handle pressure, conflict, or a tough decision: ${r.conflictExample?.trim() || "not provided"}`,
-    `- Honesty/integrity concerns: ${r.honestyConcerns ?? "not stated"}`,
-    ...(r.complianceIncidents ? [`- Compliance incidents: ${r.complianceIncidents}`] : []),
-    ...(r.licenseStanding ? [`- License/registration standing: ${r.licenseStanding}`] : []),
-    `- Overall recommendation score: ${r.overallRecommendScore ?? "—"}/5`,
-    `- Additional notes: ${r.notes?.trim() || "none"}`,
-  ].join("\n");
+    `- Relationship to candidate: ${r.relationship ?? "not stated"}${reportingRelationship ? ` — ${reportingRelationship}` : ""}`,
+  ];
+  if (r.refereeOrganization) lines.push(`- Referee's organization: ${r.refereeOrganization}`);
+  lines.push(`- How long they've known the candidate: ${r.durationKnown ?? "not stated"}`);
+  if (r.interactionFrequency) lines.push(`- How often they interacted: ${r.interactionFrequency}`);
+  if (r.jobTitleRecalled) lines.push(`- Candidate's job title, as recalled: ${r.jobTitleRecalled}`);
+  if (r.mainResponsibilities) lines.push(`- Main responsibilities: ${r.mainResponsibilities.trim()}`);
+  if (r.reportedTo) lines.push(`- Who the candidate reported to: ${r.reportedTo}`);
+  if (r.leavingReason) lines.push(`- Reason for leaving: ${r.leavingReason}`);
+
+  // Execution/teamwork/communication ratings are the current form's core
+  // performance block. Historical records only have the old tech/
+  // reliability/problem-solving/adaptability scores — fall back to those
+  // so older reference checks still produce a meaningful assessment.
+  if (r.executionScore !== undefined || r.techScore !== undefined || r.reliabilityScore !== undefined) {
+    const score = r.executionScore ?? r.techScore ?? r.reliabilityScore;
+    const example = r.executionExample?.trim();
+    lines.push(`- Execution & performance: ${score ?? "—"}/5${example ? ` — ${example}` : ""}`);
+  }
+  if (r.teamworkScore !== undefined) {
+    const example = r.teamworkExample?.trim();
+    lines.push(`- Teamwork & collaboration: ${r.teamworkScore}/5${example ? ` — ${example}` : ""}`);
+  }
+  if (r.communicationScore !== undefined) {
+    const example = r.communicationExample?.trim();
+    lines.push(`- Communication: ${r.communicationScore}/5${example ? ` — ${example}` : ""}`);
+  }
+  if (r.problemSolvingScore !== undefined) lines.push(`- Problem solving score (legacy field): ${r.problemSolvingScore}/5`);
+  if (r.adaptabilityScore !== undefined) lines.push(`- Adaptability score (legacy field): ${r.adaptabilityScore}/5`);
+
+  const rehireExplanation = r.wouldRehireExplanation?.trim();
+  lines.push(`- Would rehire: ${r.wouldRehire ?? "not stated"}${rehireExplanation ? ` — ${rehireExplanation}` : ""}`);
+
+  if (r.topStrengths) lines.push(`- Three greatest strengths: ${r.topStrengths.trim()}`);
+  if (r.coachingArea) lines.push(`- One area for coaching: ${r.coachingArea.trim()}`);
+  if (legacyStrengthsAndDevelopment) lines.push(`- Strengths and areas for development (legacy field): ${legacyStrengthsAndDevelopment}`);
+  if (r.conflictExample?.trim()) lines.push(`- How they handle pressure, conflict, or a tough decision (legacy field): ${r.conflictExample.trim()}`);
+  if (r.feedbackResponse) lines.push(`- How they respond to feedback: ${r.feedbackResponse}`);
+
+  lines.push(`- Honesty/integrity concerns: ${r.honestyConcerns ?? "not stated"}`);
+  if (r.complianceIncidents) lines.push(`- Compliance incidents: ${r.complianceIncidents}`);
+  if (r.licenseStanding) lines.push(`- License/registration standing: ${r.licenseStanding}`);
+
+  const recommendHire = r.recommendHire ?? (r.overallRecommendScore !== undefined ? `${r.overallRecommendScore}/5 (legacy scale)` : undefined);
+  lines.push(`- Overall recommendation: ${recommendHire ?? "not stated"}`);
+  lines.push(`- Additional notes: ${r.notes?.trim() || "none"}`);
+
+  return lines.join("\n");
 }
 
 export async function generateReferenceCheckInsights(

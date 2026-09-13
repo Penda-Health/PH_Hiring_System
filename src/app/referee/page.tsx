@@ -1,23 +1,24 @@
 "use client";
 
+// Rebuilt to match the design canvas the user supplied (7 artboards: Main,
+// Verify, RelationshipRatings, FeedbackCharacter, Recommendation, ThankYou,
+// Stepper) "exactly the same" — a distinct, self-contained visual system
+// local to this one form (not the shared FormShell other public forms use),
+// down to the exact copy, colors (#2f5fe0 accent, #e4e7ec borders, etc.) and
+// layout of each screen. The one deliberate departure from the canvas: its
+// generic circle+heart-path icon is replaced everywhere with the real Penda
+// mark (see PendaMark in form-shell.tsx / favicon.svg) per the user's request.
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Loader2, AlertTriangle, Info, CheckCircle2, Lock, ArrowRight, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FormShell, FormMessage, FormStatusCard, FormStepper, type FormShellBrand } from "@/components/forms/form-shell";
-import { CheckCircle2 } from "lucide-react";
-import { FormattableTextarea } from "@/components/forms/formattable-textarea";
 import { GoogleSignInButton } from "@/components/forms/google-sign-in-button";
-import { WRITTEN_ASSESSMENT_MIN_LENGTH } from "@/lib/work-trial-helpers";
-
-const BRAND: FormShellBrand = {
-  eyebrow: "Penda Health · Reference Check",
-  headline: "A few honest minutes from you helps us get this hire right.",
-  lede: "You were listed as a reference — your perspective on their work is one of the most valuable inputs we get.",
-  footer: "Questions? careers@pendahealth.com",
-};
+import { PendaMark } from "@/components/forms/form-shell";
+import { RefereeTopBar } from "@/components/forms/referee/top-bar";
+import { ChoiceGroup } from "@/components/forms/referee/choice-group";
+import { RatingScale } from "@/components/forms/referee/rating-scale";
 
 type FormData = {
   candidateName: string;
@@ -26,100 +27,161 @@ type FormData = {
   segment: string;
   refereeName: string;
   refereeEmail: string;
+  refereePhone: string;
   alreadySubmitted: boolean;
   googleVerified: boolean;
 };
 
-const RELATIONSHIPS = ["Direct manager", "Senior colleague", "Peer / colleague", "Client or patient", "Other professional"];
-const DURATIONS = ["Less than 1 year", "1-2 years", "2-5 years", "5+ years"];
-const REHIRE_OPTIONS = ["Yes, without hesitation", "Yes, with reservations", "No", "Unsure"] as const;
+const RELATIONSHIPS = ["Direct manager / supervisor", "Senior colleague", "Peer / colleague", "Client or patient", "Other professional"];
+const REPORTING_RELATIONSHIPS = [
+  "Reported directly to me",
+  "Reported to someone else, but I worked closely with them",
+  "We were peers / colleagues",
+  "I reported to them",
+] as const;
+const DURATIONS = ["Less than 1 year", "1 – 2 years", "2 – 5 years", "5+ years"];
+const INTERACTION_FREQUENCIES = ["Daily", "A few times a week", "Weekly", "A few times a month", "Rarely"] as const;
+const LEAVING_REASONS = ["Still employed there", "Resigned", "Contract ended", "Laid off / restructuring", "Terminated", "Not sure"] as const;
+const WOULD_REHIRE_OPTIONS = ["Yes", "With reservations", "No"] as const;
+const FEEDBACK_RESPONSE_OPTIONS = ["Openly, and applied it", "Mixed", "Defensively"] as const;
 const HONESTY_OPTIONS = ["No concerns", "Some concerns", "Prefer to discuss by phone"] as const;
 const COMPLIANCE_OPTIONS = ["None that I know of", "Yes", "Prefer to discuss by phone"] as const;
 const LICENSE_OPTIONS = ["Yes", "No", "N/A", "Not sure"] as const;
-
-const SCORE_CRITERIA = [
-  { key: "techScore", label: "Technical / professional skills" },
-  { key: "reliabilityScore", label: "Reliability & dependability" },
-  { key: "teamworkScore", label: "Teamwork & collaboration" },
-  { key: "problemSolvingScore", label: "Problem solving" },
-  { key: "adaptabilityScore", label: "Adaptability" },
+const RECOMMEND_HIRE_OPTIONS = [
+  { value: "Strongly Recommend", label: "Strongly recommend" },
+  { value: "Recommend", label: "Recommend" },
+  { value: "Recommend with Reservations", label: "Recommend with reservations" },
+  { value: "Do Not Recommend", label: "Do not recommend" },
 ] as const;
-type ScoreKey = (typeof SCORE_CRITERIA)[number]["key"];
 
 const PREFERS_PHONE = "Prefer to discuss by phone";
+const MIN_EXAMPLE_LENGTH = 20;
+const MIN_TEXT_LENGTH = 10;
 
-function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+// ---------------------------------------------------------------------------
+// Small styled primitives shared by every wizard screen below — plain HTML
+// controls (or the existing Input/Select) restyled to the canvas's look:
+// #e4e7ec borders, 10px radius, 13.5px text, #344054 labels.
+// ---------------------------------------------------------------------------
+
+const fieldClass =
+  "h-auto w-full rounded-[10px] border-[#e4e7ec] px-[13px] py-[11px] text-[13.5px] text-[#101828] placeholder:text-[#98a2b3] focus-visible:ring-[#2f5fe0]/30";
+const selectTriggerClass =
+  "h-auto w-full rounded-[10px] border-[#e4e7ec] px-[13px] py-[11px] text-[13.5px] text-[#101828] focus:ring-[#2f5fe0]/30 data-[placeholder]:text-[#98a2b3]";
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <div className="mb-1.5 text-[12.5px] font-semibold text-[#344054]">{children}</div>;
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          onClick={() => onChange(n)}
-          className={`text-2xl leading-none transition-colors ${n <= value ? "text-penda-blue" : "text-muted-foreground/30"}`}
-          aria-label={`${n} star${n === 1 ? "" : "s"}`}
-        >
-          ★
-        </button>
-      ))}
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      {children}
     </div>
   );
 }
 
-/** A row of mutually-exclusive text buttons — the same visual pattern already used for wouldRehire/urgency-style choices across the public forms, generalized so it isn't rewritten per field. */
-function OptionButtons<T extends string>({
-  options,
+function TextArea({
+  id,
   value,
   onChange,
+  placeholder,
+  rows = 3,
+  minLength,
 }: {
-  options: readonly T[];
-  value: T | "";
-  onChange: (v: T) => void;
+  id?: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  rows?: number;
+  minLength?: number;
+}) {
+  const count = value.trim().length;
+  const meetsMin = minLength === undefined || count >= minLength;
+  return (
+    <div>
+      <textarea
+        id={id}
+        rows={rows}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full resize-none rounded-[10px] border border-[#e4e7ec] px-3 py-3 text-[13.5px] leading-[1.55] text-[#101828] placeholder:text-[#98a2b3] focus:outline-none focus:ring-2 focus:ring-[#2f5fe0]/30"
+      />
+      {minLength !== undefined && (
+        <p className={cn("mt-1 text-xs", meetsMin ? "text-[#98a2b3]" : "text-red-500")}>
+          {count}/{minLength} characters minimum
+        </p>
+      )}
+    </div>
+  );
+}
+
+function BasicSelect({
+  value,
+  onChange,
+  placeholder,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  options: readonly string[];
 }) {
   return (
-    <div className="space-y-2">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onChange(opt)}
-          className={`flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left text-sm transition-colors ${
-            value === opt ? "border-penda-blue bg-penda-blue/5" : "border-border hover:border-penda-blue/50"
-          }`}
-        >
-          <span>{opt}</span>
-          {value === opt && <CheckCircle2 className="h-4 w-4 shrink-0 text-penda-blue" />}
-        </button>
-      ))}
-    </div>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className={selectTriggerClass}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((opt) => (
+          <SelectItem key={opt} value={opt}>
+            {opt}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
-function YesNoToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+function BackLink({ onClick }: { onClick: () => void }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {[
-        { label: "Yes", v: true },
-        { label: "No", v: false },
-      ].map((opt) => (
-        <button
-          key={opt.label}
-          type="button"
-          onClick={() => onChange(opt.v)}
-          className={`rounded-md border px-3 py-2 text-sm transition-colors ${
-            value === opt.v ? "border-penda-blue bg-penda-blue/5" : "border-border hover:border-penda-blue/50"
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
+    <button type="button" onClick={onClick} className="text-sm font-semibold text-[#475467] hover:text-[#101828]">
+      ← Back
+    </button>
   );
 }
 
-// Required until a matching Google sign-in (or a later TA override) is on
-// file for this referee slot — see src/lib/forms/google-verify.ts for why
-// this can't reuse the staff Supabase OAuth flow.
+function ContinueButton({
+  children = "Continue",
+  disabled,
+  onClick,
+  type = "button",
+}: {
+  children?: React.ReactNode;
+  disabled?: boolean;
+  onClick?: () => void;
+  type?: "button" | "submit";
+}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex items-center gap-2 rounded-[10px] bg-[#2f5fe0] px-6 py-3 text-[15px] font-bold text-white transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      {children}
+      <ArrowRight className="h-[15px] w-[15px]" strokeWidth={2.4} />
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Screen 1 — verify. Keeps the Google Identity Services verification logic
+// as-is (server re-checks it anyway — see google-verify.ts); only the
+// wrapper is reskinned to match Verify.dc.html's card.
+// ---------------------------------------------------------------------------
 function GoogleVerificationStep({
   token,
   data,
@@ -160,32 +222,62 @@ function GoogleVerificationStep({
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
-      <div>
-        <p className="text-sm font-medium">Verify it&apos;s really you</p>
-        <p className="text-sm text-muted-foreground">
-          To keep reference checks trustworthy, please sign in with the Google account matching{" "}
-          <span className="font-medium text-foreground">{data.refereeEmail}</span> before continuing.
-        </p>
+    <div className="rounded-[14px] border border-[#e4e7ec] bg-[#f9fafb] p-8 text-center">
+      <div className="mx-auto mb-[18px] flex h-11 w-11 items-center justify-center rounded-full bg-[#eef2ff]">
+        <Lock className="h-[22px] w-[22px] text-[#2f5fe0]" strokeWidth={2} />
       </div>
-
+      <div className={checking ? "pointer-events-none opacity-60" : undefined}>
+        <GoogleSignInButton onCredential={handleCredential} disabled={checking} />
+      </div>
+      {checking && <p className="mt-3 text-xs text-[#98a2b3]">Verifying…</p>}
       {mismatch && (
-        <FormMessage>
-          <p>
-            You signed in as <span className="font-medium">{mismatch.googleEmail}</span>, but we have{" "}
-            <span className="font-medium">{data.refereeEmail}</span> on file for this reference. Try signing in with a
-            different Google account below, or email{" "}
-            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
-              careers@pendahealth.com
-            </a>{" "}
-            if that&apos;s the correct address for you and it just doesn&apos;t match what {data.candidateName} gave us.
-          </p>
-        </FormMessage>
+        <p className="mt-4 text-left text-sm leading-relaxed text-[#475467]">
+          You signed in as <span className="font-semibold text-[#101828]">{mismatch.googleEmail}</span>, but we have{" "}
+          <span className="font-semibold text-[#101828]">{data.refereeEmail}</span> on file for this reference. Try a
+          different Google account, or email{" "}
+          <a className="text-[#2f5fe0] underline" href="mailto:careers@pendahealth.com">
+            careers@pendahealth.com
+          </a>{" "}
+          if that&apos;s correct and it just doesn&apos;t match what {data.candidateName} gave us.
+        </p>
       )}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
+      <p className="mt-4 text-[12.5px] text-[#98a2b3]">We only use this to confirm your identity — we never post on your behalf.</p>
+    </div>
+  );
+}
 
-      <GoogleSignInButton onCredential={handleCredential} disabled={checking} />
-      {checking && <p className="text-xs text-muted-foreground">Verifying…</p>}
+// ---------------------------------------------------------------------------
+// Terminal / status screens (loading, expired link, error, already
+// submitted) — the canvas only designs the success case (ThankYou.dc.html),
+// so the others reuse that same minimal centered layout for consistency.
+// ---------------------------------------------------------------------------
+function StatusScreen({
+  icon,
+  iconTone = "bg-[#eef2ff] text-[#2f5fe0]",
+  title,
+  children,
+}: {
+  icon: React.ReactNode;
+  iconTone?: string;
+  title: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-screen flex-col bg-white">
+      <div className="flex items-center gap-2.5 px-5 py-6 sm:px-16">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#eef2ff]">
+          <PendaMark variant="light" size={17} />
+        </span>
+        <span className="text-[15px] font-extrabold text-[#101828]">PENDA HEALTH</span>
+      </div>
+      <div className="flex flex-1 items-center justify-center px-6 py-10">
+        <div className="max-w-[420px] text-center">
+          <div className={cn("mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full", iconTone)}>{icon}</div>
+          <h1 className="mb-3 text-[28px] font-extrabold text-[#101828]">{title}</h1>
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
@@ -198,31 +290,42 @@ function RefereeForm() {
   // 0 = intro/landing (not counted in the stepper), 1 = verify, 2-4 = the wizard steps.
   const [screen, setScreen] = React.useState<0 | 1 | 2 | 3 | 4>(0);
 
+  // Step 2 — referee & employment details
   const [relationship, setRelationship] = React.useState("");
-  const [directlySupervised, setDirectlySupervised] = React.useState<boolean | null>(null);
+  const [reportingRelationship, setReportingRelationship] = React.useState<(typeof REPORTING_RELATIONSHIPS)[number] | "">("");
+  const [refereeOrganization, setRefereeOrganization] = React.useState("");
+  const [phone, setPhone] = React.useState("");
   const [durationKnown, setDurationKnown] = React.useState("");
+  const [interactionFrequency, setInteractionFrequency] = React.useState<(typeof INTERACTION_FREQUENCIES)[number] | "">("");
+  const [jobTitleRecalled, setJobTitleRecalled] = React.useState("");
   const [employmentFrom, setEmploymentFrom] = React.useState("");
   const [employmentTo, setEmploymentTo] = React.useState("");
-  const [stillEmployed, setStillEmployed] = React.useState<boolean | null>(null);
-  const [scores, setScores] = React.useState<Record<ScoreKey, number>>({
-    techScore: 0,
-    reliabilityScore: 0,
-    teamworkScore: 0,
-    problemSolvingScore: 0,
-    adaptabilityScore: 0,
-  });
+  const [stillEmployed, setStillEmployed] = React.useState(false);
+  const [mainResponsibilities, setMainResponsibilities] = React.useState("");
+  const [reportedTo, setReportedTo] = React.useState("");
+  const [leavingReason, setLeavingReason] = React.useState<(typeof LEAVING_REASONS)[number] | "">("");
+  const [wouldRehire, setWouldRehire] = React.useState<(typeof WOULD_REHIRE_OPTIONS)[number] | "">("");
+  const [wouldRehireExplanation, setWouldRehireExplanation] = React.useState("");
 
-  const [strengthsAndDevelopment, setStrengthsAndDevelopment] = React.useState("");
-  const [conflictExample, setConflictExample] = React.useState("");
+  // Step 3 — performance feedback
+  const [executionScore, setExecutionScore] = React.useState(0);
+  const [executionExample, setExecutionExample] = React.useState("");
+  const [teamworkScore, setTeamworkScore] = React.useState(0);
+  const [teamworkExample, setTeamworkExample] = React.useState("");
+  const [communicationScore, setCommunicationScore] = React.useState(0);
+  const [communicationExample, setCommunicationExample] = React.useState("");
+
+  // Step 4 — strengths & recommendation
+  const [topStrengths, setTopStrengths] = React.useState("");
+  const [coachingArea, setCoachingArea] = React.useState("");
+  const [feedbackResponse, setFeedbackResponse] = React.useState<(typeof FEEDBACK_RESPONSE_OPTIONS)[number] | "">("");
   const [honestyConcerns, setHonestyConcerns] = React.useState<(typeof HONESTY_OPTIONS)[number] | "">("");
   const [complianceIncidents, setComplianceIncidents] = React.useState<(typeof COMPLIANCE_OPTIONS)[number] | "">("");
   const [licenseStanding, setLicenseStanding] = React.useState<(typeof LICENSE_OPTIONS)[number] | "">("");
   const [preferPhoneNumber, setPreferPhoneNumber] = React.useState("");
-
-  const [wouldRehire, setWouldRehire] = React.useState<(typeof REHIRE_OPTIONS)[number] | "">("");
-  const [overallRecommendScore, setOverallRecommendScore] = React.useState(0);
+  const [recommendHire, setRecommendHire] = React.useState<(typeof RECOMMEND_HIRE_OPTIONS)[number]["value"] | "">("");
   const [notes, setNotes] = React.useState("");
-  const [consentToContact, setConsentToContact] = React.useState<boolean | null>(null);
+  const [consentToContact, setConsentToContact] = React.useState(true);
 
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
@@ -243,6 +346,7 @@ function RefereeForm() {
       })
       .then((body: FormData) => {
         setData(body);
+        setPhone(body.refereePhone || "");
         // A refresh mid-flow shouldn't re-ask someone who already verified.
         if (body.googleVerified) setScreen(2);
       })
@@ -251,83 +355,93 @@ function RefereeForm() {
 
   if (loadError === "missing_token" || loadError === "expired") {
     return (
-      <FormShell brand={BRAND}>
-        <FormStatusCard variant="warning" title="Link expired" subtitle="This reference check link is no longer valid.">
-          <p>This link has expired or is invalid. Please contact the recruitment team for a new one.</p>
-          <p>
-            Email:{" "}
-            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
-              careers@pendahealth.com
-            </a>
-          </p>
-        </FormStatusCard>
-      </FormShell>
+      <StatusScreen icon={<AlertTriangle className="h-6 w-6" />} iconTone="bg-amber-50 text-amber-600" title="Link expired">
+        <p className="text-[15px] leading-relaxed text-[#475467]">
+          This reference check link is no longer valid. Please contact{" "}
+          <a className="text-[#2f5fe0] underline" href="mailto:careers@pendahealth.com">
+            careers@pendahealth.com
+          </a>{" "}
+          for a new one.
+        </p>
+      </StatusScreen>
     );
   }
 
   if (loadError) {
     return (
-      <FormShell brand={BRAND}>
-        <FormStatusCard variant="error" title="Something went wrong">
-          <p>
-            Please try again later, or contact{" "}
-            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
-              careers@pendahealth.com
-            </a>
-            .
-          </p>
-        </FormStatusCard>
-      </FormShell>
+      <StatusScreen icon={<AlertTriangle className="h-6 w-6" />} iconTone="bg-red-50 text-red-500" title="Something went wrong">
+        <p className="text-[15px] leading-relaxed text-[#475467]">
+          Please try again later, or contact{" "}
+          <a className="text-[#2f5fe0] underline" href="mailto:careers@pendahealth.com">
+            careers@pendahealth.com
+          </a>
+          .
+        </p>
+      </StatusScreen>
     );
   }
 
   if (!data) {
-    return (
-      <FormShell brand={BRAND}>
-        <FormStatusCard variant="loading" title="Loading your reference check…" subtitle="Just a moment." />
-      </FormShell>
-    );
+    return <StatusScreen icon={<Loader2 className="h-6 w-6 animate-spin" />} title="Loading…" />;
   }
 
   if (submitted) {
     return (
-      <FormShell brand={BRAND}>
-        <FormStatusCard variant="success" title="Thank you" subtitle={`Hi ${data.refereeName}`}>
-          <p>Your reference for {data.candidateName} has been submitted. We appreciate your time.</p>
-        </FormStatusCard>
-      </FormShell>
+      <StatusScreen icon={<Check className="h-[26px] w-[26px]" strokeWidth={2.4} />} title="Reference submitted">
+        <p className="mb-1.5 text-[15px] leading-[1.65] text-[#475467]">
+          Thank you for your honesty — your perspective genuinely helps us get this hire right. We&apos;ve let Penda
+          Health&apos;s hiring team know, and if they need anything else, they&apos;ll reach out to you directly.
+        </p>
+        <p className="mt-5 text-[13.5px] text-[#98a2b3]">You can close this window now.</p>
+      </StatusScreen>
     );
   }
 
   if (data.alreadySubmitted) {
     return (
-      <FormShell brand={BRAND}>
-        <FormStatusCard variant="info" title="Already submitted" subtitle={`Hi ${data.refereeName}`}>
-          <p>
-            You&apos;ve already submitted a reference for {data.candidateName}. Contact{" "}
-            <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
-              careers@pendahealth.com
-            </a>{" "}
-            if you need to make a correction.
-          </p>
-        </FormStatusCard>
-      </FormShell>
+      <StatusScreen icon={<Info className="h-6 w-6" />} title="Already submitted">
+        <p className="text-[15px] leading-relaxed text-[#475467]">
+          You&apos;ve already submitted a reference for {data.candidateName}. Contact{" "}
+          <a className="text-[#2f5fe0] underline" href="mailto:careers@pendahealth.com">
+            careers@pendahealth.com
+          </a>{" "}
+          if you need to make a correction.
+        </p>
+      </StatusScreen>
     );
   }
 
   const isClinical = data.segment === "IPS";
   const needsPhone = honestyConcerns === PREFERS_PHONE || complianceIncidents === PREFERS_PHONE;
 
-  const allScored = SCORE_CRITERIA.every((c) => scores[c.key] > 0);
   const canContinueStep2 =
-    relationship && directlySupervised !== null && durationKnown && employmentFrom && (stillEmployed || employmentTo) && stillEmployed !== null && allScored;
+    !!relationship &&
+    !!reportingRelationship &&
+    refereeOrganization.trim().length > 0 &&
+    !!durationKnown &&
+    !!interactionFrequency &&
+    jobTitleRecalled.trim().length > 0 &&
+    mainResponsibilities.trim().length >= MIN_TEXT_LENGTH &&
+    !!leavingReason &&
+    !!wouldRehire &&
+    (wouldRehire === "Yes" || wouldRehireExplanation.trim().length > 0);
+
   const canContinueStep3 =
-    strengthsAndDevelopment.trim().length >= WRITTEN_ASSESSMENT_MIN_LENGTH &&
-    conflictExample.trim().length > 0 &&
-    honestyConcerns &&
-    (!isClinical || (complianceIncidents && licenseStanding)) &&
-    (!needsPhone || preferPhoneNumber.trim().length > 0);
-  const canSubmit = wouldRehire && overallRecommendScore > 0 && consentToContact !== null;
+    executionScore > 0 &&
+    executionExample.trim().length >= MIN_EXAMPLE_LENGTH &&
+    teamworkScore > 0 &&
+    teamworkExample.trim().length >= MIN_EXAMPLE_LENGTH &&
+    communicationScore > 0 &&
+    communicationExample.trim().length >= MIN_EXAMPLE_LENGTH;
+
+  const canSubmit =
+    topStrengths.trim().length >= MIN_TEXT_LENGTH &&
+    coachingArea.trim().length >= MIN_TEXT_LENGTH &&
+    !!feedbackResponse &&
+    !!honestyConcerns &&
+    (!isClinical || (!!complianceIncidents && !!licenseStanding)) &&
+    (!needsPhone || preferPhoneNumber.trim().length > 0) &&
+    !!recommendHire;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -340,20 +454,34 @@ function RefereeForm() {
         body: JSON.stringify({
           token,
           relationship,
-          directlySupervised,
+          reportingRelationship,
+          refereeOrganization,
+          phone: phone || undefined,
           durationKnown,
-          employmentFrom,
-          employmentTo: stillEmployed ? undefined : employmentTo,
+          interactionFrequency,
+          jobTitleRecalled,
+          employmentFrom: employmentFrom || undefined,
+          employmentTo: stillEmployed ? undefined : employmentTo || undefined,
           stillEmployed,
-          ...scores,
-          strengthsAndDevelopment,
-          conflictExample,
+          mainResponsibilities,
+          reportedTo: reportedTo || undefined,
+          leavingReason,
+          executionScore,
+          executionExample,
+          teamworkScore,
+          teamworkExample,
+          communicationScore,
+          communicationExample,
+          wouldRehire,
+          wouldRehireExplanation: wouldRehire === "Yes" ? wouldRehireExplanation || undefined : wouldRehireExplanation,
+          topStrengths,
+          coachingArea,
+          feedbackResponse,
           honestyConcerns,
           complianceIncidents: isClinical ? complianceIncidents : undefined,
           licenseStanding: isClinical ? licenseStanding : undefined,
           preferPhoneNumber: needsPhone ? preferPhoneNumber : undefined,
-          wouldRehire,
-          overallRecommendScore,
+          recommendHire,
           consentToContact,
           notes: notes || undefined,
         }),
@@ -376,291 +504,462 @@ function RefereeForm() {
     }
   }
 
-  // Screen 0 — intro/landing. Not part of the 4-step count; just orients the
-  // referee before the wizard starts (who's asking, how long it'll take).
+  // -------------------------------------------------------------------------
+  // Screen 0 — intro. Two-panel layout per Main.dc.html: a dark gradient
+  // hero on the left carrying the brand + headline, candidate context + CTA
+  // on the right. Candidate/role details are shown here (read-only) rather
+  // than re-asked anywhere in the wizard.
+  // -------------------------------------------------------------------------
   if (screen === 0) {
     return (
-      <FormShell brand={BRAND}
-        title={`Hi ${data.refereeName}`}
-        subtitle={`${data.candidateName} listed you as a reference for the ${data.roleTitle} role at Penda Health.`}
-      >
-        <div className="space-y-6">
-          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4 text-sm">
-            <div className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Candidate</span>
-              <span className="font-medium text-foreground">{data.candidateName}</span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Role</span>
-              <span className="font-medium text-foreground">{data.roleTitle}</span>
-            </div>
-            {data.recruiterName && (
-              <div className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Requested by</span>
-                <span className="font-medium text-foreground">{data.recruiterName}</span>
-              </div>
-            )}
-            <div className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Time needed</span>
-              <span className="font-medium text-foreground">About 5 minutes</span>
-            </div>
+      <div className="flex min-h-screen flex-col bg-white lg:flex-row">
+        <div
+          className="relative flex flex-col justify-between overflow-hidden px-8 py-10 sm:px-12 sm:py-14 lg:w-[560px] lg:shrink-0"
+          style={{ background: "linear-gradient(155deg,#12195a 0%,#22308c 45%,#5b3aa8 100%)" }}
+        >
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)", backgroundSize: "18px 18px" }}
+          />
+          <div className="relative z-10 flex items-center gap-2.5">
+            <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/[0.14]">
+              <PendaMark variant="dark" size={20} />
+            </span>
+            <span className="text-lg font-extrabold tracking-tight text-white">PENDA HEALTH</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            You&apos;ll verify it&apos;s you with a quick Google sign-in, then answer a short set of questions across 4
-            steps — your candid feedback stays confidential to Penda&apos;s hiring team.
-          </p>
-          <Button onClick={() => setScreen(1)} className="w-full bg-penda-blue hover:bg-penda-blue-dark">
-            Start reference check
-          </Button>
+
+          <div className="relative z-10 my-10 lg:my-0">
+            <p className="mb-[18px] text-xs font-bold uppercase tracking-[1.2px] text-white/65">Penda Health · Reference Check</p>
+            <h1 className="mb-[18px] max-w-[440px] text-[32px] font-extrabold leading-[1.16] text-white sm:text-[40px]">
+              A few honest minutes from you helps us get this hire right.
+            </h1>
+            <p className="max-w-[420px] text-base leading-relaxed text-white/75">
+              You were listed as a reference — your perspective on their work is one of the most valuable inputs we get.
+            </p>
+          </div>
+
+          <div className="relative z-10 text-[13px] text-white/55">
+            Questions?{" "}
+            <a href="mailto:careers@pendahealth.com" className="text-white">
+              careers@pendahealth.com
+            </a>
+          </div>
         </div>
-      </FormShell>
+
+        <div className="flex flex-1 items-center justify-center px-6 py-12 sm:px-12 lg:px-[88px]">
+          <div className="w-full max-w-[520px]">
+            <p className="mb-3.5 text-[13px] font-semibold uppercase tracking-[0.3px] text-[#98a2b3]">Reference request</p>
+            <h1 className="mb-7 text-[26px] font-extrabold leading-[1.3] text-[#101828] sm:text-[30px]">
+              Hi {data.refereeName}, {data.candidateName} listed you as a reference for the {data.roleTitle} role at Penda
+              Health.
+            </h1>
+
+            <div className="mb-6 rounded-[14px] border border-[#e4e7ec] bg-[#f9fafb] p-5">
+              <div className="flex flex-wrap gap-7 text-sm text-[#475467]">
+                <div>
+                  <span className="text-[#98a2b3]">Candidate</span>
+                  <br />
+                  <span className="font-semibold text-[#101828]">{data.candidateName}</span>
+                </div>
+                <div>
+                  <span className="text-[#98a2b3]">Role</span>
+                  <br />
+                  <span className="font-semibold text-[#101828]">{data.roleTitle}</span>
+                </div>
+                {data.recruiterName && (
+                  <div>
+                    <span className="text-[#98a2b3]">Requested by</span>
+                    <br />
+                    <span className="font-semibold text-[#101828]">{data.recruiterName}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mb-6 flex flex-wrap gap-2.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eef2ff] px-[13px] py-[7px] text-[13px] font-bold text-[#2f5fe0]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2f5fe0" strokeWidth="2">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3.5 2" strokeLinecap="round" />
+                </svg>
+                About 4 minutes
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eef2ff] px-[13px] py-[7px] text-[13px] font-bold text-[#2f5fe0]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2f5fe0" strokeWidth="2">
+                  <rect x="4" y="4" width="6" height="6" rx="1" />
+                  <rect x="14" y="4" width="6" height="6" rx="1" />
+                  <rect x="4" y="14" width="6" height="6" rx="1" />
+                  <rect x="14" y="14" width="6" height="6" rx="1" />
+                </svg>
+                4 quick steps
+              </span>
+            </div>
+
+            <p className="mb-8 text-sm leading-[1.7] text-[#475467]">
+              Your answers stay confidential and are only shared with Penda Health&apos;s hiring team. You can pause
+              anytime and return using the link in your email — nothing here is one long page to scroll through.
+            </p>
+
+            <ContinueButton onClick={() => setScreen(1)}>Start reference check</ContinueButton>
+          </div>
+        </div>
+      </div>
     );
   }
 
-  // Screen 1 — verify, and nothing else. Splitting this into its own screen
-  // (rather than showing the questions greyed out behind a disabled
-  // <fieldset>) isn't just presentation: a disabled fieldset only reliably
-  // blocks *native* form controls, and the relationship/duration dropdowns
-  // are Radix Select components that don't consistently inherit that
-  // ambient disabled state across browsers — so they could look locked but
-  // still be interactive. Not rendering the questions at all until verified
-  // closes that gap by construction instead of patching each widget.
+  // -------------------------------------------------------------------------
+  // Screen 1 — verify. Per Verify.dc.html.
+  // -------------------------------------------------------------------------
   if (screen === 1) {
     return (
-      <FormShell brand={BRAND}
-        title="Verify it's you"
-        subtitle={`Hi ${data.refereeName}, ${data.candidateName} listed you as a reference for the ${data.roleTitle} role at Penda Health.`}
-      >
-        <div className="space-y-4">
-          <FormStepper step={1} total={4} label="Verify it's you" />
-          {token && <GoogleVerificationStep token={token} data={data} onVerified={() => setScreen(2)} />}
+      <div className="flex min-h-screen flex-col bg-white">
+        <RefereeTopBar candidateName={data.candidateName} step={1} totalSteps={4} />
+        <div className="flex flex-1 items-center justify-center px-5 py-10 sm:px-16">
+          <div className="w-full max-w-[480px]">
+            <p className="mb-3.5 text-xs font-bold uppercase tracking-[0.6px] text-[#2f5fe0]">Step 1 of 4 · Verify it&apos;s you</p>
+            <h1 className="mb-3 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[28px]">Let&apos;s confirm it&apos;s really you</h1>
+            <p className="mb-8 text-[15px] leading-relaxed text-[#475467]">
+              To keep reference checks trustworthy, sign in with the Google account matching{" "}
+              <strong className="text-[#101828]">{data.refereeEmail}</strong> before continuing.
+            </p>
+
+            {token && <GoogleVerificationStep token={token} data={data} onVerified={() => setScreen(2)} />}
+
+            <div className="mt-6">
+              <BackLink onClick={() => setScreen(0)} />
+            </div>
+          </div>
         </div>
-      </FormShell>
+      </div>
     );
   }
 
   const verifiedNote = (
-    <p className="flex items-center gap-1.5 text-xs text-success-fg">
+    <p className="mb-6 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
       <CheckCircle2 className="h-3.5 w-3.5" />
       Identity verified with Google.
     </p>
   );
 
-  // Screen 2 — relationship & ratings.
+  // -------------------------------------------------------------------------
+  // Screen 2 — referee & employment details. Per RelationshipRatings.dc.html.
+  // -------------------------------------------------------------------------
   if (screen === 2) {
     return (
-      <FormShell brand={BRAND}
-        title="Your relationship & ratings"
-        subtitle={`Hi ${data.refereeName}, tell us how you know ${data.candidateName} and how they performed.`}
-      >
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <FormStepper step={2} total={4} label="Relationship & ratings" />
+      <div className="flex min-h-screen flex-col bg-white">
+        <RefereeTopBar candidateName={data.candidateName} step={2} totalSteps={4} />
+        <div className="flex-1 px-5 py-8 sm:px-16">
+          <div className="mx-auto max-w-[1180px]">
+            <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.6px] text-[#2f5fe0]">Step 2 of 4 · Referee &amp; employment details</p>
+            <h1 className="mb-2 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[26px]">Tell us about your role, and theirs</h1>
             {verifiedNote}
-          </div>
 
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label>How do you know {data.candidateName}?</Label>
-              <Select value={relationship} onValueChange={setRelationship}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select relationship" />
-                </SelectTrigger>
-                <SelectContent>
-                  {RELATIONSHIPS.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {r}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="grid grid-cols-1 gap-x-14 gap-y-8 lg:grid-cols-2">
+              <div className="space-y-3.5">
+                <p className="text-[15px] font-bold text-[#101828]">Your details as referee</p>
 
-            <div className="space-y-2">
-              <Label>Did you directly supervise them?</Label>
-              <YesNoToggle value={directlySupervised ?? false} onChange={setDirectlySupervised} />
-            </div>
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  <Field label="Relationship to candidate">
+                    <BasicSelect value={relationship} onChange={setRelationship} placeholder="Select" options={RELATIONSHIPS} />
+                  </Field>
+                  <Field label="Their reporting relationship to you">
+                    <BasicSelect
+                      value={reportingRelationship}
+                      onChange={(v) => setReportingRelationship(v as (typeof REPORTING_RELATIONSHIPS)[number])}
+                      placeholder="Select"
+                      options={REPORTING_RELATIONSHIPS}
+                    />
+                  </Field>
+                </div>
 
-            <div className="space-y-2">
-              <Label>How long have you known them?</Label>
-              <Select value={durationKnown} onValueChange={setDurationKnown}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select duration" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DURATIONS.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  <Field label="Your organization">
+                    <Input
+                      className={fieldClass}
+                      value={refereeOrganization}
+                      onChange={(e) => setRefereeOrganization(e.target.value)}
+                      placeholder="e.g. Nairobi Women's Hospital"
+                    />
+                  </Field>
+                  <Field label="Your phone number">
+                    <Input className={fieldClass} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 07XX XXX XXX" />
+                  </Field>
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Employment started</Label>
-                <Input type="month" value={employmentFrom} onChange={(e) => setEmploymentFrom(e.target.value)} />
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  <Field label="How long did you work together?">
+                    <BasicSelect value={durationKnown} onChange={setDurationKnown} placeholder="Select" options={DURATIONS} />
+                  </Field>
+                  <Field label="How often did you interact?">
+                    <BasicSelect
+                      value={interactionFrequency}
+                      onChange={(v) => setInteractionFrequency(v as (typeof INTERACTION_FREQUENCIES)[number])}
+                      placeholder="Select"
+                      options={INTERACTION_FREQUENCIES}
+                    />
+                  </Field>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Employment ended</Label>
-                <Input
-                  type="month"
-                  value={employmentTo}
-                  onChange={(e) => setEmploymentTo(e.target.value)}
-                  disabled={!!stillEmployed}
-                  placeholder={stillEmployed ? "Present" : undefined}
-                />
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Are they still employed there?</Label>
-              <YesNoToggle value={stillEmployed ?? false} onChange={setStillEmployed} />
-            </div>
+              <div className="space-y-3.5">
+                <p className="text-[15px] font-bold text-[#101828]">Employment verification</p>
 
-            <div className="space-y-2">
-              <Label>Rate their work</Label>
-              <div className="divide-y divide-border rounded-lg border border-border">
-                {SCORE_CRITERIA.map((c) => (
-                  <div key={c.key} className="flex items-center justify-between gap-4 px-4 py-3">
-                    <span className="text-sm text-foreground">{c.label}</span>
-                    <StarRating value={scores[c.key]} onChange={(v) => setScores((s) => ({ ...s, [c.key]: v }))} />
+                <Field label="Their job title, as you recall it">
+                  <Input className={fieldClass} value={jobTitleRecalled} onChange={(e) => setJobTitleRecalled(e.target.value)} placeholder="e.g. Clinical Officer" />
+                </Field>
+
+                <div>
+                  <FieldLabel>Employment dates you recall</FieldLabel>
+                  <div className="mb-2 grid grid-cols-2 gap-3">
+                    <Input className={fieldClass} value={employmentFrom} onChange={(e) => setEmploymentFrom(e.target.value)} placeholder="From — e.g. Mar 2023" />
+                    <Input
+                      className={fieldClass}
+                      value={employmentTo}
+                      onChange={(e) => setEmploymentTo(e.target.value)}
+                      placeholder="To — e.g. Jan 2026"
+                      disabled={stillEmployed}
+                    />
                   </div>
-                ))}
+                  <label className="flex items-center gap-2 text-[12.5px] text-[#475467]">
+                    <input
+                      type="checkbox"
+                      checked={stillEmployed}
+                      onChange={(e) => setStillEmployed(e.target.checked)}
+                      className="h-[15px] w-[15px] accent-[#2f5fe0]"
+                    />
+                    Still employed there, as far as I know
+                  </label>
+                </div>
+
+                <Field label="Their main responsibilities">
+                  <TextArea value={mainResponsibilities} onChange={setMainResponsibilities} rows={2} minLength={MIN_TEXT_LENGTH} placeholder="e.g. Outpatient consults, minor procedures, supervising 2 nurses" />
+                </Field>
+
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  <Field label="Who did they report to?">
+                    <Input className={fieldClass} value={reportedTo} onChange={(e) => setReportedTo(e.target.value)} placeholder="Name / title" />
+                  </Field>
+                  <Field label="Why did they leave (or are they still there)?">
+                    <BasicSelect
+                      value={leavingReason}
+                      onChange={(v) => setLeavingReason(v as (typeof LEAVING_REASONS)[number])}
+                      placeholder="Select"
+                      options={LEAVING_REASONS}
+                    />
+                  </Field>
+                </div>
+
+                <div className="border-t border-[#e4e7ec] pt-3.5">
+                  <p className="mb-2 text-[12.5px] font-semibold text-[#344054]">Would you rehire them, given the opportunity?</p>
+                  <div className="mb-2.5">
+                    <ChoiceGroup options={WOULD_REHIRE_OPTIONS} value={wouldRehire} onChange={setWouldRehire} size="sm" />
+                  </div>
+                  <TextArea value={wouldRehireExplanation} onChange={setWouldRehireExplanation} rows={2} placeholder="Please explain your answer…" />
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex gap-3">
-            <Button type="button" variant="outline" onClick={() => setScreen(1)} className="flex-1">
-              Back
-            </Button>
-            <Button type="button" onClick={() => setScreen(3)} disabled={!canContinueStep2} className="flex-1 bg-penda-blue hover:bg-penda-blue-dark">
-              Continue
-            </Button>
+            <div className="mt-7 flex items-center justify-between pb-2">
+              <BackLink onClick={() => setScreen(1)} />
+              <ContinueButton onClick={() => setScreen(3)} disabled={!canContinueStep2} />
+            </div>
           </div>
         </div>
-      </FormShell>
+      </div>
     );
   }
 
-  // Screen 3 — feedback & character.
+  // -------------------------------------------------------------------------
+  // Screen 3 — performance feedback (Execution / Teamwork / Communication).
+  // Per FeedbackCharacter.dc.html.
+  // -------------------------------------------------------------------------
   if (screen === 3) {
+    const cards: {
+      key: string;
+      badge: string;
+      title: string;
+      score: number;
+      setScore: (n: number) => void;
+      prompt: string;
+      example: string;
+      setExample: (v: string) => void;
+      placeholder: string;
+    }[] = [
+      {
+        key: "execution",
+        badge: "E",
+        title: "Execution & performance",
+        score: executionScore,
+        setScore: setExecutionScore,
+        prompt:
+          "Describe how reliably they carried out their regular duties — and how they performed when things got difficult (an emergency, a rush, being short-staffed)",
+        example: executionExample,
+        setExample: setExecutionExample,
+        placeholder: "e.g. During a short-staffed night shift with the ER full…",
+      },
+      {
+        key: "teamwork",
+        badge: "T",
+        title: "Teamwork & collaboration",
+        score: teamworkScore,
+        setScore: setTeamworkScore,
+        prompt: "Describe a time they collaborated well with others, or handled a disagreement.",
+        example: teamworkExample,
+        setExample: setTeamworkExample,
+        placeholder: "An example makes this rating meaningful…",
+      },
+      {
+        key: "communication",
+        badge: "C",
+        title: "Communication",
+        score: communicationScore,
+        setScore: setCommunicationScore,
+        prompt: "Give an example of them communicating something complex or difficult, clearly.",
+        example: communicationExample,
+        setExample: setCommunicationExample,
+        placeholder: "An example makes this rating meaningful…",
+      },
+    ];
+
     return (
-      <FormShell brand={BRAND}
-        title="Feedback & character"
-        subtitle={`A bit more detail on ${data.candidateName}'s work and conduct.`}
-      >
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <FormStepper step={3} total={4} label="Feedback & character" />
+      <div className="flex min-h-screen flex-col bg-white">
+        <RefereeTopBar candidateName={data.candidateName} step={3} totalSteps={4} />
+        <div className="flex-1 px-5 py-8 sm:px-16">
+          <div className="mx-auto max-w-[1260px]">
+            <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.6px] text-[#2f5fe0]">Step 3 of 4 · Performance feedback</p>
+            <h1 className="mb-1.5 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[26px]">Rate their work — with an example for each</h1>
+            <p className="mb-6 text-sm text-[#475467]">A specific example is more useful to us than the rating alone.</p>
             {verifiedNote}
-          </div>
 
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="strengths-dev">Describe their strengths, and one area they could keep developing</Label>
-              <FormattableTextarea
-                id="strengths-dev"
-                required
-                minLength={WRITTEN_ASSESSMENT_MIN_LENGTH}
-                value={strengthsAndDevelopment}
-                onChange={setStrengthsAndDevelopment}
-                rows={5}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="conflict">How did they handle pressure, conflict, or a tough decision?</Label>
-              <FormattableTextarea id="conflict" required value={conflictExample} onChange={setConflictExample} rows={4} />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Any concerns about their honesty or integrity?</Label>
-              <OptionButtons options={HONESTY_OPTIONS} value={honestyConcerns} onChange={setHonestyConcerns} />
-            </div>
-
-            {isClinical && (
-              <>
-                <div className="space-y-2">
-                  <Label>Any compliance incidents you&apos;re aware of?</Label>
-                  <OptionButtons options={COMPLIANCE_OPTIONS} value={complianceIncidents} onChange={setComplianceIncidents} />
+            <div className="grid grid-cols-1 gap-7 lg:grid-cols-3">
+              {cards.map((c) => (
+                <div key={c.key} className="rounded-[14px] border border-[#e4e7ec] p-[22px]">
+                  <div className="mb-4 flex items-center gap-2.5">
+                    <div className="flex h-[26px] w-[26px] items-center justify-center rounded-[8px] bg-[#2f5fe0] text-[13px] font-extrabold text-white">
+                      {c.badge}
+                    </div>
+                    <div className="text-[14.5px] font-bold text-[#101828]">{c.title}</div>
+                  </div>
+                  <RatingScale value={c.score} onChange={c.setScore} />
+                  <p className="mb-2 text-[13px] font-semibold text-[#344054]">{c.prompt}</p>
+                  <TextArea value={c.example} onChange={c.setExample} rows={6} minLength={MIN_EXAMPLE_LENGTH} placeholder={c.placeholder} />
                 </div>
-                <div className="space-y-2">
-                  <Label>Is their professional license/registration in good standing, to your knowledge?</Label>
-                  <OptionButtons options={LICENSE_OPTIONS} value={licenseStanding} onChange={setLicenseStanding} />
-                </div>
-              </>
-            )}
+              ))}
+            </div>
 
-            {needsPhone && (
-              <div className="space-y-2">
-                <Label htmlFor="prefer-phone">Best number to reach you on</Label>
-                <Input id="prefer-phone" value={preferPhoneNumber} onChange={(e) => setPreferPhoneNumber(e.target.value)} placeholder="+254…" />
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            <Button type="button" variant="outline" onClick={() => setScreen(2)} className="flex-1">
-              Back
-            </Button>
-            <Button type="button" onClick={() => setScreen(4)} disabled={!canContinueStep3} className="flex-1 bg-penda-blue hover:bg-penda-blue-dark">
-              Continue
-            </Button>
+            <div className="mt-7 flex items-center justify-between pb-2">
+              <BackLink onClick={() => setScreen(2)} />
+              <ContinueButton onClick={() => setScreen(4)} disabled={!canContinueStep3} />
+            </div>
           </div>
         </div>
-      </FormShell>
+      </div>
     );
   }
 
-  // Screen 4 — recommendation & submit.
+  // -------------------------------------------------------------------------
+  // Screen 4 — strengths & recommendation. Per Recommendation.dc.html.
+  // -------------------------------------------------------------------------
   return (
-    <FormShell brand={BRAND}
-      title="Your recommendation"
-      subtitle={`Last step — your overall take on ${data.candidateName}.`}
-    >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-2">
-          <FormStepper step={4} total={4} label="Recommendation" />
+    <div className="flex min-h-screen flex-col bg-white">
+      <RefereeTopBar candidateName={data.candidateName} step={4} totalSteps={4} />
+      <form onSubmit={handleSubmit} className="flex-1 px-5 py-8 sm:px-16">
+        <div className="mx-auto max-w-[1180px]">
+          <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.6px] text-[#2f5fe0]">Step 4 of 4 · Strengths &amp; recommendation</p>
+          <h1 className="mb-2 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[26px]">Last few things</h1>
           {verifiedNote}
-        </div>
 
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Label>Would you rehire {data.candidateName}?</Label>
-            <OptionButtons options={REHIRE_OPTIONS} value={wouldRehire} onChange={setWouldRehire} />
+          <div className="mb-7 grid grid-cols-1 gap-x-14 gap-y-8 lg:grid-cols-2">
+            <div className="space-y-4">
+              <p className="text-[15px] font-bold text-[#101828]">Strengths &amp; development</p>
+
+              <Field label="Their three greatest strengths">
+                <TextArea value={topStrengths} onChange={setTopStrengths} rows={2} minLength={MIN_TEXT_LENGTH} placeholder="e.g. Calm under pressure, meticulous documentation, mentors juniors" />
+              </Field>
+
+              <Field label="One area where they needed coaching or support">
+                <TextArea value={coachingArea} onChange={setCoachingArea} rows={2} minLength={MIN_TEXT_LENGTH} placeholder="Be specific — this helps their next manager, not just us" />
+              </Field>
+
+              <div>
+                <p className="mb-2 text-[12.5px] font-semibold text-[#344054]">How did they respond to feedback or criticism?</p>
+                <ChoiceGroup options={FEEDBACK_RESPONSE_OPTIONS} value={feedbackResponse} onChange={setFeedbackResponse} size="sm" />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-[15px] font-bold text-[#101828]">Character &amp; compliance</p>
+
+              <div>
+                <p className="mb-2 text-[12.5px] font-semibold text-[#344054]">Any concerns about their honesty, trustworthiness, or professional conduct?</p>
+                <ChoiceGroup options={HONESTY_OPTIONS} value={honestyConcerns} onChange={setHonestyConcerns} size="sm" />
+              </div>
+
+              {isClinical && (
+                <>
+                  <div>
+                    <div className="mb-2 flex items-center gap-1.5">
+                      <p className="text-[12.5px] font-semibold text-[#344054]">Any compliance, safety, or patient-care incidents you&apos;re aware of?</p>
+                      <span className="rounded-full bg-[#f4effc] px-[7px] py-[2px] text-[10px] font-bold uppercase tracking-[0.3px] text-[#5b3aa8]">
+                        Clinical roles
+                      </span>
+                    </div>
+                    <ChoiceGroup options={COMPLIANCE_OPTIONS} value={complianceIncidents} onChange={setComplianceIncidents} size="sm" />
+                  </div>
+                  <div>
+                    <p className="mb-2 text-[12.5px] font-semibold text-[#344054]">Is their professional license / certification in good standing?</p>
+                    <ChoiceGroup options={LICENSE_OPTIONS} value={licenseStanding} onChange={setLicenseStanding} size="sm" />
+                  </div>
+                </>
+              )}
+
+              {needsPhone && (
+                <Field label="Best number to reach you on">
+                  <Input className={fieldClass} value={preferPhoneNumber} onChange={(e) => setPreferPhoneNumber(e.target.value)} placeholder="+254…" />
+                </Field>
+              )}
+
+              <p className="text-xs leading-relaxed text-[#98a2b3]">
+                Picking &quot;prefer to discuss by phone&quot; on either question above is enough — we&apos;ll call the number you gave us in Step 2.
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Overall, how would you rate them?</Label>
-            <StarRating value={overallRecommendScore} onChange={setOverallRecommendScore} />
+          <div className="border-t border-[#e4e7ec] pt-6">
+            <p className="mb-2.5 text-[14.5px] font-semibold text-[#101828]">Overall, would you recommend hiring this candidate?</p>
+            <div className="mb-5">
+              <ChoiceGroup options={RECOMMEND_HIRE_OPTIONS} value={recommendHire} onChange={setRecommendHire} />
+            </div>
+
+            <div className="mb-5 max-w-[640px]">
+              <p className="mb-2 text-[13.5px] font-semibold text-[#101828]">
+                Anything else you&apos;d like to add? <span className="font-medium text-[#98a2b3]">(optional)</span>
+              </p>
+              <TextArea value={notes} onChange={setNotes} rows={2} placeholder="Anything not covered above…" />
+            </div>
+
+            <label className="mb-5 flex max-w-[640px] items-start gap-2.5 text-[13px] leading-relaxed text-[#475467]">
+              <input
+                type="checkbox"
+                checked={consentToContact}
+                onChange={(e) => setConsentToContact(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-[#2f5fe0]"
+              />
+              I&apos;m comfortable being contacted if Penda Health needs to follow up on my answers.
+            </label>
+
+            {submitError && <p className="mb-4 text-sm text-red-500">{submitError}</p>}
+
+            <div className="flex items-center justify-between pb-2">
+              <BackLink onClick={() => setScreen(3)} />
+              <ContinueButton type="submit" disabled={!canSubmit || submitting}>
+                {submitting ? "Submitting…" : "Submit reference check"}
+              </ContinueButton>
+            </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Additional notes (optional)</Label>
-            <FormattableTextarea id="notes" value={notes} onChange={setNotes} rows={3} />
-          </div>
-
-          <div className="space-y-2">
-            <Label>OK to contact you again if we have follow-up questions?</Label>
-            <YesNoToggle value={consentToContact ?? false} onChange={setConsentToContact} />
-          </div>
-        </div>
-
-        {submitError && <p className="text-sm text-destructive">{submitError}</p>}
-
-        <div className="flex gap-3">
-          <Button type="button" variant="outline" onClick={() => setScreen(3)} className="flex-1" disabled={submitting}>
-            Back
-          </Button>
-          <Button type="submit" className="flex-1 bg-penda-blue hover:bg-penda-blue-dark" disabled={!canSubmit || submitting}>
-            {submitting ? "Submitting…" : "Submit reference"}
-          </Button>
         </div>
       </form>
-    </FormShell>
+    </div>
   );
 }
 
