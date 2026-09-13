@@ -268,7 +268,7 @@ function StatusScreen({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="light flex min-h-screen flex-col bg-white">
       <div className="flex items-center gap-2.5 px-5 py-6 sm:px-16">
         <Image src="/assets/logo.webp" alt="Penda Health" width={200} height={80} className="h-8 w-auto object-contain" />
       </div>
@@ -513,7 +513,7 @@ function RefereeForm() {
   // -------------------------------------------------------------------------
   if (screen === 0) {
     return (
-      <div className="flex min-h-screen flex-col bg-white lg:flex-row">
+      <div className="light flex min-h-screen flex-col bg-white lg:flex-row">
         <div className="relative flex flex-col justify-between overflow-hidden bg-gradient-to-br from-penda-blue via-[#1442D6] to-penda-blue-dark px-8 py-10 sm:px-12 sm:py-14 lg:w-[560px] lg:shrink-0">
           <div
             className="pointer-events-none absolute inset-0 opacity-[0.07]"
@@ -611,7 +611,7 @@ function RefereeForm() {
   // -------------------------------------------------------------------------
   if (screen === 1) {
     return (
-      <div className="flex min-h-screen flex-col bg-white">
+      <div className="light flex min-h-screen flex-col bg-white">
         <RefereeTopBar candidateName={data.candidateName} step={1} totalSteps={4} />
         <div className="flex flex-1 items-center justify-center px-5 py-10 sm:px-16">
           <div className="w-full max-w-[480px]">
@@ -645,7 +645,7 @@ function RefereeForm() {
   // -------------------------------------------------------------------------
   if (screen === 2) {
     return (
-      <div className="flex min-h-screen flex-col bg-white">
+      <div className="light flex min-h-screen flex-col bg-white">
         <RefereeTopBar candidateName={data.candidateName} step={2} totalSteps={4} />
         <div className="flex-1 px-5 py-8 sm:px-16">
           <div className="mx-auto max-w-[1180px]">
@@ -821,7 +821,7 @@ function RefereeForm() {
     ];
 
     return (
-      <div className="flex min-h-screen flex-col bg-white">
+      <div className="light flex min-h-screen flex-col bg-white">
         <RefereeTopBar candidateName={data.candidateName} step={3} totalSteps={4} />
         <div className="flex-1 px-5 py-8 sm:px-16">
           <div className="mx-auto max-w-[1260px]">
@@ -860,7 +860,7 @@ function RefereeForm() {
   // Screen 4 — strengths & recommendation. Per Recommendation.dc.html.
   // -------------------------------------------------------------------------
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="light flex min-h-screen flex-col bg-white">
       <RefereeTopBar candidateName={data.candidateName} step={4} totalSteps={4} />
       <form onSubmit={handleSubmit} className="flex-1 px-5 py-8 sm:px-16">
         <div className="mx-auto max-w-[1180px]">
