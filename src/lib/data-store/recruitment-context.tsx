@@ -109,7 +109,11 @@ type RecruitmentDataContextValue = {
   reopenOffer: (id: string) => void;
 
   candidates: Candidate[];
-  createCandidate: (candidate: Candidate) => Promise<void>;
+  // Returns the server-assigned record (real Airtable id, not the client's
+  // placeholder) so callers that need to act on the new candidate right
+  // away — e.g. auto-selecting them after an inline "add as new candidate"
+  // flow — don't have to guess which entry just landed in `candidates`.
+  createCandidate: (candidate: Candidate) => Promise<Candidate>;
   updateCandidate: (id: string, patch: Partial<Candidate>) => void;
   updateCandidateStage: (id: string, stage: Candidate["stage"], roleId?: string, employmentType?: Candidate["employmentType"]) => void;
   deleteCandidate: (id: string) => void;
@@ -640,10 +644,11 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   );
 
   const createCandidate = React.useCallback(
-    async (candidate: Candidate) => {
-      if (!guardEdit(canEdit, "createCandidate")) return;
+    async (candidate: Candidate): Promise<Candidate> => {
+      if (!guardEdit(canEdit, "createCandidate")) throw new Error("You don't have permission to add candidates.");
       const created = await createResource<Candidate>("candidates", candidate);
       setCandidates((prev) => [created, ...prev]);
+      return created;
     },
     [canEdit]
   );

@@ -6,13 +6,117 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
+import { NewCandidateDialog } from "@/components/pipeline/new-candidate-dialog";
 
 interface Props {
-  candidates: Candidate[];
   onCreate: (refCheck: ReferenceCheck) => Promise<void>;
+}
+
+// Candidates who already have a settled outcome don't need to appear in the
+// picker below — there's nothing left for a *new* reference check to do for
+// them. "In progress" (Awaiting Verification/Responses, 1 Referee In) stays
+// selectable in case a TA genuinely needs a second one going.
+const SETTLED_STAGES: ReadonlySet<Candidate["stage"]> = new Set<Candidate["stage"]>([
+  "Hired",
+  "Rejected",
+  "Withdrawn",
+]);
+
+/** Searchable candidate picker: type to filter by name, or — when nothing
+ * matches — add the typed name as a brand-new candidate on the spot rather
+ * than forcing the TA to leave this dialog and start over from Candidates. */
+function CandidateCombobox({
+  candidates,
+  value,
+  onChange,
+  onRequestAddNew,
+}: {
+  candidates: Candidate[];
+  value: string;
+  onChange: (id: string) => void;
+  onRequestAddNew: (typedName: string) => void;
+}) {
+  const selected = candidates.find((c) => c.id === value);
+  const [query, setQuery] = React.useState(selected?.name ?? "");
+  const [open, setOpen] = React.useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // Keep the input's text in sync when the selection changes from outside
+  // this component (e.g. right after "add as new candidate" resolves).
+  React.useEffect(() => {
+    setQuery(selected?.name ?? "");
+  }, [selected?.id, selected?.name]);
+
+  React.useEffect(() => {
+    function onDocMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, []);
+
+  const trimmedQuery = query.trim();
+  const matches = React.useMemo(() => {
+    if (!trimmedQuery) return candidates;
+    const q = trimmedQuery.toLowerCase();
+    return candidates.filter((c) => c.name.toLowerCase().includes(q));
+  }, [candidates, trimmedQuery]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <Input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+          if (value) onChange(""); // editing the text again clears any prior pick until a new one is made
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder="Search candidates…"
+        autoComplete="off"
+      />
+      {open && (
+        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
+          {matches.length > 0 ? (
+            matches.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  onChange(c.id);
+                  setQuery(c.name);
+                  setOpen(false);
+                }}
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+              >
+                {c.name || "(no name)"}
+              </button>
+            ))
+          ) : trimmedQuery ? (
+            <div className="space-y-1 p-1">
+              <p className="px-2 py-1 text-xs text-muted-foreground">No matching candidates.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  onRequestAddNew(trimmedQuery);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-sm font-medium text-penda-blue hover:bg-accent"
+              >
+                <Plus className="h-3.5 w-3.5 shrink-0" />
+                Add &ldquo;{trimmedQuery}&rdquo; as a new candidate
+              </button>
+            </div>
+          ) : (
+            <p className="px-3 py-2 text-sm text-muted-foreground">No eligible candidates.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const EMPTY_REFEREE: RefereeStatus = {
@@ -78,8 +182,9 @@ export function RefereeFields({
   );
 }
 
-export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
+export function NewReferenceCheckDialog({ onCreate }: Props) {
   const { user } = useAuth();
+  const { candidates, referenceChecks, createCandidate } = useRecruitmentData();
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [candidateId, setCandidateId] = React.useState("");
@@ -87,9 +192,21 @@ export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
     { name: "", email: "", phone: "" },
     { name: "", email: "", phone: "" },
   ]);
+  const [addCandidateOpen, setAddCandidateOpen] = React.useState(false);
+  const [newCandidateName, setNewCandidateName] = React.useState("");
+
+  // Trim the picker to candidates a new reference check actually makes sense
+  // for — see SETTLED_STAGES above.
+  const eligibleCandidates = React.useMemo(() => {
+    const completedCandidateIds = new Set(
+      referenceChecks.filter((rc) => rc.status === "Ready for Offer").map((rc) => rc.candidateId)
+    );
+    return candidates.filter((c) => !SETTLED_STAGES.has(c.stage) && !completedCandidateIds.has(c.id));
+  }, [candidates, referenceChecks]);
 
   function reset() {
     setCandidateId("");
+    setNewCandidateName("");
     setReferees([
       { name: "", email: "", phone: "" },
       { name: "", email: "", phone: "" },
@@ -146,17 +263,29 @@ export function NewReferenceCheckDialog({ candidates, onCreate }: Props) {
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
             <Label>Candidate</Label>
-            <Select value={candidateId} onValueChange={setCandidateId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select candidate…" />
-              </SelectTrigger>
-              <SelectContent>
-                {candidates.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name || "(no name)"}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CandidateCombobox
+              candidates={eligibleCandidates}
+              value={candidateId}
+              onChange={setCandidateId}
+              onRequestAddNew={(typedName) => {
+                setNewCandidateName(typedName);
+                setAddCandidateOpen(true);
+              }}
+            />
           </div>
+          {/* Controlled, trigger-less instance of the full "Add Candidate"
+              form — reused as-is (same required fields, same duplicate
+              detection) rather than a stripped-down quick-add that could
+              write an incomplete candidate record. */}
+          <NewCandidateDialog
+            open={addCandidateOpen}
+            onOpenChange={setAddCandidateOpen}
+            initialName={newCandidateName}
+            initialStage="Reference Check"
+            hideTrigger
+            onCreate={createCandidate}
+            onCreated={(c) => setCandidateId(c.id)}
+          />
           {referees.map((referee, i) => (
             <RefereeFields
               key={i}
