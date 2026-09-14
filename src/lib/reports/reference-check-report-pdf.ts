@@ -41,9 +41,71 @@ type Ctx = {
   pageNum: number;
 };
 
+// AI-generated summaries and free-typed referee answers/names routinely
+// contain typographic punctuation — most commonly a non-breaking hyphen
+// ("problem‑solving") — that falls outside the WinAnsi encoding pdf-lib's
+// standard Helvetica font uses. Measuring or drawing one throws and takes
+// down the *entire* report (see StandardFontEmbedder.encodeUnicodeCodePoint),
+// including referees who did answer, so every character that reaches
+// wrapText()/drawSectionHeading() is normalized through here first.
+// WIN_ANSI_EXTRA mirrors the handful of codepoints above U+00FF that
+// @pdf-lib/standard-fonts' win1252 table *does* support (smart quotes, en/em
+// dash, ellipsis, bullet, €, ™, …) — anything else outside 0x20-0x7E/
+// 0xA0-0xFF is dropped rather than crashing the render.
+const PDF_CHAR_REPLACEMENTS: Record<string, string> = {
+  "‐": "-", // hyphen
+  "‑": "-", // non-breaking hyphen (the one AI summaries actually produce)
+  "‒": "-", // figure dash
+  "―": "-", // horizontal bar
+  "−": "-", // minus sign
+  "​": "", // zero-width space
+  "‌": "",
+  "‍": "",
+  "﻿": "",
+  "\t": " ",
+  " ": " ", // narrow no-break space
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
+};
+const WIN_ANSI_EXTRA = new Set([
+  0x152, 0x153, 0x160, 0x161, 0x178, 0x17d, 0x17e, 0x192, 0x2c6, 0x2dc, 0x2013, 0x2014, 0x2018, 0x2019, 0x201a, 0x201c,
+  0x201d, 0x201e, 0x2020, 0x2021, 0x2022, 0x2026, 0x2030, 0x2039, 0x203a, 0x20ac, 0x2122,
+]);
+
+function sanitizeForPdf(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    if (ch === "\n") {
+      out += ch;
+      continue;
+    }
+    const replacement = PDF_CHAR_REPLACEMENTS[ch];
+    if (replacement !== undefined) {
+      out += replacement;
+      continue;
+    }
+    const code = ch.codePointAt(0) ?? 0;
+    if ((code >= 0x20 && code <= 0x7e) || (code >= 0xa0 && code <= 0xff) || WIN_ANSI_EXTRA.has(code)) {
+      out += ch;
+    }
+    // Anything else (emoji, exotic symbols, non-Latin scripts) is dropped —
+    // silently losing an unsupported character beats 500ing the whole report.
+  }
+  return out;
+}
+
 function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
-  for (const paragraphLine of text.split("\n")) {
+  for (const paragraphLine of sanitizeForPdf(text).split("\n")) {
     const words = paragraphLine.split(/\s+/).filter(Boolean);
     if (words.length === 0) {
       lines.push("");
@@ -138,7 +200,11 @@ function drawDivider(ctx: Ctx) {
 function drawSectionHeading(ctx: Ctx, text: string) {
   ensureSpace(ctx, 26);
   ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - 12, width: 3, height: 14, color: BLUE });
-  ctx.page.drawText(text, { x: MARGIN + 10, y: ctx.y - 10.5, size: 11.5, font: ctx.bold, color: CHARCOAL });
+  // Unlike every other heading here (hardcoded English labels), this one
+  // sometimes carries a referee's free-typed/Google-supplied name — route it
+  // through the same sanitizer as body text so an unusual character in a
+  // name can't crash the render either.
+  ctx.page.drawText(sanitizeForPdf(text), { x: MARGIN + 10, y: ctx.y - 10.5, size: 11.5, font: ctx.bold, color: CHARCOAL });
   ctx.y -= 26;
 }
 
