@@ -68,10 +68,15 @@ const MIN_TEXT_LENGTH = 10;
 // #e4e7ec borders, 10px radius, 13.5px text, #344054 labels.
 // ---------------------------------------------------------------------------
 
+// Explicit bg-white + text-[#101828] here (not left to the shared Input/
+// SelectTrigger's CSS-variable bg-background/text-foreground) so these
+// fields always render with a white background and black text, regardless
+// of the visitor's OS/browser dark-mode preference — see FormShell's own
+// note on this same class of bug.
 const fieldClass =
-  "h-auto w-full rounded-[10px] border-[#e4e7ec] px-[13px] py-[11px] text-[13.5px] text-[#101828] placeholder:text-[#98a2b3] focus-visible:ring-penda-blue/30";
+  "h-auto w-full rounded-[10px] border-[#e4e7ec] bg-white px-[13px] py-[11px] text-[13.5px] text-[#101828] placeholder:text-[#98a2b3] focus-visible:ring-penda-blue/30";
 const selectTriggerClass =
-  "h-auto w-full rounded-[10px] border-[#e4e7ec] px-[13px] py-[11px] text-[13.5px] text-[#101828] focus:ring-penda-blue/30 data-[placeholder]:text-[#98a2b3]";
+  "h-auto w-full rounded-[10px] border-[#e4e7ec] bg-white px-[13px] py-[11px] text-[13.5px] text-[#101828] focus:ring-penda-blue/30 data-[placeholder]:text-[#98a2b3]";
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <div className="mb-1.5 text-[12.5px] font-semibold text-[#344054]">{children}</div>;
@@ -111,7 +116,7 @@ function TextArea({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full resize-none rounded-[10px] border border-[#e4e7ec] px-3 py-3 text-[13.5px] leading-[1.55] text-[#101828] placeholder:text-[#98a2b3] focus:outline-none focus:ring-2 focus:ring-penda-blue/30"
+        className="w-full resize-none rounded-[10px] border border-[#e4e7ec] bg-white px-3 py-3 text-[13.5px] leading-[1.55] text-[#101828] placeholder:text-[#98a2b3] focus:outline-none focus:ring-2 focus:ring-penda-blue/30"
       />
       {minLength !== undefined && (
         <p className={cn("mt-1 text-xs", meetsMin ? "text-[#98a2b3]" : "text-red-500")}>
@@ -138,9 +143,21 @@ function BasicSelect({
       <SelectTrigger className={selectTriggerClass}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent>
+      {/*
+        Radix portals this popup to document.body by default, outside the
+        page's `.light`-scoped wrapper, so the shared bg-popover/
+        text-popover-foreground CSS variables it normally relies on could
+        still resolve to the app's dark palette under system dark mode.
+        Hardcode the popup (and each option's hover/selected state) to a
+        white background with black text here so it's never theme-dependent.
+      */}
+      <SelectContent className="bg-white text-[#101828]">
         {options.map((opt) => (
-          <SelectItem key={opt} value={opt}>
+          <SelectItem
+            key={opt}
+            value={opt}
+            className="text-[#101828] focus:bg-penda-blue-light focus:text-penda-blue"
+          >
             {opt}
           </SelectItem>
         ))}
