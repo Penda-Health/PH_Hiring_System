@@ -17,7 +17,7 @@ export function RefereeStepper({ currentStep, totalSteps }: { currentStep: numbe
             <div
               className={cn(
                 "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2",
-                active ? "border-[#2f5fe0] bg-[#2f5fe0]" : "border-[#e4e7ec] bg-white"
+                active ? "border-penda-blue bg-penda-blue" : "border-[#e4e7ec] bg-white"
               )}
             >
               {done ? (
@@ -26,7 +26,7 @@ export function RefereeStepper({ currentStep, totalSteps }: { currentStep: numbe
                 <span className={cn("text-xs font-bold", isCurrent ? "text-white" : "text-[#98a2b3]")}>{n}</span>
               )}
             </div>
-            {n !== totalSteps && <div className={cn("h-0.5 w-[30px] sm:w-[46px]", done ? "bg-[#2f5fe0]" : "bg-[#e4e7ec]")} />}
+            {n !== totalSteps && <div className={cn("h-0.5 w-[30px] sm:w-[46px]", done ? "bg-penda-blue" : "bg-[#e4e7ec]")} />}
           </div>
         );
       })}

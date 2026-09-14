@@ -66,6 +66,15 @@
    * light-on-light text and near-black inputs.
    */
   .light {
+    /*
+     * Also pin the browser's native color-scheme to light here. Without
+     * this, Chrome/Safari render *native* unstyled widgets (checkbox tick
+     * boxes, native <select>s, scrollbars) using the OS dark preference
+     * even though every custom-styled control above is already forced
+     * light — that's what produced dark checkbox boxes independent of any
+     * of the --background/--foreground overrides.
+     */
+    color-scheme: light;
     --background: 225 100% 99%;
     --foreground: 225 60% 13%;
     --card: 0 0% 100%;

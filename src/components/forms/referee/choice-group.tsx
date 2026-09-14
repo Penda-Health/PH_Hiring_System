@@ -38,8 +38,8 @@ export function ChoiceGroup<T extends string>({
               "rounded-full border font-semibold transition-colors",
               size === "sm" ? "px-3.5 py-2 text-[13px]" : "px-4 py-2.5 text-[13.5px]",
               selected
-                ? "border-[#2f5fe0] bg-[#eef2ff] text-[#2f5fe0]"
-                : "border-[#e4e7ec] text-[#475467] hover:border-[#2f5fe0]/40"
+                ? "border-penda-blue bg-penda-blue-light text-penda-blue"
+                : "border-[#e4e7ec] text-[#475467] hover:border-penda-blue/40"
             )}
           >
             {opt.label}

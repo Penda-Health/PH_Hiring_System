@@ -51,23 +51,59 @@ function namesSimilar(a: string, b: string): boolean {
 
 export function NewCandidateDialog({
   onCreate,
+  open: openProp,
+  onOpenChange,
+  initialName,
+  initialStage,
+  onCreated,
+  hideTrigger,
 }: {
-  onCreate: (candidate: Candidate) => Promise<void>;
+  onCreate: (candidate: Candidate) => Promise<Candidate>;
+  /**
+   * Below: an escape hatch so this dialog can also be driven from elsewhere
+   * (e.g. the reference-check dialog's "add as new candidate" flow) instead
+   * of only its own "Add Candidate" button — pass `open`/`onOpenChange` to
+   * control it externally, `hideTrigger` to suppress the default button, and
+   * `onCreated` to get the server-assigned record back the moment it's made
+   * (e.g. to auto-select it in whatever picker prompted the add).
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  initialName?: string;
+  initialStage?: CandidateStage;
+  onCreated?: (candidate: Candidate) => void;
+  hideTrigger?: boolean;
 }) {
   const { candidates } = useRecruitmentData();
-  const [open, setOpen] = React.useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = onOpenChange ?? setUncontrolledOpen;
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   const [form, setForm] = React.useState(() => ({
-    name: "", phone: "", email: "",
+    name: initialName ?? "", phone: "", email: "",
     gender: "Female" as "Male" | "Female",
     segment: "IPS" as Segment,
     department: departmentOptionsFor("IPS")[0] as string,
-    stage: "First Interview" as CandidateStage,
+    stage: initialStage ?? ("First Interview" as CandidateStage),
     source: "",
     employmentType: "Full-time" as EmploymentType,
   }));
+
+  // Externally-driven opens (initialName/initialStage arrive fresh each
+  // time) reset the form to those defaults rather than whatever was left
+  // over from a previous open of this same long-lived instance.
+  React.useEffect(() => {
+    if (open) {
+      setForm((prev) => ({
+        ...prev,
+        name: initialName ?? prev.name,
+        stage: initialStage ?? prev.stage,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -116,7 +152,7 @@ export function NewCandidateDialog({
     setSubmitting(true);
     try {
       const now = new Date().toISOString();
-      await onCreate({
+      const created = await onCreate({
         id: `cand-${Date.now()}`,
         candId: "",
         name: form.name,
@@ -131,7 +167,8 @@ export function NewCandidateDialog({
         stageEnteredAt: now,
         createdAt: now,
       });
-      setForm((prev) => ({ ...prev, name: "", phone: "", email: "", source: "", stage: "First Interview" }));
+      onCreated?.(created);
+      setForm((prev) => ({ ...prev, name: "", phone: "", email: "", source: "", stage: initialStage ?? "First Interview" }));
       setOpen(false);
     } catch (err) {
       setSubmitError(
@@ -144,9 +181,11 @@ export function NewCandidateDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-penda-blue hover:bg-penda-blue-dark">Add Candidate</Button>
-      </DialogTrigger>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          <Button className="bg-penda-blue hover:bg-penda-blue-dark">Add Candidate</Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Add Candidate</DialogTitle>

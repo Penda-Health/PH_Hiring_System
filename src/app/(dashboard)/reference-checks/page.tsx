@@ -5,7 +5,7 @@ import { ReferenceCheckCard } from "@/components/reference-checks/reference-chec
 import { NewReferenceCheckDialog } from "@/components/reference-checks/new-reference-check-dialog";
 
 export default function ReferenceChecksPage() {
-  const { referenceChecks, candidates, createReferenceCheck, updateReferenceCheckOutcome, canEdit, extendedLoading } =
+  const { referenceChecks, createReferenceCheck, updateReferenceCheckOutcome, canEdit, extendedLoading } =
     useRecruitmentData();
 
   // Candidate-submitted referee details sit here until a TA reviews and
@@ -24,7 +24,7 @@ export default function ReferenceChecksPage() {
           )}
         </div>
         {canEdit && (
-          <NewReferenceCheckDialog candidates={candidates} onCreate={createReferenceCheck} />
+          <NewReferenceCheckDialog onCreate={createReferenceCheck} />
         )}
       </div>
       {referenceChecks.length === 0 ? (
