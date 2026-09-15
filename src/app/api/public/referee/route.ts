@@ -47,17 +47,17 @@ const submitSchema = z.object({
   reportedTo: z.string().trim().max(150).optional(),
   leavingReason: z.enum(["Still employed there", "Resigned", "Contract ended", "Laid off / restructuring", "Terminated", "Not sure"]),
   executionScore: z.number().int().min(1).max(5),
-  executionExample: z.string().trim().min(20).max(2000),
+  executionExample: z.string().trim().min(100).max(2000),
   teamworkScore: z.number().int().min(1).max(5),
-  teamworkExample: z.string().trim().min(20).max(2000),
+  teamworkExample: z.string().trim().min(100).max(2000),
   communicationScore: z.number().int().min(1).max(5),
-  communicationExample: z.string().trim().min(20).max(2000),
+  communicationExample: z.string().trim().min(100).max(2000),
   wouldRehire: z.enum(["Yes", "With reservations", "No"]),
   // Required only when the answer isn't an unqualified "Yes" — enforced
   // server-side below since it depends on another field's value.
   wouldRehireExplanation: z.string().trim().max(2000).optional(),
   topStrengths: z.string().trim().min(10).max(2000),
-  coachingArea: z.string().trim().min(10).max(2000),
+  coachingArea: z.string().trim().min(50).max(2000),
   feedbackResponse: z.enum(["Openly, and applied it", "Mixed", "Defensively"]),
   honestyConcerns: z.enum(["No concerns", "Some concerns", "Prefer to discuss by phone"]),
   // Clinical (IPS) roles only — validated as required server-side below once the
