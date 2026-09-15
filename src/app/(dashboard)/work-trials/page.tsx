@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, ClipboardCheck, Copy, Download, LayoutList, Columns3, RefreshCw, Trash2 } from "lucide-react";
+import { Check, ClipboardCheck, Copy, Download, LayoutList, Columns3, RefreshCw, Trash2, ListChecks, Clock, ClipboardList, CheckCircle2, TrendingUp } from "lucide-react";
 import { getDisplayStatus, getCandidateForTrial, getBranchForTrial } from "@/lib/work-trial-helpers";
 import { ManualReviewDialog } from "@/components/work-trials/work-trial-card";
 import { MONTH_RANGE_OPTIONS, MonthRangeOption } from "@/lib/pipeline-helpers";
 import { isWithinMonthRange } from "@/lib/date-utils";
+import { StatTile, StatTileRow } from "@/components/ui/stat-tile";
 
 type StatusFilter = "all" | "Awaiting Arrival" | "Awaiting Score" | "Complete";
 type BookedFilter = "all" | "booked" | "not-booked";
@@ -208,6 +209,21 @@ export default function WorkTrialsPage() {
     return counts;
   }, [dateFiltered]);
 
+  // Stats row scopes to the date-range only (dateFiltered) — never to the
+  // status/booking/branch/search filters below — so the KPI numbers describe
+  // the whole selected window, not whatever narrower slice is on screen.
+  const stats = React.useMemo(() => {
+    const passCount = dateFiltered.filter((t) => t.passFail === "Pass").length;
+    const failCount = dateFiltered.filter((t) => t.passFail === "Fail").length;
+    const decided = passCount + failCount;
+    return {
+      total: dateFiltered.length,
+      passCount,
+      failCount,
+      passRate: decided > 0 ? Math.round((passCount / decided) * 100) : null,
+    };
+  }, [dateFiltered]);
+
   const kanbanColumns: { status: StatusFilter; label: string }[] = [
     { status: "Awaiting Arrival", label: "Awaiting Arrival" },
     { status: "Awaiting Score",   label: "Awaiting Score" },
@@ -242,6 +258,21 @@ export default function WorkTrialsPage() {
           )}
         </div>
       </div>
+
+      {/* Stats — scoped to the date range selected below, not the narrower status/booking/branch/search filters */}
+      <StatTileRow>
+        <StatTile label="Total in range" value={stats.total} icon={ListChecks} tone="neutral" />
+        <StatTile label="Awaiting arrival" value={statusCounts["Awaiting Arrival"] ?? 0} icon={Clock} tone="neutral" />
+        <StatTile label="Awaiting score" value={statusCounts["Awaiting Score"] ?? 0} icon={ClipboardList} tone="warning" />
+        <StatTile label="Complete" value={statusCounts["Complete"] ?? 0} icon={CheckCircle2} tone="accent" />
+        <StatTile
+          label="Pass rate"
+          value={stats.passRate !== null ? `${stats.passRate}%` : "—"}
+          sublabel={stats.passCount + stats.failCount > 0 ? `${stats.passCount} pass · ${stats.failCount} fail` : "No results yet"}
+          icon={TrendingUp}
+          tone={stats.passRate !== null && stats.passRate >= 70 ? "success" : stats.passRate !== null ? "critical" : "neutral"}
+        />
+      </StatTileRow>
 
       {/* Status tabs */}
       <div className="flex gap-1 border-b border-border pb-0">
