@@ -23,6 +23,8 @@ import { GoogleSignInButton } from "@/components/forms/google-sign-in-button";
 import { RefereeTopBar } from "@/components/forms/referee/top-bar";
 import { ChoiceGroup } from "@/components/forms/referee/choice-group";
 import { RatingScale } from "@/components/forms/referee/rating-scale";
+import { DraftRestoredBanner } from "@/components/forms/form-shell";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/forms/referee-draft";
 
 type FormData = {
   candidateName: string;
@@ -349,6 +351,11 @@ function RefereeForm() {
   const [submitted, setSubmitted] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
+  // Whether the current in-progress state came from a restored autosave
+  // draft (see referee-draft.ts) rather than a fresh start — drives the
+  // "we restored your answers" banner on screens 2-4 below.
+  const [draftRestored, setDraftRestored] = React.useState(false);
+
   React.useEffect(() => {
     if (!token) {
       setLoadError("missing_token");
@@ -365,11 +372,173 @@ function RefereeForm() {
       .then((body: FormData) => {
         setData(body);
         setPhone(body.refereePhone || "");
+        if (body.alreadySubmitted) {
+          clearDraft(token); // Already submitted — any local draft is stale.
+          return;
+        }
         // A refresh mid-flow shouldn't re-ask someone who already verified.
-        if (body.googleVerified) setScreen(2);
+        // If there's an unfinished draft for this token, resume into it
+        // instead of dropping back to a blank screen 2.
+        if (body.googleVerified) {
+          const draft = loadDraft(token);
+          if (draft) {
+            setRelationship(draft.relationship);
+            setReportingRelationship(draft.reportingRelationship as (typeof REPORTING_RELATIONSHIPS)[number] | "");
+            setRefereeOrganization(draft.refereeOrganization);
+            if (draft.phone) setPhone(draft.phone);
+            setDurationKnown(draft.durationKnown);
+            setInteractionFrequency(draft.interactionFrequency as (typeof INTERACTION_FREQUENCIES)[number] | "");
+            setJobTitleRecalled(draft.jobTitleRecalled);
+            setEmploymentFrom(draft.employmentFrom);
+            setEmploymentTo(draft.employmentTo);
+            setStillEmployed(draft.stillEmployed);
+            setMainResponsibilities(draft.mainResponsibilities);
+            setReportedTo(draft.reportedTo);
+            setLeavingReason(draft.leavingReason as (typeof LEAVING_REASONS)[number] | "");
+            setWouldRehire(draft.wouldRehire as (typeof WOULD_REHIRE_OPTIONS)[number] | "");
+            setWouldRehireExplanation(draft.wouldRehireExplanation);
+            setExecutionScore(draft.executionScore);
+            setExecutionExample(draft.executionExample);
+            setTeamworkScore(draft.teamworkScore);
+            setTeamworkExample(draft.teamworkExample);
+            setCommunicationScore(draft.communicationScore);
+            setCommunicationExample(draft.communicationExample);
+            setTopStrengths(draft.topStrengths);
+            setCoachingArea(draft.coachingArea);
+            setFeedbackResponse(draft.feedbackResponse as (typeof FEEDBACK_RESPONSE_OPTIONS)[number] | "");
+            setHonestyConcerns(draft.honestyConcerns as (typeof HONESTY_OPTIONS)[number] | "");
+            setComplianceIncidents(draft.complianceIncidents as (typeof COMPLIANCE_OPTIONS)[number] | "");
+            setLicenseStanding(draft.licenseStanding as (typeof LICENSE_OPTIONS)[number] | "");
+            setPreferPhoneNumber(draft.preferPhoneNumber);
+            setRecommendHire(draft.recommendHire as (typeof RECOMMEND_HIRE_OPTIONS)[number]["value"] | "");
+            setNotes(draft.notes);
+            setConsentToContact(draft.consentToContact);
+            setScreen(draft.screen);
+            setDraftRestored(true);
+          } else {
+            setScreen(2);
+          }
+        }
       })
       .catch((err) => setLoadError(err.message));
   }, [token]);
+
+  // Debounced autosave — fires while the referee is actively working through
+  // screens 2-4, so a closed tab or dropped connection loses at most a
+  // fraction of a second of typing, not the whole reference. Screens 0/1
+  // have nothing worth restoring (no answer data yet, and re-verifying is
+  // required again anyway); a successful submit clears the draft itself.
+  React.useEffect(() => {
+    if (!token) return;
+    if (screen !== 2 && screen !== 3 && screen !== 4) return;
+    const handle = setTimeout(() => {
+      saveDraft(token, {
+        screen,
+        relationship,
+        reportingRelationship,
+        refereeOrganization,
+        phone,
+        durationKnown,
+        interactionFrequency,
+        jobTitleRecalled,
+        employmentFrom,
+        employmentTo,
+        stillEmployed,
+        mainResponsibilities,
+        reportedTo,
+        leavingReason,
+        wouldRehire,
+        wouldRehireExplanation,
+        executionScore,
+        executionExample,
+        teamworkScore,
+        teamworkExample,
+        communicationScore,
+        communicationExample,
+        topStrengths,
+        coachingArea,
+        feedbackResponse,
+        honestyConcerns,
+        complianceIncidents,
+        licenseStanding,
+        preferPhoneNumber,
+        recommendHire,
+        notes,
+        consentToContact,
+      });
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [
+    token,
+    screen,
+    relationship,
+    reportingRelationship,
+    refereeOrganization,
+    phone,
+    durationKnown,
+    interactionFrequency,
+    jobTitleRecalled,
+    employmentFrom,
+    employmentTo,
+    stillEmployed,
+    mainResponsibilities,
+    reportedTo,
+    leavingReason,
+    wouldRehire,
+    wouldRehireExplanation,
+    executionScore,
+    executionExample,
+    teamworkScore,
+    teamworkExample,
+    communicationScore,
+    communicationExample,
+    topStrengths,
+    coachingArea,
+    feedbackResponse,
+    honestyConcerns,
+    complianceIncidents,
+    licenseStanding,
+    preferPhoneNumber,
+    recommendHire,
+    notes,
+    consentToContact,
+  ]);
+
+  function discardDraftAndRestart() {
+    if (token) clearDraft(token);
+    setDraftRestored(false);
+    setRelationship("");
+    setReportingRelationship("");
+    setRefereeOrganization("");
+    setDurationKnown("");
+    setInteractionFrequency("");
+    setJobTitleRecalled("");
+    setEmploymentFrom("");
+    setEmploymentTo("");
+    setStillEmployed(false);
+    setMainResponsibilities("");
+    setReportedTo("");
+    setLeavingReason("");
+    setWouldRehire("");
+    setWouldRehireExplanation("");
+    setExecutionScore(0);
+    setExecutionExample("");
+    setTeamworkScore(0);
+    setTeamworkExample("");
+    setCommunicationScore(0);
+    setCommunicationExample("");
+    setTopStrengths("");
+    setCoachingArea("");
+    setFeedbackResponse("");
+    setHonestyConcerns("");
+    setComplianceIncidents("");
+    setLicenseStanding("");
+    setPreferPhoneNumber("");
+    setRecommendHire("");
+    setNotes("");
+    setConsentToContact(true);
+    setScreen(2);
+  }
 
   if (loadError === "missing_token" || loadError === "expired") {
     return (
@@ -514,6 +683,7 @@ function RefereeForm() {
               : "Something went wrong. Please try again."
         );
       }
+      if (token) clearDraft(token);
       setSubmitted(true);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -657,6 +827,12 @@ function RefereeForm() {
     </p>
   );
 
+  const draftBanner = draftRestored ? (
+    <div className="mb-6">
+      <DraftRestoredBanner onDiscard={discardDraftAndRestart} />
+    </div>
+  ) : null;
+
   // -------------------------------------------------------------------------
   // Screen 2 — referee & employment details. Per RelationshipRatings.dc.html.
   // -------------------------------------------------------------------------
@@ -669,6 +845,7 @@ function RefereeForm() {
             <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.6px] text-penda-blue">Step 2 of 4 · Referee &amp; employment details</p>
             <h1 className="mb-2 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[26px]">Tell us about your role, and theirs</h1>
             {verifiedNote}
+            {draftBanner}
 
             <div className="grid grid-cols-1 gap-x-14 gap-y-8 lg:grid-cols-2">
               <div className="space-y-3.5">
@@ -846,6 +1023,7 @@ function RefereeForm() {
             <h1 className="mb-1.5 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[26px]">Rate their work — with an example for each</h1>
             <p className="mb-6 text-sm text-[#475467]">A specific example is more useful to us than the rating alone.</p>
             {verifiedNote}
+            {draftBanner}
 
             <div className="grid grid-cols-1 gap-7 lg:grid-cols-3">
               {cards.map((c) => (
@@ -884,6 +1062,7 @@ function RefereeForm() {
           <p className="mb-2.5 text-xs font-bold uppercase tracking-[0.6px] text-penda-blue">Step 4 of 4 · Strengths &amp; recommendation</p>
           <h1 className="mb-2 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[26px]">Last few things</h1>
           {verifiedNote}
+          {draftBanner}
 
           <div className="mb-7 grid grid-cols-1 gap-x-14 gap-y-8 lg:grid-cols-2">
             <div className="space-y-4">

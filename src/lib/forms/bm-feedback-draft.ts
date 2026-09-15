@@ -7,23 +7,19 @@
 // Those steps enforce a written-assessment minimum length, so losing that
 // work is the expensive case this exists to prevent.
 //
-// Deliberately localStorage, not a server-side draft: it's zero extra
-// surface on the token-authenticated /api/public/bm-feedback route (which
-// only knows about *submitted* state), and every failure mode (private
-// browsing, quota, corrupt JSON) just means "no draft to restore" rather
-// than a broken form. The tradeoff is it doesn't follow the BM across
-// devices — acceptable since this link is opened on whatever one phone/
-// tablet the BM is holding at the branch, not switched mid-fill.
+// Built on the shared localStorage engine (form-draft.ts) — see that file
+// for why this is localStorage rather than a server-side draft.
 //
 // Scoped per-token so two different work trials sharing a browser (e.g. a
 // BM covering several trials in a day) never cross-contaminate drafts.
+
+import { makeDraftStore, type DraftBase } from "./form-draft";
 
 const DRAFT_VERSION = 1;
 
 export type BmFeedbackDraftStep = "method" | "scoring" | "feedback" | "upload";
 
-export interface BmFeedbackDraft {
-  version: number;
+export interface BmFeedbackDraft extends DraftBase {
   step: BmFeedbackDraftStep;
   selectedRole: "BM" | "Incharge" | null;
   scores: {
@@ -44,43 +40,18 @@ export interface BmFeedbackDraft {
   // and asks the BM to re-attach it (see the draft-restored banner in
   // bm-feedback/page.tsx).
   uploadRecommendation: string;
-  savedAt: string;
 }
 
-function draftKey(token: string): string {
-  return `bm-feedback-draft:${token}`;
-}
+const store = makeDraftStore<BmFeedbackDraft>("bm-feedback", DRAFT_VERSION);
 
 export function loadDraft(token: string): BmFeedbackDraft | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(draftKey(token));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as BmFeedbackDraft;
-    if (parsed.version !== DRAFT_VERSION) return null;
-    return parsed;
-  } catch {
-    // Corrupt JSON, private-browsing storage disabled, etc. — no draft.
-    return null;
-  }
+  return store.load(token);
 }
 
 export function saveDraft(token: string, draft: Omit<BmFeedbackDraft, "version" | "savedAt">): void {
-  if (typeof window === "undefined") return;
-  try {
-    const full: BmFeedbackDraft = { ...draft, version: DRAFT_VERSION, savedAt: new Date().toISOString() };
-    window.localStorage.setItem(draftKey(token), JSON.stringify(full));
-  } catch {
-    // Quota exceeded or storage unavailable — losing autosave silently is
-    // far better than throwing out of a keystroke handler.
-  }
+  store.save(token, draft);
 }
 
 export function clearDraft(token: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(draftKey(token));
-  } catch {
-    // Nothing to do if storage is unavailable.
-  }
+  store.clear(token);
 }

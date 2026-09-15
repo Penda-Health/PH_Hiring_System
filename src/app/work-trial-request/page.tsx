@@ -4,10 +4,11 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormShell, FormMessage, FormStepper, type FormShellBrand } from "@/components/forms/form-shell";
+import { FormShell, FormMessage, FormStepper, DraftRestoredBanner, type FormShellBrand } from "@/components/forms/form-shell";
 import { DatePickerCalendar } from "@/components/forms/date-picker-calendar";
 import { MapPin, Phone, Calendar, CheckCircle2 } from "lucide-react";
 import { minBookableDate, MIN_LEAD_HOURS } from "@/lib/work-trial-timing";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/forms/work-trial-request-draft";
 
 const BRAND: FormShellBrand = {
   headline: "You're one step from your work trial.",
@@ -153,6 +154,54 @@ function WorkTrialRequestForm() {
   const [maxDate, setMaxDate] = React.useState<Date | null>(null);
   const [loadingConfig, setLoadingConfig] = React.useState(true);
 
+  // Whether a saved draft was restored on mount — drives the "we restored
+  // what you filled in" banner on the identify step. `hydrated` gates
+  // autosave until after the restore attempt below has run, so a blank
+  // first render never overwrites a real draft with empty fields.
+  const [draftRestored, setDraftRestored] = React.useState(false);
+  const [hydrated, setHydrated] = React.useState(false);
+
+  React.useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      setName(draft.name);
+      setPhoneLocal(draft.phoneLocal);
+      setEmail(draft.email);
+      setSelectedCadre(draft.selectedCadre);
+      setSubRole(draft.subRole);
+      setBranchId(draft.branchId);
+      setDate(draft.date);
+      const hasContent = Boolean(draft.name || draft.phoneLocal || draft.email);
+      setDraftRestored(hasContent);
+    }
+    setHydrated(true);
+  }, []);
+
+  // Debounced autosave — active from the identify step onward, skipped
+  // entirely in reschedule mode (see work-trial-request-draft.ts) and once
+  // the booking is done.
+  React.useEffect(() => {
+    if (!hydrated || rescheduling || step === "done") return;
+    const hasContent = Boolean(name || phoneLocal || email || selectedCadre || branchId || date);
+    if (!hasContent) return;
+    const handle = setTimeout(() => {
+      saveDraft({ name, phoneLocal, email, selectedCadre, subRole, branchId, date });
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [hydrated, rescheduling, step, name, phoneLocal, email, selectedCadre, subRole, branchId, date]);
+
+  function discardDraftAndRestart() {
+    clearDraft();
+    setDraftRestored(false);
+    setName("");
+    setPhoneLocal("");
+    setEmail("");
+    setSelectedCadre("");
+    setSubRole("");
+    setBranchId("");
+    setDate("");
+  }
+
   React.useEffect(() => {
     fetch("/api/public/work-trial-request")
       .then((r) => r.json())
@@ -283,6 +332,7 @@ function WorkTrialRequestForm() {
       setConfirmedBmPhone(data.bmPhone ?? "");
       setConfirmedDate(data.date ?? date);
       setRescheduling(false);
+      clearDraft();
       setStep("done");
     } catch (err) {
       const bodyErr = err instanceof Error ? err.message : "";
@@ -364,6 +414,7 @@ function WorkTrialRequestForm() {
       >
         <form onSubmit={handleIdentify} className="space-y-5">
           <FormStepper step={1} total={3} label="Your details" />
+          {draftRestored && <DraftRestoredBanner onDiscard={discardDraftAndRestart} />}
           <div className="rounded-lg border border-penda-blue-light/50 bg-penda-blue/5 p-4 text-sm text-foreground/80 space-y-2.5">
             <p className="font-semibold text-penda-blue-dark">Congratulations on making it to the work trial stage!</p>
             <p>

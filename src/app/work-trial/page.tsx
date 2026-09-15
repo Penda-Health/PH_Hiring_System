@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FormShell, FormStatusCard, type FormShellBrand } from "@/components/forms/form-shell";
+import { FormShell, FormStatusCard, DraftRestoredBanner, type FormShellBrand } from "@/components/forms/form-shell";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/forms/work-trial-draft";
 
 const BRAND: FormShellBrand = {
   headline: "A short trial, a real look at life at Penda.",
@@ -51,6 +52,7 @@ function WorkTrialForm() {
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = React.useState(false);
 
   React.useEffect(() => {
     if (!token) {
@@ -65,9 +67,40 @@ function WorkTrialForm() {
         }
         return res.json();
       })
-      .then(setData)
+      .then((body: FormData) => {
+        setData(body);
+        if (body.alreadySubmitted) {
+          clearDraft(token); // Already confirmed — any local draft is stale.
+          return;
+        }
+        const draft = loadDraft(token);
+        if (draft) {
+          setBranchId(draft.branchId);
+          setDate(draft.date);
+          setNotes(draft.notes);
+          setDraftRestored(true);
+        }
+      })
       .catch((err) => setLoadError(err.message));
   }, [token]);
+
+  // Debounced autosave — only while there's an actual form to fill in
+  // (loaded, not yet submitted, and a branch to choose from).
+  React.useEffect(() => {
+    if (!token || !data || submitted || data.alreadySubmitted || data.branches.length === 0) return;
+    const handle = setTimeout(() => {
+      saveDraft(token, { branchId, date, notes });
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [token, data, submitted, branchId, date, notes]);
+
+  function discardDraftAndRestart() {
+    if (token) clearDraft(token);
+    setDraftRestored(false);
+    setBranchId("");
+    setDate("");
+    setNotes("");
+  }
 
   if (loadError === "missing_token" || loadError === "expired") {
     return (
@@ -162,6 +195,7 @@ function WorkTrialForm() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error === "already_submitted" ? "You've already submitted this form." : "Something went wrong. Please try again.");
       }
+      if (token) clearDraft(token);
       setSubmitted(true);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -182,6 +216,8 @@ function WorkTrialForm() {
           day, and we reimburse KES 1,000 post-onboarding for transport, lunch, and other costs on the day.
           Please pick the branch and date that work best for you below.
         </p>
+
+        {draftRestored && <DraftRestoredBanner onDiscard={discardDraftAndRestart} />}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">

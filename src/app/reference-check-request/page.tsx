@@ -5,8 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormShell, FormStatusCard, type FormShellBrand } from "@/components/forms/form-shell";
+import { FormShell, FormStatusCard, DraftRestoredBanner, type FormShellBrand } from "@/components/forms/form-shell";
 import { Plus, X } from "lucide-react";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/forms/reference-check-request-draft";
 
 const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · Reference Check",
@@ -84,6 +85,7 @@ function ReferenceCheckRequestForm() {
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = React.useState(false);
 
   React.useEffect(() => {
     if (!token) {
@@ -98,9 +100,39 @@ function ReferenceCheckRequestForm() {
         }
         return res.json();
       })
-      .then(setData)
+      .then((body: FormData) => {
+        setData(body);
+        if (body.alreadySubmitted) {
+          clearDraft(token); // Already submitted — any local draft is stale.
+          return;
+        }
+        const draft = loadDraft(token);
+        if (draft) {
+          setReferees(draft.referees);
+          setDraftRestored(true);
+        }
+      })
       .catch((err) => setLoadError(err.message));
   }, [token]);
+
+  // Debounced autosave — only once there's something worth restoring (skip
+  // the default two-blank-referee state so the banner doesn't fire on a
+  // completely untouched form).
+  React.useEffect(() => {
+    if (!token || !data || submitted || data.alreadySubmitted) return;
+    const hasContent = referees.some((r) => r.name.trim() || r.email.trim() || r.phone.trim());
+    if (!hasContent) return;
+    const handle = setTimeout(() => {
+      saveDraft(token, { referees });
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [token, data, submitted, referees]);
+
+  function discardDraftAndRestart() {
+    if (token) clearDraft(token);
+    setDraftRestored(false);
+    setReferees([{ ...EMPTY_REFEREE }, { ...EMPTY_REFEREE }]);
+  }
 
   if (loadError === "missing_token" || loadError === "expired") {
     return (
@@ -177,6 +209,7 @@ function ReferenceCheckRequestForm() {
           body.error === "already_submitted" ? "You've already submitted referee details." : "Something went wrong. Please try again."
         );
       }
+      if (token) clearDraft(token);
       setSubmitted(true);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -192,6 +225,7 @@ function ReferenceCheckRequestForm() {
       subtitle={`Hi ${data.candidateName}, please share 2 to 4 people we can contact about your work${data.roleTitle ? ` for the ${data.roleTitle} role` : ""}.`}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {draftRestored && <DraftRestoredBanner onDiscard={discardDraftAndRestart} />}
         {!distinctEmails && referees.every((r) => r.email) && (
           <p className="text-sm text-destructive">Please use a different email address for each referee.</p>
         )}
