@@ -67,14 +67,14 @@ const MIN_COACHING_LENGTH = 50;
 const MIN_RESPONSIBILITIES_LENGTH = 50;
 
 // The "employment dates you recall" fields are <input type="month"> pickers,
-// which read/write "YYYY-MM" — convert to a human-readable "Mon YYYY" (what
-// the rest of the app, the PDF report, and AI insights expect from these
-// free-text fields) only at submission time.
-function formatMonthYear(monthValue: string): string {
-  if (!monthValue) return "";
-  const [year, month] = monthValue.split("-").map(Number);
-  if (!year || !month) return monthValue;
-  return new Date(year, month - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+// which read/write "YYYY-MM" — the live Airtable columns behind them
+// (Referee N Employment From/To) are real `date` fields, so submit a real
+// ISO date (first of the picked month) rather than a human string like
+// "Mar 2023", which Airtable's date typecast can't reliably parse and was
+// causing the whole submission to fail with a 500. Reformatted back to
+// "Mon YYYY" for display in the PDF report (see reference-check-report-pdf.ts).
+function monthToIsoDate(monthValue: string): string {
+  return `${monthValue}-01`;
 }
 
 // Caps the employment-dates month pickers so a referee can't pick a future
@@ -665,8 +665,8 @@ function RefereeForm() {
           durationKnown,
           interactionFrequency,
           jobTitleRecalled,
-          employmentFrom: employmentFrom ? formatMonthYear(employmentFrom) : undefined,
-          employmentTo: stillEmployed ? undefined : employmentTo ? formatMonthYear(employmentTo) : undefined,
+          employmentFrom: employmentFrom ? monthToIsoDate(employmentFrom) : undefined,
+          employmentTo: stillEmployed ? undefined : employmentTo ? monthToIsoDate(employmentTo) : undefined,
           stillEmployed,
           mainResponsibilities,
           reportedTo: reportedTo || undefined,
