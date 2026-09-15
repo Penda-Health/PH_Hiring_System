@@ -259,7 +259,11 @@ export function AiAssistantLauncher() {
     openRoles, candidates, offers, branches, interviews,
     workTrials, referenceChecks, canEdit, canSeeSalary, updateOpenRoleStatus,
   } = useRecruitmentData();
-  const [providerId, setProviderId] = React.useState<ProviderId>("llama");
+  // Gemini's free-tier token-per-minute budget comfortably fits the full
+  // recruitment-data context Penny sends on every turn; Groq's free tier for
+  // gpt-oss-120b (8k TPM) does not, so it's kept as a manual fallback rather
+  // than the default.
+  const [providerId, setProviderId] = React.useState<ProviderId>("gemini");
   const [input, setInput] = React.useState("");
   const bottomRef = React.useRef<HTMLDivElement>(null);
 

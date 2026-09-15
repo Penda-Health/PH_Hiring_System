@@ -171,25 +171,44 @@ export function buildAiContext(data: {
   // generateReferenceCheckInsights in lib/ai/reference-check-summary.ts) —
   // reusing it here rather than re-summarizing referee answers is what makes
   // Penny's read of a reference check consistent with what a TA sees.
+  //
+  // The full object (summary paragraph + strengths/concerns/follow-up arrays)
+  // is the single heaviest thing in this context — with a long enough
+  // reference-check history it alone can push the request over free-tier
+  // provider token limits (see route.ts's onError). Recent checks, the ones
+  // actually relevant to "should we extend an offer" questions, keep the full
+  // text; older ones are reduced to the verdict + scores.
+  const REFCHECK_FULL_DETAIL_DAYS = 90;
+  const refCheckRecentCutoff = Date.now() - REFCHECK_FULL_DETAIL_DAYS * 86400000;
+
   const refCheckDetails = referenceChecks.map((rc) => {
     const candidate = candidateMap.get(rc.candidateId);
+    const createdAt = new Date(rc.createdAt).getTime();
+    const isRecent = isNaN(createdAt) || createdAt >= refCheckRecentCutoff;
+    const insights = rc.aiInsights;
     return {
       candidateName: candidate?.name || "(no name)",
       status: rc.status,
       outcome: rc.outcome,
       refereesResponded: rc.referees.map((r) => r.responded),
-      aiInsights: rc.aiInsights
-        ? {
-            overallStatus: rc.aiInsights.overallStatus,
-            summary: rc.aiInsights.summary,
-            recommendationScore: rc.aiInsights.recommendationScore,
-            overallScore: rc.aiInsights.overallScore,
-            confidenceScore: rc.aiInsights.confidenceScore,
-            keyStrengths: rc.aiInsights.keyStrengths,
-            areasOfConcern: rc.aiInsights.areasOfConcern,
-            consistencyNotes: rc.aiInsights.consistencyNotes,
-            suggestedFollowUps: rc.aiInsights.suggestedFollowUps,
-          }
+      aiInsights: insights
+        ? isRecent
+          ? {
+              overallStatus: insights.overallStatus,
+              summary: insights.summary,
+              recommendationScore: insights.recommendationScore,
+              overallScore: insights.overallScore,
+              confidenceScore: insights.confidenceScore,
+              keyStrengths: insights.keyStrengths,
+              areasOfConcern: insights.areasOfConcern,
+              consistencyNotes: insights.consistencyNotes,
+              suggestedFollowUps: insights.suggestedFollowUps,
+            }
+          : {
+              overallStatus: insights.overallStatus,
+              recommendationScore: insights.recommendationScore,
+              overallScore: insights.overallScore,
+            }
         : null,
     };
   });
@@ -239,7 +258,7 @@ export function buildSystemPrompt(context: AiContext, canEdit: boolean) {
   return [
     "You are Penny, an AI recruitment assistant inside Penda Health's hiring dashboard.",
     "You have full access to the current state of all open roles, candidates (including names and stages), interviews, work trials, reference checks, and offers. Use this data to answer questions precisely — no guessing or hallucinating records that aren't in the context.",
-    "Context structure: `roster` = all open roles with location, recruiter, HC gaps, and candidate counts. `candidateProfiles` = every candidate with name, current stage, role, and days in stage. `interviewDetails` = all scheduled interviews with candidate names, dates, stages, and attendance. `workTrialDetails` = all work trials with outcomes. `refCheckDetails` = reference check statuses; when a check's referees have responded and AI insights have been generated, each entry also carries an `aiInsights` object (overall recommendation, scores, summary, key strengths, areas of concern, consistency notes, suggested follow-ups) — treat this as the analyzed read on that reference check, not just raw status, and lean on it when asked things like which candidates are safe to extend an offer to or where a reference raised concerns. `offerDetails` = all offers with outcomes and salaries. `departmentBreakdown` and `branchBreakdown` are pre-aggregated for breakdown questions.",
+    "Context structure: `roster` = all open roles with location, recruiter, HC gaps, and candidate counts. `candidateProfiles` = every candidate with name, current stage, role, and days in stage. `interviewDetails` = all scheduled interviews with candidate names, dates, stages, and attendance. `workTrialDetails` = all work trials with outcomes. `refCheckDetails` = reference check statuses; when a check's referees have responded and AI insights have been generated, each entry also carries an `aiInsights` object — treat this as the analyzed read on that reference check, not just raw status, and lean on it when asked things like which candidates are safe to extend an offer to or where a reference raised concerns. For a check created in the last 90 days this includes the full analysis (summary, key strengths, areas of concern, consistency notes, suggested follow-ups); older checks are trimmed to just `overallStatus` and the three scores to keep the context small, so if those text fields are absent, give the verdict/scores you have and say the full write-up isn't available for that older check rather than inventing one. `offerDetails` = all offers with outcomes and salaries. `departmentBreakdown` and `branchBreakdown` are pre-aggregated for breakdown questions.",
     "Formatting rules: write for a human reading a chat window. Use names and role titles from the data — never invent details not present. NEVER show internal `id` field values starting with \"rec\" in visible text. For breakdown/grouping questions prefer the pre-aggregated arrays. For candidate-specific questions, scan `candidateProfiles`. Keep answers concise — bullet lists or short paragraphs.",
     "If asked to change a role's status, call the setRoleStatus tool with the role's `id` and `title` from the roster. Always confirm with the user first.",
     canEdit
