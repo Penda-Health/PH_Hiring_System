@@ -290,6 +290,19 @@ function fmtDate(iso: string | null | undefined): string {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }
 
+// Referee employment-date fields are real ISO dates (YYYY-MM-DD) from Sept
+// 2026 onward, matching the live Airtable `date` column — see monthToIsoDate
+// in src/app/referee/page.tsx. Older records may still hold free text from
+// an earlier form generation ("Mar 2021", garbled input, etc.) — pass those
+// through unchanged rather than mangling them.
+function fmtEmploymentMonth(value: string | undefined): string | undefined {
+  if (!value) return value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 function scoreLabel(v: number | undefined): string {
   return v === undefined || v === null ? "—" : `${v}/5`;
 }
@@ -452,7 +465,7 @@ function drawRefereeSection(ctx: Ctx, num: number, referee: RefereeStatus) {
 
   const employmentPeriod =
     referee.employmentFrom || referee.employmentTo || referee.stillEmployed
-      ? `${referee.employmentFrom ?? "—"} to ${referee.stillEmployed ? "present" : referee.employmentTo ?? "—"}`
+      ? `${fmtEmploymentMonth(referee.employmentFrom) ?? "—"} to ${referee.stillEmployed ? "present" : fmtEmploymentMonth(referee.employmentTo) ?? "—"}`
       : "—";
 
   // `reportingRelationship` replaces the old standalone directlySupervised
