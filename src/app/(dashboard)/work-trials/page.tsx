@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, ClipboardCheck, Copy, Download, LayoutList, Columns3, RefreshCw, Trash2, ListChecks, Clock, ClipboardList, CheckCircle2, TrendingUp } from "lucide-react";
+import { Check, ClipboardCheck, Copy, Download, LayoutList, Columns3, RefreshCw, Trash2, ListChecks, Clock, ClipboardList, CheckCircle2, TrendingUp, X } from "lucide-react";
 import { getDisplayStatus, getCandidateForTrial, getBranchForTrial } from "@/lib/work-trial-helpers";
 import { ManualReviewDialog } from "@/components/work-trials/work-trial-card";
 import { MONTH_RANGE_OPTIONS, MonthRangeOption } from "@/lib/pipeline-helpers";
@@ -58,6 +58,13 @@ export default function WorkTrialsPage() {
   // Roles page already uses for closed/filled roles. Widen or pick "All
   // time" to look further back.
   const [monthRange, setMonthRange] = React.useState<MonthRangeOption>("1");
+  // Custom date filter — a single day or an explicit range, picked via the
+  // two native date inputs in the filter bar. Kept separate from monthRange
+  // rather than folded into MonthRangeOption (shared with the Roles page's
+  // own preset dropdown): when either is set it takes over date-scoping
+  // entirely, see dateFiltered below.
+  const [dateFrom, setDateFrom] = React.useState("");
+  const [dateTo, setDateTo] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [syncing, setSyncing] = React.useState(false);
   const [linkCopied, setLinkCopied] = React.useState(false);
@@ -126,6 +133,22 @@ export default function WorkTrialsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unsynced, canEdit, extendedLoading]);
 
+  // Keep dateFrom/dateTo in sync so setting just one side acts as a
+  // single-date filter rather than an open-ended "on or after"/"on or
+  // before" one — widening the other side is what turns it into a range.
+  function setFrom(value: string) {
+    setDateFrom(value);
+    if (value && (!dateTo || dateTo < value)) setDateTo(value);
+  }
+  function setTo(value: string) {
+    setDateTo(value);
+    if (value && (!dateFrom || dateFrom > value)) setDateFrom(value);
+  }
+  function clearDateFilter() {
+    setDateFrom("");
+    setDateTo("");
+  }
+
   function copySchedulingLink() {
     navigator.clipboard.writeText(`${window.location.origin}/work-trial-request`).then(() => {
       setLinkCopied(true);
@@ -181,10 +204,26 @@ export default function WorkTrialsPage() {
   // Date-range scoping happens first and separately from the rest of the
   // filter bar so statusCounts (the tab badges) reflect the selected window
   // too, rather than counting trials the list below has already hidden.
-  const dateFiltered = React.useMemo(
-    () => workTrials.filter((t) => isWithinMonthRange(t.createdAt || t.date, monthRange)),
-    [workTrials, monthRange]
-  );
+  //
+  // The custom date filter (dateFrom/dateTo) takes over from the preset
+  // dropdown entirely when active, and scopes by the trial's own scheduled
+  // date (trial.date) rather than createdAt — that's the date being filtered
+  // on, not when the record was added to the system. The preset dropdown
+  // keeps its createdAt-based "recently added" behavior when no custom date
+  // is set.
+  const hasCustomDate = Boolean(dateFrom || dateTo);
+  const dateFiltered = React.useMemo(() => {
+    if (hasCustomDate) {
+      return workTrials.filter((t) => {
+        const day = (t.date || t.createdAt || "").slice(0, 10);
+        if (!day) return false;
+        if (dateFrom && day < dateFrom) return false;
+        if (dateTo && day > dateTo) return false;
+        return true;
+      });
+    }
+    return workTrials.filter((t) => isWithinMonthRange(t.createdAt || t.date, monthRange));
+  }, [workTrials, monthRange, hasCustomDate, dateFrom, dateTo]);
 
   // Filtered list
   const filtered = React.useMemo(() => {
@@ -303,8 +342,8 @@ export default function WorkTrialsPage() {
           className="h-8 w-44 text-sm"
         />
 
-        <Select value={monthRange} onValueChange={(v) => setMonthRange(v as MonthRangeOption)}>
-          <SelectTrigger className="h-8 w-36 text-sm">
+        <Select value={monthRange} onValueChange={(v) => setMonthRange(v as MonthRangeOption)} disabled={hasCustomDate}>
+          <SelectTrigger className={`h-8 w-36 text-sm ${hasCustomDate ? "opacity-50" : ""}`}>
             <SelectValue placeholder="Date range" />
           </SelectTrigger>
           <SelectContent>
@@ -313,6 +352,38 @@ export default function WorkTrialsPage() {
             ))}
           </SelectContent>
         </Select>
+
+        {/* Custom date filter — a single day (set just one side) or a range
+            (set both), scoped to the trial's own date. Overrides the preset
+            dropdown above while active; the × resets back to it. */}
+        <div className="flex items-center gap-1">
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setFrom(e.target.value)}
+            aria-label="From date"
+            className="h-8 w-[8.5rem] text-sm"
+          />
+          <span className="text-xs text-muted-foreground">–</span>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setTo(e.target.value)}
+            aria-label="To date"
+            className="h-8 w-[8.5rem] text-sm"
+          />
+          {hasCustomDate && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Clear date filter"
+              onClick={clearDateFilter}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
 
         <Select value={bookedFilter} onValueChange={(v) => setBookedFilter(v as BookedFilter)}>
           <SelectTrigger className="h-8 w-40 text-sm">
