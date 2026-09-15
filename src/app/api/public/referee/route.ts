@@ -43,7 +43,7 @@ const submitSchema = z.object({
   employmentFrom: z.string().trim().max(40).optional(),
   employmentTo: z.string().trim().max(40).optional(),
   stillEmployed: z.boolean(),
-  mainResponsibilities: z.string().trim().min(10).max(2000),
+  mainResponsibilities: z.string().trim().min(50).max(2000),
   reportedTo: z.string().trim().max(150).optional(),
   leavingReason: z.enum(["Still employed there", "Resigned", "Contract ended", "Laid off / restructuring", "Terminated", "Not sure"]),
   executionScore: z.number().int().min(1).max(5),

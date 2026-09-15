@@ -64,6 +64,7 @@ const PREFERS_PHONE = "Prefer to discuss by phone";
 const MIN_EXAMPLE_LENGTH = 100;
 const MIN_TEXT_LENGTH = 10;
 const MIN_COACHING_LENGTH = 50;
+const MIN_RESPONSIBILITIES_LENGTH = 50;
 
 // The "employment dates you recall" fields are <input type="month"> pickers,
 // which read/write "YYYY-MM" — convert to a human-readable "Mon YYYY" (what
@@ -625,7 +626,7 @@ function RefereeForm() {
     !!durationKnown &&
     !!interactionFrequency &&
     jobTitleRecalled.trim().length > 0 &&
-    mainResponsibilities.trim().length >= MIN_TEXT_LENGTH &&
+    mainResponsibilities.trim().length >= MIN_RESPONSIBILITIES_LENGTH &&
     !!leavingReason &&
     !!wouldRehire &&
     (wouldRehire === "Yes" || wouldRehireExplanation.trim().length > 0);
@@ -951,7 +952,7 @@ function RefereeForm() {
                 </div>
 
                 <Field label="Their main responsibilities">
-                  <TextArea value={mainResponsibilities} onChange={setMainResponsibilities} rows={2} minLength={MIN_TEXT_LENGTH} placeholder="e.g. Outpatient consults, minor procedures, supervising 2 nurses" />
+                  <TextArea value={mainResponsibilities} onChange={setMainResponsibilities} rows={2} minLength={MIN_RESPONSIBILITIES_LENGTH} placeholder="e.g. Outpatient consults, minor procedures, supervising 2 nurses" />
                 </Field>
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
