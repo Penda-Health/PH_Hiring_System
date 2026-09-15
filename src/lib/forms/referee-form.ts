@@ -224,8 +224,12 @@ export async function submitRefereeForm(
   // Recompute the derived status and, at 2 responses, auto-advance the
   // candidate's pipeline stage to Offer. Re-read fresh rather than trusting
   // the pre-update in-memory refCheck, since the write above just changed
-  // this referee's `responded` flag.
-  const fresh = await getRecord(TABLE_NAMES.ReferenceChecks, refCheckId);
+  // this referee's `responded` flag — `{ fresh: true }` is required here,
+  // not optional: this read happens moments after our own write, well
+  // inside the normal 30s cache window, so without it this can (and did, in
+  // production — see getRecord's doc comment) read stale pre-write data and
+  // silently skip the status transition.
+  const fresh = await getRecord(TABLE_NAMES.ReferenceChecks, refCheckId, { fresh: true });
   if (!fresh) return;
   const refCheck = referenceCheckFromAirtable(fresh);
   const respondedCount = refCheck.referees.filter((r) => r.responded).length;

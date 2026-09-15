@@ -47,8 +47,14 @@ async function airtableRequest(
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         // Reads are cached briefly and tagged per table so a write can invalidate
         // just that table's cache via revalidateTag instead of going stale for a
-        // full minute or re-fetching Airtable on every single page load.
-        ...(options.method && options.method !== "GET"
+        // full minute or re-fetching Airtable on every single page load. A caller
+        // that already set `cache: "no-store"` explicitly (see getRecord's
+        // `fresh` option) is asking to skip that entirely — respected as-is
+        // rather than also attaching `next.revalidate`, which Next's fetch
+        // rejects as a contradictory combination.
+        ...(options.cache === "no-store"
+          ? {}
+          : options.method && options.method !== "GET"
           ? { cache: "no-store" as const }
           : { next: { revalidate: 30, tags: [`airtable:${tableName}`] } }),
       });
@@ -118,9 +124,27 @@ export async function listRecordsFiltered(
   return records;
 }
 
-export async function getRecord(tableName: string, recordId: string): Promise<AirtableRecord | null> {
+export async function getRecord(
+  tableName: string,
+  recordId: string,
+  options?: {
+    // Bypasses the 30s Data Cache entirely for this read. Needed wherever a
+    // record is re-read immediately after this same request wrote to it (a
+    // "read my own write" recompute) — revalidateTag() only marks that cache
+    // stale for *future* requests, so without this the very next getRecord()
+    // in the same request can still see pre-write data. See submitRefereeForm,
+    // where this previously caused reference checks to sit at "Awaiting
+    // Responses" indefinitely after a referee responded — the derived-status
+    // recompute right after the write kept reading a stale responded=false.
+    fresh?: boolean;
+  }
+): Promise<AirtableRecord | null> {
   try {
-    return await airtableRequest(`${encodeURIComponent(tableName)}/${recordId}`, tableName);
+    return await airtableRequest(
+      `${encodeURIComponent(tableName)}/${recordId}`,
+      tableName,
+      options?.fresh ? { cache: "no-store" } : {}
+    );
   } catch (err) {
     // A record that's been deleted, or an ID from a stale/forged link, 404s
     // rather than erroring — every call site already has a `not_found`

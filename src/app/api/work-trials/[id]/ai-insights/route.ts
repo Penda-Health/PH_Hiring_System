@@ -40,7 +40,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // Re-fetch rather than hand-assembling the response — keeps this route
     // honest about what's actually now in Airtable (e.g. if a concurrent
     // edit landed in between) instead of trusting the in-memory patch.
-    const updated = await getRecord(TABLE_NAMES.WorkTrials, params.id);
+    // `{ fresh: true }` is required, not optional: this read happens right
+    // after our own write above, well inside getRecord's normal 30s cache
+    // window, so without it this can silently return the pre-write record.
+    const updated = await getRecord(TABLE_NAMES.WorkTrials, params.id, { fresh: true });
     if (!updated) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
     return NextResponse.json(workTrialFromAirtable(updated));
