@@ -66,21 +66,21 @@ const MIN_TEXT_LENGTH = 10;
 const MIN_COACHING_LENGTH = 50;
 const MIN_RESPONSIBILITIES_LENGTH = 50;
 
-// The "employment dates you recall" fields are <input type="month"> pickers,
-// which read/write "YYYY-MM" — the live Airtable columns behind them
-// (Referee N Employment From/To) are real `date` fields, so submit a real
-// ISO date (first of the picked month) rather than a human string like
-// "Mar 2023", which Airtable's date typecast can't reliably parse and was
-// causing the whole submission to fail with a 500. Reformatted back to
-// "Mon YYYY" for display in the PDF report (see reference-check-report-pdf.ts).
-function monthToIsoDate(monthValue: string): string {
-  return `${monthValue}-01`;
-}
+// The "employment dates you recall" fields are <input type="date"> pickers —
+// deliberately full-date, not <input type="month">, since Safari (desktop
+// and iOS) has never implemented type="month"/"week" and silently falls
+// back to a bare text input with no picker at all, letting garbage back in
+// (see git history for a screenshot of exactly that). type="date" is
+// supported natively since Safari 14.1, and the value it produces ("YYYY-MM-DD")
+// is already what the live Airtable columns behind these fields (Referee N
+// Employment From/To, real `date` fields) expect — no conversion needed.
+// Reformatted to "Mon YYYY" only for display in the PDF report (see
+// reference-check-report-pdf.ts).
 
-// Caps the employment-dates month pickers so a referee can't pick a future
-// month for a job that (by definition) already started.
+// Caps the employment-dates pickers so a referee can't pick a future date
+// for a job that (by definition) already started.
 const now = new Date();
-const todayMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+const todayIsoDate = now.toISOString().slice(0, 10);
 
 // ---------------------------------------------------------------------------
 // Small styled primitives shared by every wizard screen below — plain HTML
@@ -665,8 +665,8 @@ function RefereeForm() {
           durationKnown,
           interactionFrequency,
           jobTitleRecalled,
-          employmentFrom: employmentFrom ? monthToIsoDate(employmentFrom) : undefined,
-          employmentTo: stillEmployed ? undefined : employmentTo ? monthToIsoDate(employmentTo) : undefined,
+          employmentFrom: employmentFrom || undefined,
+          employmentTo: stillEmployed ? undefined : employmentTo || undefined,
           stillEmployed,
           mainResponsibilities,
           reportedTo: reportedTo || undefined,
@@ -923,19 +923,19 @@ function RefereeForm() {
                   <FieldLabel>Employment dates you recall</FieldLabel>
                   <div className="mb-2 grid grid-cols-2 gap-3">
                     <input
-                      type="month"
-                      aria-label="Employment start month"
+                      type="date"
+                      aria-label="Employment start date"
                       className={fieldClass}
                       value={employmentFrom}
-                      max={todayMonth}
+                      max={todayIsoDate}
                       onChange={(e) => setEmploymentFrom(e.target.value)}
                     />
                     <input
-                      type="month"
-                      aria-label="Employment end month"
+                      type="date"
+                      aria-label="Employment end date"
                       className={fieldClass}
                       value={employmentTo}
-                      max={todayMonth}
+                      max={todayIsoDate}
                       onChange={(e) => setEmploymentTo(e.target.value)}
                       disabled={stillEmployed}
                     />
