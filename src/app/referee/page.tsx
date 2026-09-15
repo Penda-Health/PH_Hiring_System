@@ -24,7 +24,7 @@ import { RefereeTopBar } from "@/components/forms/referee/top-bar";
 import { ChoiceGroup } from "@/components/forms/referee/choice-group";
 import { RatingScale } from "@/components/forms/referee/rating-scale";
 import { DraftRestoredBanner } from "@/components/forms/form-shell";
-import { loadDraft, saveDraft, clearDraft } from "@/lib/forms/referee-draft";
+import { loadBestDraft, saveDraft, clearDraft } from "@/lib/forms/referee-draft";
 
 type FormData = {
   candidateName: string;
@@ -36,6 +36,7 @@ type FormData = {
   refereePhone: string;
   alreadySubmitted: boolean;
   googleVerified: boolean;
+  draftJson: string | null;
 };
 
 const RELATIONSHIPS = ["Direct manager / supervisor", "Senior colleague", "Peer / colleague", "Client or patient", "Other professional"];
@@ -395,10 +396,11 @@ function RefereeForm() {
           return;
         }
         // A refresh mid-flow shouldn't re-ask someone who already verified.
-        // If there's an unfinished draft for this token, resume into it
-        // instead of dropping back to a blank screen 2.
+        // If there's an unfinished draft for this token — on this device or
+        // synced from another one (see loadBestDraft/referee-draft.ts) —
+        // resume into it instead of dropping back to a blank screen 2.
         if (body.googleVerified) {
-          const draft = loadDraft(token);
+          const draft = loadBestDraft(token, body.draftJson);
           if (draft) {
             setRelationship(draft.relationship);
             setReportingRelationship(draft.reportingRelationship as (typeof REPORTING_RELATIONSHIPS)[number] | "");

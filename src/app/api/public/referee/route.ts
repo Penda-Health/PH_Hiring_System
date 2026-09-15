@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyRefereeToken } from "@/lib/forms/tokens";
-import { loadRefereeFormData, submitRefereeForm } from "@/lib/forms/referee-form";
+import { loadRefereeFormData, submitRefereeForm, saveRefereeDraft } from "@/lib/forms/referee-form";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
@@ -139,6 +139,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[api/public/referee] POST failed:", err);
+    return NextResponse.json({ error: "server_error" }, { status: 500 });
+  }
+}
+
+// Cross-device autosave: mirrors the same in-progress answers the client
+// already keeps in localStorage (see referee-draft.ts) into this referee's
+// Airtable record, so a link opened on a second device can resume rather
+// than restart. The draft itself is opaque here — never parsed or trusted
+// as real submission data, just round-tripped back to whichever client
+// (this device or another) reads it later. A generous size cap is the only
+// real validation, since it's the same client code writing and reading it.
+const MAX_DRAFT_LENGTH = 20000;
+const draftSchema = z.object({
+  token: z.string().min(1).max(4000),
+  draft: z.string().min(1).max(MAX_DRAFT_LENGTH),
+});
+
+export async function PATCH(request: NextRequest) {
+  const limited = rateLimit(request, "public:referee:draft", { limit: 30, windowMs: 10 * 60 * 1000 });
+  if (limited) return limited;
+
+  const json = await request.json().catch(() => null);
+  const result = draftSchema.safeParse(json);
+  if (!result.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+
+  const payload = await verifyRefereeToken(result.data.token);
+  if (!payload) return NextResponse.json({ error: "expired" }, { status: 401 });
+
+  try {
+    await saveRefereeDraft(payload.refCheckId, payload.refereeNum, result.data.draft);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[api/public/referee] PATCH (draft) failed:", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }

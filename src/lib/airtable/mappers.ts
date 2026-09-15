@@ -590,6 +590,7 @@ function refereeFromAirtable(
     googleVerifiedOverrideBy: opt(f[keys[`${prefix}_GOOGLE_VERIFIED_OVERRIDE_BY`]]),
     reminder24hSent: bool(f[keys[`${prefix}_REMINDER_24H_SENT`]]),
     reminder48hSent: bool(f[keys[`${prefix}_REMINDER_48H_SENT`]]),
+    draftJson: opt(f[keys[`${prefix}_DRAFT_JSON`]]),
   };
 }
 // Symmetric write side of refereeFromAirtable. `referee` is undefined for a
@@ -652,6 +653,7 @@ function refereeToAirtable(prefix: RefereePrefix, referee: RefereeStatus | undef
     [keys[`${prefix}_GOOGLE_VERIFIED_OVERRIDE_BY`]]: v(referee?.googleVerifiedOverrideBy),
     [keys[`${prefix}_REMINDER_24H_SENT`]]: v(referee?.reminder24hSent),
     [keys[`${prefix}_REMINDER_48H_SENT`]]: v(referee?.reminder48hSent),
+    [keys[`${prefix}_DRAFT_JSON`]]: v(referee?.draftJson),
   };
 }
 // Array-shaped AI fields are stored as newline-joined plain text rather than

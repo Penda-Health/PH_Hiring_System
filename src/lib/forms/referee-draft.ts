@@ -7,8 +7,15 @@
 // as a favor, on their phone, between other things, is the person most
 // likely to lose real work to a closed tab.
 //
-// Built on the shared localStorage engine (form-draft.ts) — see that file
-// for why this is localStorage rather than a server-side draft.
+// Built on the shared localStorage engine (form-draft.ts) for the fast,
+// synchronous local copy. On top of that, this module also debounces a
+// best-effort sync of the same draft to this referee's Airtable record
+// (Referee{N} Draft Json — see field-names.ts and saveRefereeDraft in
+// referee-form.ts), so a link opened on a second device can resume rather
+// than restart. localStorage stays the primary copy — the remote copy is
+// purely so a *different* browser/device has something to restore from;
+// see loadBestDraft, which reconciles the two by whichever was saved more
+// recently.
 //
 // Scoped per-token. Only screens 2-4 (after Google identity verification)
 // have anything worth restoring — screen 0 (intro) and 1 (verify) carry no
@@ -68,14 +75,82 @@ export interface RefereeDraft extends DraftBase {
 
 const store = makeDraftStore<RefereeDraft>("referee", DRAFT_VERSION);
 
+// Debounced independently of however often the caller's own effect invokes
+// saveDraft() (page.tsx already debounces that by 500ms) — a referee typing
+// through a long written example would otherwise fire a network request on
+// every pause. 4s trades a little staleness for far fewer Airtable writes.
+// Best-effort: any failure (offline, rate-limited, expired token) is a
+// silent no-op — the localStorage copy saved just above is unaffected, and
+// this never surfaces an error mid-form.
+const REMOTE_SYNC_DEBOUNCE_MS = 4000;
+const remoteSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function syncDraftToServer(token: string, draft: RefereeDraft): void {
+  const pending = remoteSyncTimers.get(token);
+  if (pending) clearTimeout(pending);
+  const handle = setTimeout(() => {
+    remoteSyncTimers.delete(token);
+    fetch("/api/public/referee", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, draft: JSON.stringify(draft) }),
+      keepalive: true,
+    }).catch(() => {
+      // Offline, rate-limited, or the token expired mid-fill — nothing to
+      // do; see the doc comment above.
+    });
+  }, REMOTE_SYNC_DEBOUNCE_MS);
+  remoteSyncTimers.set(token, handle);
+}
+
 export function loadDraft(token: string): RefereeDraft | null {
   return store.load(token);
 }
 
 export function saveDraft(token: string, draft: Omit<RefereeDraft, "version" | "savedAt">): void {
   store.save(token, draft);
+  // Re-read rather than re-stamping our own savedAt here, so the synced
+  // copy carries the exact timestamp form-draft.ts just wrote — that's what
+  // loadBestDraft compares against the remote copy's own timestamp later.
+  const saved = store.load(token);
+  if (saved) syncDraftToServer(token, saved);
 }
 
 export function clearDraft(token: string): void {
   store.clear(token);
+  const pending = remoteSyncTimers.get(token);
+  if (pending) {
+    clearTimeout(pending);
+    remoteSyncTimers.delete(token);
+  }
+}
+
+// Parses the opaque draft blob the server hands back on GET (see route.ts /
+// saveRefereeDraft) — the exact same shape as a localStorage draft, just
+// synced from another device. A parse failure or version mismatch (an old
+// draft shape from before a version bump) is treated as "no remote draft"
+// rather than thrown, matching form-draft.ts's own load().
+function parseRemoteDraft(raw: string | null | undefined): RefereeDraft | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as RefereeDraft;
+    if (parsed.version !== DRAFT_VERSION) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+// Reconciles this browser's own localStorage draft against whatever this
+// token's Airtable record carries in its Draft Json field, picking whichever
+// was saved more recently. This is what actually delivers cross-device
+// resume — a referee can start on a phone, open the same link on a laptop
+// later, and land on the newer of the two instead of whichever device
+// happens to be local.
+export function loadBestDraft(token: string, remoteDraftJson: string | null | undefined): RefereeDraft | null {
+  const local = loadDraft(token);
+  const remote = parseRemoteDraft(remoteDraftJson);
+  if (!local) return remote;
+  if (!remote) return local;
+  return Date.parse(remote.savedAt) > Date.parse(local.savedAt) ? remote : local;
 }

@@ -458,6 +458,14 @@ export interface RefereeStatus {
   reminder24hSent?: boolean;
   /** True once a reminder has gone out for this referee's 48h-no-response nudge — same convention as reminder24hSent, one stage further out. Not yet wired to an actual send (see the recruiter-facing "chase referee" pending task, which nudges in-app off elapsed time alone); this flag is here so a follow-up automation/script can mark one sent without re-sending on every run. */
   reminder48hSent?: boolean;
+  /**
+   * Opaque JSON snapshot of the referee's in-progress /referee form answers
+   * (screens 2-4), autosaved server-side so a link opened on a second
+   * device can resume where the first left off — see referee-draft.ts and
+   * form-draft.ts, which otherwise autosave to localStorage only. Never
+   * read/written field-by-field; cleared (set to undefined) on submit.
+   */
+  draftJson?: string;
 }
 
 /** How a reference check got started — see the two-initiation-path design in SETUP.md. */

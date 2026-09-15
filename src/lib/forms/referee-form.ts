@@ -26,6 +26,8 @@ export type RefereeFormData = {
   refereePhone: string;
   alreadySubmitted: boolean;
   googleVerified: boolean;
+  /** Opaque autosaved-draft blob from a previous session on this (or another) device — see saveRefereeDraft / referee-draft.ts. Null if no draft has been saved server-side yet. */
+  draftJson: string | null;
 };
 
 export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2 | 3 | 4): Promise<RefereeFormData | null> {
@@ -64,6 +66,7 @@ export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2 
     refereePhone: referee.phone,
     alreadySubmitted: referee.responded,
     googleVerified: !!referee.googleVerified || !!referee.googleVerifiedOverrideBy,
+    draftJson: referee.draftJson ?? null,
   };
 }
 
@@ -144,6 +147,25 @@ export async function recordGoogleVerification(
   return { verified: matches, refereeEmailOnFile: referee.email };
 }
 
+// Lightweight, single-field write for the cross-device autosave draft —
+// deliberately not routed through referenceCheckToAirtable's "rewrite every
+// referee field" helper (see mappers.ts), since this fires on a debounce
+// while the referee is still actively typing and only ever needs to touch
+// one field. Mirrors recordGoogleVerification above for the same reason.
+export async function saveRefereeDraft(
+  refCheckId: string,
+  refereeNum: 1 | 2 | 3 | 4,
+  draftJson: string
+): Promise<void> {
+  const prefix = REFEREE_NUM_PREFIXES[refereeNum - 1];
+  const keys = F.ReferenceChecks as Record<string, string>;
+  await updateRecord(
+    TABLE_NAMES.ReferenceChecks,
+    refCheckId,
+    cleanFields({ [keys[`${prefix}_DRAFT_JSON`]]: draftJson })
+  );
+}
+
 export async function submitRefereeForm(
   refCheckId: string,
   refereeNum: 1 | 2 | 3 | 4,
@@ -193,6 +215,9 @@ export async function submitRefereeForm(
       [keys[`${prefix}_RECOMMEND_HIRE`]]: submission.recommendHire,
       [keys[`${prefix}_CONSENT_TO_CONTACT`]]: submission.consentToContact,
       [keys[`${prefix}_NOTES`]]: submission.notes,
+      // Submission is complete — the autosave draft (see saveRefereeDraft)
+      // is now stale, so clear it rather than leave it stranded.
+      [keys[`${prefix}_DRAFT_JSON`]]: null,
     })
   );
 

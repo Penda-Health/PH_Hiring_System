@@ -304,6 +304,7 @@ const refereeStatusSchema = z.object({
   googleVerifiedOverrideBy: z.string().trim().max(150).optional(),
   reminder24hSent: z.boolean().optional(),
   reminder48hSent: z.boolean().optional(),
+  draftJson: z.string().max(20000).optional(),
 });
 
 export const referenceCheckSchema = z.object({
