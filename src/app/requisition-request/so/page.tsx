@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FormShell, FormStatusCard, type FormShellBrand } from "@/components/forms/form-shell";
+import { FormShell, FormStatusCard, DraftRestoredBanner, type FormShellBrand } from "@/components/forms/form-shell";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 import { SO_DEPARTMENTS } from "@/lib/department-options";
+import { loadSoDraft, saveSoDraft, clearSoDraft } from "@/lib/forms/requisition-request-draft";
 
 const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · Support Office Requisition",
@@ -55,13 +56,114 @@ export default function PublicSoRequisitionRequestPage() {
   const [submitted, setSubmitted] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [roleTitleSuggestions, setRoleTitleSuggestions] = React.useState<string[]>([]);
+  const [draftRestored, setDraftRestored] = React.useState(false);
 
   React.useEffect(() => {
     fetch("/api/public/requisition-request?segment=SO")
       .then((res) => res.json())
       .then((body) => setRoleTitleSuggestions(body.roleTitles ?? []))
       .catch(() => {});
+
+    const draft = loadSoDraft();
+    if (draft) {
+      setSubmitterName(draft.submitterName);
+      setSubmitterEmail(draft.submitterEmail);
+      setSubmitterRole(draft.submitterRole);
+      setType(draft.type as RequisitionType);
+      setRoleTitle(draft.roleTitle);
+      setDepartment(draft.department);
+      setHeadcount(draft.headcount);
+      setLevel(draft.level as RequisitionLevel);
+      setJustification(draft.justification);
+      setSalaryMin(draft.salaryMin);
+      setSalaryMax(draft.salaryMax);
+      setJdUrl(draft.jdUrl);
+      setJdAttached(draft.jdAttached);
+      setUrgency(draft.urgency as Priority);
+      setExpectedStartDate(draft.expectedStartDate);
+      setReasonType(draft.reasonType as VacancyReasonType);
+      setJdStillCurrent(draft.jdStillCurrent);
+      setContext(draft.context);
+      setBudgetEvaluationConfirmed(draft.budgetEvaluationConfirmed);
+      setDraftRestored(true);
+    }
   }, []);
+
+  // Debounced autosave — only once there's something worth restoring.
+  React.useEffect(() => {
+    if (submitted) return;
+    const hasContent = submitterName.trim() || roleTitle.trim() || justification.trim() || context.trim();
+    if (!hasContent) return;
+    const handle = setTimeout(() => {
+      saveSoDraft({
+        submitterName,
+        submitterEmail,
+        submitterRole,
+        type,
+        roleTitle,
+        department,
+        headcount,
+        level,
+        justification,
+        salaryMin,
+        salaryMax,
+        jdUrl,
+        jdAttached,
+        urgency,
+        expectedStartDate,
+        reasonType,
+        jdStillCurrent,
+        context,
+        budgetEvaluationConfirmed,
+      });
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [
+    submitted,
+    submitterName,
+    submitterEmail,
+    submitterRole,
+    type,
+    roleTitle,
+    department,
+    headcount,
+    level,
+    justification,
+    salaryMin,
+    salaryMax,
+    jdUrl,
+    jdAttached,
+    urgency,
+    expectedStartDate,
+    reasonType,
+    jdStillCurrent,
+    context,
+    budgetEvaluationConfirmed,
+  ]);
+
+  function discardDraftAndRestart() {
+    clearSoDraft();
+    setDraftRestored(false);
+    setSubmitterName("");
+    setSubmitterEmail("");
+    setSubmitterRole("");
+    setType("SO New Role");
+    setRoleTitle("");
+    setDepartment("");
+    setHeadcount(1);
+    setLevel("Mid");
+    setJustification("");
+    setSalaryMin("");
+    setSalaryMax("");
+    setJdUrl("");
+    setJdAttached(false);
+    setUrgency("Medium");
+    setExpectedStartDate("");
+    setReasonType("Resignation");
+    setJdStillCurrent(true);
+    setContext("");
+    setBudgetEvaluationConfirmed(false);
+  }
 
   const isNewRole = type === "SO New Role";
 
@@ -112,6 +214,7 @@ export default function PublicSoRequisitionRequestPage() {
           body.issues?.[0]?.message ?? (res.status === 422 ? "Please check the form for errors." : "Something went wrong. Please try again.")
         );
       }
+      clearSoDraft();
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -136,6 +239,7 @@ export default function PublicSoRequisitionRequestPage() {
       subtitle="Use this link once the role's budget evaluation and approval are complete."
     >
       <div className="space-y-6">
+        {draftRestored && <DraftRestoredBanner onDiscard={discardDraftAndRestart} />}
         <div className="space-y-4 rounded-lg border border-border p-4">
           <p className="text-sm font-medium">Your details</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

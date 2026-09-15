@@ -223,6 +223,30 @@ export function FormStatusCard({
 }
 
 /**
+ * "We restored your answers" banner shown when a public form's in-progress
+ * state was recovered from a local autosave draft (see the per-form
+ * `*-draft.ts` modules under src/lib/forms/) instead of starting from
+ * scratch. `note` lets a caller add a step-specific caveat (e.g. "you'll
+ * need to re-attach the file — it isn't saved").
+ */
+export function DraftRestoredBanner({ note, onDiscard }: { note?: string; onDiscard: () => void }) {
+  return (
+    <div className="rounded-lg border border-penda-blue/30 bg-penda-blue/5 p-3 text-sm text-foreground flex items-start justify-between gap-3">
+      <p>
+        We restored what you filled in last time.{note && ` ${note}`}
+      </p>
+      <button
+        type="button"
+        onClick={onDiscard}
+        className="shrink-0 text-penda-blue underline hover:no-underline whitespace-nowrap"
+      >
+        Start over
+      </button>
+    </div>
+  );
+}
+
+/**
  * Compact numbered-step indicator for multi-step public forms (currently
  * just /referee's verify → answer flow, written generically in case another
  * form grows a second step later).

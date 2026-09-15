@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FormShell, FormStatusCard, type FormShellBrand } from "@/components/forms/form-shell";
+import { FormShell, FormStatusCard, DraftRestoredBanner, type FormShellBrand } from "@/components/forms/form-shell";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 import { IPS_FUNCTIONS } from "@/lib/department-options";
+import { loadIpsDraft, saveIpsDraft, clearIpsDraft } from "@/lib/forms/requisition-request-draft";
 
 const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · IPS Requisition",
@@ -56,17 +57,91 @@ export default function PublicIpsRequisitionRequestPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = React.useState(false);
 
   React.useEffect(() => {
     fetch("/api/public/requisition-request?segment=IPS")
       .then((res) => res.json())
       .then((body) => {
         setBranches(body.branches ?? []);
-        if (body.branches?.[0]) setBranchId(body.branches[0].id);
         setRoleTitleSuggestions(Array.from(new Set([...IPS_ROLES, ...(body.roleTitles ?? [])])).sort((a, b) => a.localeCompare(b)));
+
+        const draft = loadIpsDraft();
+        if (draft) {
+          setSubmitterName(draft.submitterName);
+          setSubmitterEmail(draft.submitterEmail);
+          setSubmitterRole(draft.submitterRole);
+          setGapReason(draft.gapReason as GapReason);
+          setRoleTitle(draft.roleTitle);
+          setDepartment(draft.department);
+          setBranchId(draft.branchId || body.branches?.[0]?.id || "");
+          setEmploymentType(draft.employmentType as EmploymentType);
+          setHeadcount(draft.headcount);
+          setUrgency(draft.urgency as Priority);
+          setExpectedStartDate(draft.expectedStartDate);
+          setContext(draft.context);
+          setDraftRestored(true);
+        } else if (body.branches?.[0]) {
+          setBranchId(body.branches[0].id);
+        }
       })
       .finally(() => setBranchesLoading(false));
   }, []);
+
+  // Debounced autosave — only once there's something worth restoring.
+  React.useEffect(() => {
+    if (submitted) return;
+    const hasContent = submitterName.trim() || roleTitle.trim() || context.trim();
+    if (!hasContent) return;
+    const handle = setTimeout(() => {
+      saveIpsDraft({
+        submitterName,
+        submitterEmail,
+        submitterRole,
+        gapReason,
+        roleTitle,
+        department,
+        branchId,
+        employmentType,
+        headcount,
+        urgency,
+        expectedStartDate,
+        context,
+      });
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [
+    submitted,
+    submitterName,
+    submitterEmail,
+    submitterRole,
+    gapReason,
+    roleTitle,
+    department,
+    branchId,
+    employmentType,
+    headcount,
+    urgency,
+    expectedStartDate,
+    context,
+  ]);
+
+  function discardDraftAndRestart() {
+    clearIpsDraft();
+    setDraftRestored(false);
+    setSubmitterName("");
+    setSubmitterEmail("");
+    setSubmitterRole("");
+    setGapReason("New Addition");
+    setRoleTitle("");
+    setDepartment("");
+    setBranchId(branches[0]?.id ?? "");
+    setEmploymentType("Full-time");
+    setHeadcount(1);
+    setUrgency("Medium");
+    setExpectedStartDate("");
+    setContext("");
+  }
 
   const emailValid = submitterEmail.trim().toLowerCase().endsWith(PENDA_EMAIL_DOMAIN);
   const canSubmit =
@@ -111,6 +186,7 @@ export default function PublicIpsRequisitionRequestPage() {
           body.issues?.[0]?.message ?? (res.status === 422 ? "Please check the form for errors." : "Something went wrong. Please try again.")
         );
       }
+      clearIpsDraft();
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -135,6 +211,7 @@ export default function PublicIpsRequisitionRequestPage() {
       subtitle="Use this link once the role's approval is complete."
     >
       <div className="space-y-6">
+        {draftRestored && <DraftRestoredBanner onDiscard={discardDraftAndRestart} />}
         <div className="space-y-4 rounded-lg border border-border p-4">
           <p className="text-sm font-medium">Your details</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
