@@ -9,6 +9,7 @@ import {
   Candidate,
   Interview,
   WorkTrial,
+  WorkTrialAiInsights,
   ReferenceCheck,
   RefereeStatus,
   ReferenceCheckAiInsights,
@@ -356,6 +357,55 @@ function arrivalToLabel(value: boolean | null | undefined): string | undefined {
   if (value === null) return "Pending";
   return undefined;
 }
+// See linesFromAirtable/linesToAirtable (below, in the ReferenceChecks
+// section) for the newline-joined-text convention array fields use here —
+// declared with `function` so they're hoisted and usable from this earlier
+// point in the file.
+function workTrialAiInsightsFromAirtable(f: Record<string, unknown>): WorkTrialAiInsights | null {
+  const keys = F.WorkTrials;
+  const summary = opt<string>(f[keys.AI_SUMMARY]);
+  const generatedAt = opt<string>(f[keys.AI_GENERATED_AT]);
+  if (!summary || !generatedAt) return null;
+  return {
+    overallStatus: (opt(f[keys.AI_OVERALL_STATUS]) ?? "Insufficient Data") as WorkTrialAiInsights["overallStatus"],
+    summary,
+    confidenceScore: num(f[keys.AI_CONFIDENCE_SCORE]),
+    keyStrengths: linesFromAirtable(f[keys.AI_KEY_STRENGTHS]),
+    areasOfConcern: linesFromAirtable(f[keys.AI_AREAS_OF_CONCERN]),
+    alignmentNotes: str(f[keys.AI_ALIGNMENT_NOTES]),
+    suggestedFollowUps: linesFromAirtable(f[keys.AI_FOLLOW_UP_QUESTIONS]),
+    generatedAt,
+  };
+}
+
+function workTrialAiInsightsToAirtable(insights: WorkTrialAiInsights | null | undefined) {
+  if (insights === undefined) return {};
+  // `null` is a deliberate "clear the insights" write (e.g. re-generation
+  // failed) — write real blanks rather than skipping the fields.
+  if (insights === null) {
+    return {
+      [F.WorkTrials.AI_OVERALL_STATUS]: null,
+      [F.WorkTrials.AI_SUMMARY]: null,
+      [F.WorkTrials.AI_CONFIDENCE_SCORE]: null,
+      [F.WorkTrials.AI_KEY_STRENGTHS]: null,
+      [F.WorkTrials.AI_AREAS_OF_CONCERN]: null,
+      [F.WorkTrials.AI_ALIGNMENT_NOTES]: null,
+      [F.WorkTrials.AI_FOLLOW_UP_QUESTIONS]: null,
+      [F.WorkTrials.AI_GENERATED_AT]: null,
+    };
+  }
+  return {
+    [F.WorkTrials.AI_OVERALL_STATUS]: insights.overallStatus,
+    [F.WorkTrials.AI_SUMMARY]: insights.summary,
+    [F.WorkTrials.AI_CONFIDENCE_SCORE]: insights.confidenceScore,
+    [F.WorkTrials.AI_KEY_STRENGTHS]: linesToAirtable(insights.keyStrengths),
+    [F.WorkTrials.AI_AREAS_OF_CONCERN]: linesToAirtable(insights.areasOfConcern),
+    [F.WorkTrials.AI_ALIGNMENT_NOTES]: insights.alignmentNotes,
+    [F.WorkTrials.AI_FOLLOW_UP_QUESTIONS]: linesToAirtable(insights.suggestedFollowUps),
+    [F.WorkTrials.AI_GENERATED_AT]: insights.generatedAt,
+  };
+}
+
 export function workTrialFromAirtable(r: AirtableRecord): WorkTrial {
   const f = r.fields;
   return {
@@ -389,6 +439,7 @@ export function workTrialFromAirtable(r: AirtableRecord): WorkTrial {
     uploadedFormFiles: attachmentsFromAirtable(f[F.WorkTrials.UPLOADED_FORM]),
     roleCategory: opt<WorkTrialRoleCategory>(f[F.WorkTrials.ROLE_CATEGORY]),
     specialty: opt<string>(f[F.WorkTrials.SPECIALTY]),
+    aiInsights: workTrialAiInsightsFromAirtable(f),
   };
 }
 export function workTrialToAirtable(w: Partial<WorkTrial>) {
@@ -426,6 +477,7 @@ export function workTrialToAirtable(w: Partial<WorkTrial>) {
     // call, not a plain field PATCH.
     [F.WorkTrials.ROLE_CATEGORY]: w.roleCategory ?? undefined,
     [F.WorkTrials.SPECIALTY]: w.specialty ?? undefined,
+    ...workTrialAiInsightsToAirtable(w.aiInsights),
   });
 }
 

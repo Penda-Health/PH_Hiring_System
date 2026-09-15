@@ -741,6 +741,20 @@ const TABLES = [
       { name: F.WorkTrials.OVERALL_RECOMMENDATION, type: "multilineText" },
       { name: F.WorkTrials.SUBMISSION_METHOD, type: "singleSelect", options: choices(["Online", "Uploaded"]) },
       { name: F.WorkTrials.UPLOADED_FORM, type: "multipleAttachments" },
+      // AI "intelligence and insights layer" (src/lib/ai/work-trial-summary.ts)
+      // — same convention as Reference Checks' AI_* block below.
+      {
+        name: F.WorkTrials.AI_OVERALL_STATUS,
+        type: "singleSelect",
+        options: choices(["Strong Recommend", "Recommend", "Recommend with Reservations", "Do Not Recommend", "Insufficient Data"]),
+      },
+      { name: F.WorkTrials.AI_SUMMARY, type: "multilineText" },
+      { name: F.WorkTrials.AI_CONFIDENCE_SCORE, type: "number", options: intOpts },
+      { name: F.WorkTrials.AI_KEY_STRENGTHS, type: "multilineText" },
+      { name: F.WorkTrials.AI_AREAS_OF_CONCERN, type: "multilineText" },
+      { name: F.WorkTrials.AI_ALIGNMENT_NOTES, type: "multilineText" },
+      { name: F.WorkTrials.AI_FOLLOW_UP_QUESTIONS, type: "multilineText" },
+      { name: F.WorkTrials.AI_GENERATED_AT, type: "date", options: dateOpts },
     ],
   },
   {

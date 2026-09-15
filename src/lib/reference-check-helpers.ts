@@ -1,4 +1,4 @@
-import { Candidate, ReferenceCheck, ReferenceCheckAiInsights } from "@/types";
+import { AiOverallStatus, Candidate, ReferenceCheck } from "@/types";
 
 export function getCandidateForRefCheck(refCheck: ReferenceCheck, candidates: Candidate[]) {
   return candidates.find((c) => c.id === refCheck.candidateId);
@@ -21,10 +21,12 @@ export const STATUS_STYLES: Record<ReferenceCheck["status"], string> = {
   "Ready for Offer": "bg-penda-blue text-white border-transparent",
 };
 
-// Badge styling for the AI insights layer's overall recommendation — see
-// ReferenceCheckAiInsights in src/types.ts. Kept separate from STATUS_STYLES
-// since it's a judgment call the AI is making, not a workflow-progress state.
-export const AI_STATUS_STYLES: Record<ReferenceCheckAiInsights["overallStatus"], string> = {
+// Badge styling for the AI insights layer's overall recommendation — shared
+// by reference checks (ReferenceCheckAiInsights) and work trials
+// (WorkTrialAiInsights) in src/types.ts, both keyed by the same
+// AiOverallStatus scale. Kept separate from STATUS_STYLES since it's a
+// judgment call the AI is making, not a workflow-progress state.
+export const AI_STATUS_STYLES: Record<AiOverallStatus, string> = {
   "Strong Recommend": "bg-success-bg text-success-fg border-transparent",
   Recommend: "bg-penda-blue-light text-penda-blue-dark border-transparent",
   "Recommend with Reservations": "bg-high-bg text-high-fg border-transparent",

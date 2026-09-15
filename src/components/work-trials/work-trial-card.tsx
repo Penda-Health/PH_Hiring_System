@@ -30,7 +30,8 @@ import {
 } from "@/lib/work-trial-helpers";
 import { ScoreEntryDialog } from "./score-entry-dialog";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
-import { Check, ChevronDown, ClipboardCheck, Copy, Download, Pencil, Trash2 } from "lucide-react";
+import { AI_STATUS_STYLES } from "@/lib/reference-check-helpers";
+import { Check, ChevronDown, ClipboardCheck, Copy, Download, Pencil, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
   "Awaiting Arrival": "bg-muted text-muted-foreground border-transparent",
@@ -66,10 +67,14 @@ export function ManualReviewDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { candidates, branches, openRoles, updateWorkTrial, updateCandidateStage } = useRecruitmentData();
+  const { candidates, branches, openRoles, canEdit, updateWorkTrial, updateCandidateStage, generateWorkTrialAiInsights } =
+    useRecruitmentData();
   const candidate = getCandidateForTrial(trial, candidates);
   const branch = getBranchForTrial(trial, branches);
   const role = openRoles.find((r) => r.id === (trial.roleId ?? candidate?.roleId));
+
+  const [generatingInsights, setGeneratingInsights] = React.useState(false);
+  const [insightsError, setInsightsError] = React.useState<string | null>(null);
 
   const [outcome, setOutcome] = React.useState<ReviewOutcome>(
     trial.arrivalMarked === false ? "Did Not Attend"
@@ -133,10 +138,36 @@ export function ManualReviewDialog({
   }
 
   const hasScores = trial.scoreTechnical !== null || trial.scorePatient !== null || trial.scoreCulture !== null;
+  // The six detailed comment fields only exist for "Online" submissions (see
+  // WorkTrial.submissionMethod) — an uploaded paper form only ever has
+  // overallRecommendation. Gate the whole "Written feedback" block on
+  // whether there's anything at all to show, rather than always rendering
+  // six mostly-empty rows.
+  const hasQualitativeFeedback = Boolean(
+    trial.commentCulture?.trim() ||
+      trial.commentPatient?.trim() ||
+      trial.commentTechnical?.trim() ||
+      trial.strengths?.trim() ||
+      trial.areasOfDevelopment?.trim() ||
+      trial.overallRecommendation?.trim()
+  );
+
+  async function handleGenerateInsights() {
+    setInsightsError(null);
+    setGeneratingInsights(true);
+    try {
+      await generateWorkTrialAiInsights(trial.id);
+    } catch (err) {
+      setInsightsError(err instanceof Error ? err.message : "Failed to generate AI insights");
+      setTimeout(() => setInsightsError(null), 4000);
+    } finally {
+      setGeneratingInsights(false);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Manual Review</DialogTitle>
         </DialogHeader>
@@ -198,6 +229,51 @@ export function ManualReviewDialog({
             </div>
           )}
 
+          {/* Written feedback — the qualitative comment/strengths/development
+              fields exist on the record already but were never surfaced here
+              before, so a reviewer only ever saw three numbers. */}
+          {hasQualitativeFeedback && (
+            <div className="space-y-2 rounded-lg border border-border p-3 text-sm">
+              <p className="text-xs font-medium text-muted-foreground">Written feedback</p>
+              {trial.commentCulture?.trim() && (
+                <div>
+                  <p className="text-xs font-medium">Culture Fit</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{trial.commentCulture.trim()}</p>
+                </div>
+              )}
+              {trial.commentPatient?.trim() && (
+                <div>
+                  <p className="text-xs font-medium">Patient Experience</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{trial.commentPatient.trim()}</p>
+                </div>
+              )}
+              {trial.commentTechnical?.trim() && (
+                <div>
+                  <p className="text-xs font-medium">Technical Fit</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{trial.commentTechnical.trim()}</p>
+                </div>
+              )}
+              {trial.strengths?.trim() && (
+                <div>
+                  <p className="text-xs font-medium text-success-fg">Strengths</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{trial.strengths.trim()}</p>
+                </div>
+              )}
+              {trial.areasOfDevelopment?.trim() && (
+                <div>
+                  <p className="text-xs font-medium text-high-fg">Areas of development</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{trial.areasOfDevelopment.trim()}</p>
+                </div>
+              )}
+              {trial.overallRecommendation?.trim() && (
+                <div>
+                  <p className="text-xs font-medium">Overall recommendation</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{trial.overallRecommendation.trim()}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {cultureAutoFail && (
             <p className="text-xs text-destructive rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1.5">
               Culture Fit 6/10 or below — automatic fail rule applies.
@@ -207,6 +283,97 @@ export function ManualReviewDialog({
             <p className="text-xs text-destructive rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1.5">
               Technical Fit 6/10 or below — automatic fail rule applies.
             </p>
+          )}
+
+          {/* AI Insights — mirrors ReferenceCheckCard's AI Insights section
+              (same generate-on-demand, persisted-to-Airtable pattern). Only
+              meaningful once there's an actual result to analyze. */}
+          {hasScores && (
+            <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-xs font-medium">
+                  <Sparkles className="h-3.5 w-3.5 text-penda-blue" />
+                  AI Insights
+                </div>
+                {canEdit && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 shrink-0"
+                    title={trial.aiInsights ? "Refresh AI insights" : "Generate AI insights"}
+                    onClick={handleGenerateInsights}
+                    disabled={generatingInsights}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${generatingInsights ? "animate-spin" : ""}`} />
+                  </Button>
+                )}
+              </div>
+
+              {trial.aiInsights ? (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className={AI_STATUS_STYLES[trial.aiInsights.overallStatus]}>
+                      {trial.aiInsights.overallStatus}
+                    </Badge>
+                    <span className="text-[11px] text-muted-foreground">
+                      {trial.aiInsights.confidenceScore}% confidence
+                    </span>
+                  </div>
+                  <p className="text-xs text-foreground">{trial.aiInsights.summary}</p>
+
+                  {trial.aiInsights.keyStrengths.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-medium text-success-fg">Strengths</p>
+                      <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+                        {trial.aiInsights.keyStrengths.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {trial.aiInsights.areasOfConcern.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-medium text-high-fg">Areas of concern</p>
+                      <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+                        {trial.aiInsights.areasOfConcern.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {trial.aiInsights.alignmentNotes && (
+                    <p className="text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">Score/comment alignment: </span>
+                      {trial.aiInsights.alignmentNotes}
+                    </p>
+                  )}
+
+                  {trial.aiInsights.suggestedFollowUps.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-medium text-foreground">Before you decide</p>
+                      <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+                        {trial.aiInsights.suggestedFollowUps.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <p className="text-[10px] text-muted-foreground">
+                    Generated {new Date(trial.aiInsights.generatedAt).toLocaleString()}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {canEdit
+                    ? "No AI insights yet — click refresh to generate an analysis of the scores and feedback."
+                    : "No AI insights generated yet."}
+                </p>
+              )}
+              {insightsError && <p className="text-xs text-destructive">{insightsError}</p>}
+            </div>
           )}
 
           {/* Outcome selector */}
