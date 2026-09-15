@@ -20,6 +20,8 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GoogleSignInButton } from "@/components/forms/google-sign-in-button";
+import { YahooSignInButton } from "@/components/forms/yahoo-sign-in-button";
+import { detectEmailProvider } from "@/lib/forms/email-provider";
 import { RefereeTopBar } from "@/components/forms/referee/top-bar";
 import { ChoiceGroup } from "@/components/forms/referee/choice-group";
 import { RatingScale } from "@/components/forms/referee/rating-scale";
@@ -220,22 +222,45 @@ function ContinueButton({
 }
 
 // ---------------------------------------------------------------------------
-// Screen 1 — verify. Keeps the Google Identity Services verification logic
-// as-is (server re-checks it anyway — see google-verify.ts); only the
-// wrapper is reskinned to match Verify.dc.html's card.
+// Screen 1 — verify. Auto-detects which identity provider can actually
+// verify this referee's email (email-provider.ts) and shows only that
+// button — Google Identity Services only authenticates people who already
+// have a Google Account, which most Yahoo Mail users don't, so a Yahoo
+// referee gets Yahoo's own OAuth flow (yahoo-verify.ts) instead of a dead
+// end. The two flows differ under the hood (Google: no-redirect popup SDK,
+// resolved client-side via handleCredential below; Yahoo: full-page
+// redirect to login.yahoo.com, resolved server-side by
+// verify-yahoo/callback/route.ts, which redirects back here with
+// verifyError/verifiedEmail search params — read by the parent and passed
+// in as props so a redirect-return renders the same mismatch/error state a
+// same-page Google attempt would) but land in the same place: onVerified()
+// for a match, or the mismatch/error copy below otherwise.
 // ---------------------------------------------------------------------------
-function GoogleVerificationStep({
+function IdentityVerificationStep({
   token,
   data,
+  verifyError,
+  verifiedEmail,
   onVerified,
 }: {
   token: string;
   data: FormData;
+  verifyError: string | null;
+  verifiedEmail: string | null;
   onVerified: () => void;
 }) {
+  const provider = detectEmailProvider(data.refereeEmail);
   const [checking, setChecking] = React.useState(false);
-  const [mismatch, setMismatch] = React.useState<{ googleEmail: string } | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [mismatch, setMismatch] = React.useState<{ signedInEmail: string } | null>(
+    verifyError === "mismatch" && verifiedEmail ? { signedInEmail: verifiedEmail } : null
+  );
+  const [error, setError] = React.useState<string | null>(
+    verifyError === "not_configured"
+      ? "Yahoo verification isn't configured yet. Contact careers@pendahealth.com."
+      : verifyError === "failed"
+        ? "Couldn't verify that account. Please try again."
+        : null
+  );
 
   async function handleCredential(credential: string) {
     setChecking(true);
@@ -254,7 +279,7 @@ function GoogleVerificationStep({
       if (body.verified) {
         onVerified();
       } else {
-        setMismatch({ googleEmail: body.googleEmail });
+        setMismatch({ signedInEmail: body.googleEmail });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -269,14 +294,18 @@ function GoogleVerificationStep({
         <Lock className="h-[22px] w-[22px] text-penda-blue" strokeWidth={2} />
       </div>
       <div className={checking ? "pointer-events-none opacity-60" : undefined}>
-        <GoogleSignInButton onCredential={handleCredential} disabled={checking} />
+        {provider === "yahoo" ? (
+          <YahooSignInButton token={token} disabled={checking} />
+        ) : (
+          <GoogleSignInButton onCredential={handleCredential} disabled={checking} />
+        )}
       </div>
       {checking && <p className="mt-3 text-xs text-[#98a2b3]">Verifying…</p>}
       {mismatch && (
         <p className="mt-4 text-left text-sm leading-relaxed text-[#475467]">
-          You signed in as <span className="font-semibold text-[#101828]">{mismatch.googleEmail}</span>, but we have{" "}
+          You signed in as <span className="font-semibold text-[#101828]">{mismatch.signedInEmail}</span>, but we have{" "}
           <span className="font-semibold text-[#101828]">{data.refereeEmail}</span> on file for this reference. Try a
-          different Google account, or email{" "}
+          different {provider === "yahoo" ? "Yahoo" : "Google"} account, or email{" "}
           <a className="text-penda-blue underline" href="mailto:careers@pendahealth.com">
             careers@pendahealth.com
           </a>{" "}
@@ -322,12 +351,22 @@ function StatusScreen({
 }
 
 function RefereeForm() {
-  const token = useSearchParams().get("token");
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+  // Only ever present right after a full-page redirect back from Yahoo's
+  // OAuth flow (verify-yahoo/callback/route.ts) — Google's verification
+  // never navigates away, so it never needs these. See
+  // IdentityVerificationStep.
+  const verifyError = searchParams.get("verifyError");
+  const verifiedEmail = searchParams.get("verifiedEmail");
   const [data, setData] = React.useState<FormData | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
 
   // 0 = intro/landing (not counted in the stepper), 1 = verify, 2-4 = the wizard steps.
-  const [screen, setScreen] = React.useState<0 | 1 | 2 | 3 | 4>(0);
+  // Starts on the verify screen, not the intro, when landing back from a
+  // Yahoo redirect that didn't fully verify — otherwise that outcome would
+  // flash on screen 0 with nothing to show it.
+  const [screen, setScreen] = React.useState<0 | 1 | 2 | 3 | 4>(verifyError ? 1 : 0);
 
   // Step 2 — referee & employment details
   const [relationship, setRelationship] = React.useState("");
@@ -825,11 +864,19 @@ function RefereeForm() {
             <p className="mb-3.5 text-xs font-bold uppercase tracking-[0.6px] text-penda-blue">Step 1 of 4 · Verify it&apos;s you</p>
             <h1 className="mb-3 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[28px]">Let&apos;s confirm it&apos;s really you</h1>
             <p className="mb-8 text-[15px] leading-relaxed text-[#475467]">
-              To keep reference checks trustworthy, sign in with the Google account matching{" "}
+              To keep reference checks trustworthy, sign in with the {detectEmailProvider(data.refereeEmail) === "yahoo" ? "Yahoo" : "Google"} account matching{" "}
               <strong className="text-[#101828]">{data.refereeEmail}</strong> before continuing.
             </p>
 
-            {token && <GoogleVerificationStep token={token} data={data} onVerified={() => setScreen(2)} />}
+            {token && (
+              <IdentityVerificationStep
+                token={token}
+                data={data}
+                verifyError={verifyError}
+                verifiedEmail={verifiedEmail}
+                onVerified={() => setScreen(2)}
+              />
+            )}
 
             <div className="mt-6">
               <BackLink onClick={() => setScreen(0)} />
@@ -843,7 +890,7 @@ function RefereeForm() {
   const verifiedNote = (
     <p className="mb-6 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
       <CheckCircle2 className="h-3.5 w-3.5" />
-      Identity verified with Google.
+      Identity verified with {detectEmailProvider(data.refereeEmail) === "yahoo" ? "Yahoo" : "Google"}.
     </p>
   );
 

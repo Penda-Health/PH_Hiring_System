@@ -113,19 +113,27 @@ export type RefereeSubmission = {
   notes?: string;
 };
 
-// Records the outcome of a Google Identity Services sign-in attempt for one
-// referee slot. Persisted immediately (not just returned to the client) so
-// the later POST /api/public/referee submit can re-check that verification
-// actually happened server-side, rather than trusting a client-side flag —
-// see google-verify.ts. `googleVerifiedEmail` is stamped on every attempt
-// (even a mismatch) so TA has visibility into what account was tried when
-// deciding whether to override.
+// Records the outcome of an identity-provider sign-in attempt for one
+// referee slot — called from both verify-google/route.ts (Google Identity
+// Services) and verify-yahoo/callback/route.ts (Yahoo OAuth); which
+// provider ran is decided client-side by email-provider.ts, but this
+// function itself doesn't care which one produced `verifiedEmail`, only
+// whether it matches the email on file. The Airtable fields stay named
+// "Google Verified" for both (no schema change needed — provider is
+// re-derivable later from the verified email's domain, see
+// reference-check-report-pdf.ts). Persisted immediately (not just returned
+// to the client) so the later POST /api/public/referee submit can re-check
+// that verification actually happened server-side, rather than trusting a
+// client-side flag — see google-verify.ts / yahoo-verify.ts.
+// `googleVerifiedEmail` is stamped on every attempt (even a mismatch) so TA
+// has visibility into what account was tried when deciding whether to
+// override.
 const REFEREE_NUM_PREFIXES = ["REFEREE1", "REFEREE2", "REFEREE3", "REFEREE4"] as const;
 
 export async function recordGoogleVerification(
   refCheckId: string,
   refereeNum: 1 | 2 | 3 | 4,
-  googleEmail: string
+  verifiedEmail: string
 ): Promise<{ verified: boolean; refereeEmailOnFile: string }> {
   const record = await getRecord(TABLE_NAMES.ReferenceChecks, refCheckId);
   if (!record) throw new Error(`Reference check ${refCheckId} not found`);
@@ -135,12 +143,12 @@ export async function recordGoogleVerification(
   const prefix = REFEREE_NUM_PREFIXES[refereeNum - 1];
   const keys = F.ReferenceChecks as Record<string, string>;
 
-  const matches = referee.email.trim().toLowerCase() === googleEmail.trim().toLowerCase();
+  const matches = referee.email.trim().toLowerCase() === verifiedEmail.trim().toLowerCase();
   await updateRecord(
     TABLE_NAMES.ReferenceChecks,
     refCheckId,
     cleanFields({
-      [keys[`${prefix}_GOOGLE_VERIFIED_EMAIL`]]: googleEmail,
+      [keys[`${prefix}_GOOGLE_VERIFIED_EMAIL`]]: verifiedEmail,
       [keys[`${prefix}_GOOGLE_VERIFIED`]]: matches,
     })
   );

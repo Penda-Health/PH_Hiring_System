@@ -161,7 +161,7 @@ export function ReferenceCheckCard({
                       className="flex items-center gap-1.5 text-xs text-amber-700 hover:underline"
                     >
                       <ShieldAlert className="h-3 w-3" />
-                      {overriding === num ? "Marking…" : `Referee ${num} wasn't Google-verified — mark verified anyway`}
+                      {overriding === num ? "Marking…" : `Referee ${num} wasn't verified — mark verified anyway`}
                     </button>
                   )}
                 </React.Fragment>

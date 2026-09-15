@@ -1004,6 +1004,57 @@ who *have* a Google Account — one can be registered to a non-Gmail address
 complete this step no matter what; that's what the "Mark verified anyway"
 TA override above is for.
 
+**Referee identity verification (Yahoo Sign-In).** Most Yahoo Mail users
+don't have a Google Account, so `/referee` auto-detects the referee's email
+domain (`src/lib/forms/email-provider.ts`) and swaps in a real **"Sign in
+with Yahoo"** flow for Yahoo-family addresses (`yahoo.com` and its regional
+variants, `ymail.com`, `rocketmail.com`) instead of showing a Google button
+that referee could never complete. Any other domain still gets Google
+Sign-In, unchanged — this is additive, not a replacement.
+
+Unlike Google Identity Services (a client-side popup SDK), Yahoo only
+supports a classic OAuth 2.0 Authorization Code flow: the referee is
+redirected to `login.yahoo.com`, and on success Yahoo redirects back with a
+`code` this app exchanges server-side for an ID token
+(`src/lib/forms/yahoo-verify.ts`), verified against Yahoo's own JWKS. The
+referee's own signed form token doubles as the OAuth `state` param, so no
+extra session storage is needed to survive the redirect round-trip. The
+verified email is compared against the email on file exactly like the
+Google flow, and reuses the same `Referee{1-4} Google Verified` /
+`Google Verified Email` Airtable fields and the same "Mark verified
+anyway" override — which provider actually ran is re-derived from the
+verified email's domain when needed (PDF report, etc.), not stored
+separately.
+
+To enable it, register an app at the
+[Yahoo Developer Network](https://developer.yahoo.com/apps/) (a free,
+separate signup from your Yahoo Mail account if you don't already have
+one):
+
+1. **Create App** → choose **Web Application**.
+2. Under **Redirect URI(s)**, add exactly:
+   ```
+   https://YOUR_APP_URL/api/public/referee/verify-yahoo/callback
+   ```
+   (and `http://localhost:3000/api/public/referee/verify-yahoo/callback`
+   for local dev — Yahoo allows multiple redirect URIs on one app).
+3. Under **API Permissions**, enable **OpenID Connect Permissions** and
+   check **Email** (this grants the `openid` + `email` scopes this app
+   requests).
+4. Save, then copy the **Client ID** and **Client Secret** it generates.
+
+New env vars:
+
+```
+NEXT_PUBLIC_YAHOO_OAUTH_CLIENT_ID=   # the Client ID from the Yahoo app above — public, sent to the browser
+YAHOO_OAUTH_CLIENT_SECRET=           # the Client Secret — server-only, used in the code-for-token exchange
+```
+
+Without these, `/referee` degrades gracefully: a Yahoo-domain referee sees
+a plain "Yahoo verification isn't configured yet" message instead of a
+broken button, and can still be unblocked via the "Mark verified anyway"
+TA override once they've responded.
+
 **PDF report.** Once at least one referee has responded, a Recruitment
 User/Manager can download a Penda-branded PDF from the card
 (`GET /api/reference-checks/[id]/report`, dashboard-only). Page 1 covers the
