@@ -104,9 +104,10 @@ export function compareRoleGroups(a: OpenRole, b: OpenRole): number {
   return GROUP_ORDER.indexOf(roleGroup(a)) - GROUP_ORDER.indexOf(roleGroup(b));
 }
 
-export type MonthRangeOption = "1" | "3" | "6" | "9" | "all";
+export type MonthRangeOption = "2w" | "1" | "3" | "6" | "9" | "all";
 
 export const MONTH_RANGE_OPTIONS: { value: MonthRangeOption; label: string }[] = [
+  { value: "2w", label: "Last 2 weeks" },
   { value: "1", label: "Last 30 days" },
   { value: "3", label: "Last 3 months" },
   { value: "6", label: "Last 6 months" },
@@ -115,9 +116,10 @@ export const MONTH_RANGE_OPTIONS: { value: MonthRangeOption; label: string }[] =
 ];
 
 // Open and On Hold roles always pass through (they're still live).
-// Closed/Allocated/Filled roles use a rolling window: "1" = last 30 days,
-// "3"/"6"/"9" = rolling N×30 days back — so a role closed yesterday is
-// never dropped just because the calendar month rolled over.
+// Closed/Allocated/Filled roles use a rolling window: "2w" = last 14 days,
+// "1" = last 30 days, "3"/"6"/"9" = rolling N×30 days back — so a role
+// closed yesterday is never dropped just because the calendar month rolled
+// over.
 export function isRoleInMonthRange(role: OpenRole, months: MonthRangeOption, now: Date = new Date()): boolean {
   if (role.status === "Open" || role.status === "On Hold") return true;
   // Roles without a dateClosed were never properly closed via the app — show
