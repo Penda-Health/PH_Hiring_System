@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Check, ClipboardCheck, Copy, Download, LayoutList, Columns3, RefreshCw, Trash2 } from "lucide-react";
 import { getDisplayStatus, getCandidateForTrial, getBranchForTrial } from "@/lib/work-trial-helpers";
 import { ManualReviewDialog } from "@/components/work-trials/work-trial-card";
+import { MONTH_RANGE_OPTIONS, MonthRangeOption } from "@/lib/pipeline-helpers";
+import { isWithinMonthRange } from "@/lib/date-utils";
 
 type StatusFilter = "all" | "Awaiting Arrival" | "Awaiting Score" | "Complete";
 type BookedFilter = "all" | "booked" | "not-booked";
@@ -49,6 +51,12 @@ export default function WorkTrialsPage() {
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all");
   const [bookedFilter, setBookedFilter] = React.useState<BookedFilter>("all");
   const [branchFilter, setBranchFilter] = React.useState("all");
+  // Work trials accumulate indefinitely, so default to a recent rolling
+  // window rather than dumping every trial the org has ever run onto one
+  // page — "Last 30 days" mirrors the same MonthRangeOption pattern the
+  // Roles page already uses for closed/filled roles. Widen or pick "All
+  // time" to look further back.
+  const [monthRange, setMonthRange] = React.useState<MonthRangeOption>("1");
   const [search, setSearch] = React.useState("");
   const [syncing, setSyncing] = React.useState(false);
   const [linkCopied, setLinkCopied] = React.useState(false);
@@ -169,10 +177,18 @@ export default function WorkTrialsPage() {
     }
   }
 
+  // Date-range scoping happens first and separately from the rest of the
+  // filter bar so statusCounts (the tab badges) reflect the selected window
+  // too, rather than counting trials the list below has already hidden.
+  const dateFiltered = React.useMemo(
+    () => workTrials.filter((t) => isWithinMonthRange(t.createdAt || t.date, monthRange)),
+    [workTrials, monthRange]
+  );
+
   // Filtered list
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
-    return workTrials.filter((trial) => {
+    return dateFiltered.filter((trial) => {
       const candidate = getCandidateForTrial(trial, candidates);
       const status = getDisplayStatus(trial);
 
@@ -184,13 +200,13 @@ export default function WorkTrialsPage() {
       if (q && !candidate?.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [workTrials, candidates, statusFilter, bookedFilter, branchFilter, search]);
+  }, [dateFiltered, candidates, statusFilter, bookedFilter, branchFilter, search]);
 
   const statusCounts = React.useMemo(() => {
-    const counts: Record<string, number> = { all: workTrials.length, "Awaiting Arrival": 0, "Awaiting Score": 0, "Complete": 0 };
-    for (const t of workTrials) counts[getDisplayStatus(t)] = (counts[getDisplayStatus(t)] ?? 0) + 1;
+    const counts: Record<string, number> = { all: dateFiltered.length, "Awaiting Arrival": 0, "Awaiting Score": 0, "Complete": 0 };
+    for (const t of dateFiltered) counts[getDisplayStatus(t)] = (counts[getDisplayStatus(t)] ?? 0) + 1;
     return counts;
-  }, [workTrials]);
+  }, [dateFiltered]);
 
   const kanbanColumns: { status: StatusFilter; label: string }[] = [
     { status: "Awaiting Arrival", label: "Awaiting Arrival" },
@@ -255,6 +271,17 @@ export default function WorkTrialsPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-44 text-sm"
         />
+
+        <Select value={monthRange} onValueChange={(v) => setMonthRange(v as MonthRangeOption)}>
+          <SelectTrigger className="h-8 w-36 text-sm">
+            <SelectValue placeholder="Date range" />
+          </SelectTrigger>
+          <SelectContent>
+            {MONTH_RANGE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <Select value={bookedFilter} onValueChange={(v) => setBookedFilter(v as BookedFilter)}>
           <SelectTrigger className="h-8 w-40 text-sm">
