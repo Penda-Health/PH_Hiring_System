@@ -19,6 +19,12 @@
 //    an iframe from accounts.google.com, so all three directives need it or
 //    the button silently never appears (no visible error, just a blocked
 //    script — only shows up as a CSP violation in the browser console).
+//  - frame-src includes blob:: the reference check report preview page
+//    (src/app/(dashboard)/reference-checks/[id]/report/page.tsx) fetches a
+//    generated PDF and embeds it via `<iframe src={URL.createObjectURL(blob)}>`
+//    for inline viewing before download. Without `blob:` here the browser
+//    silently blocks that iframe (again, only visible as a console CSP
+//    violation, not a visible error) and the preview pane stays empty.
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
@@ -29,7 +35,7 @@ const securityHeaders = [
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com",
-      "frame-src https://accounts.google.com",
+      "frame-src https://accounts.google.com blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
