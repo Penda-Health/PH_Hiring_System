@@ -35,6 +35,7 @@ const EMPTY_WORK_TRIAL: WorkTrial = {
   reminder12hSent: false,
   escalation24hSent: false,
   submissionMethod: null,
+  aiInsights: null,
 };
 
 export function NewWorkTrialDialog({ candidates, branches, onCreate }: Props) {

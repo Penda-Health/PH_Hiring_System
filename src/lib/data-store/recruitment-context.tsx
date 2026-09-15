@@ -79,6 +79,10 @@ type RecruitmentDataContextValue = {
     id: string,
     scores: { technical: number; patient: number; culture: number }
   ) => void;
+  /** Generates (or regenerates) the AI insights layer for a work trial and persists it to Airtable.
+   *  Throws (e.g. "not_complete" if there's no final result yet, or "generation_failed") — callers should
+   *  surface the error rather than assume success, since the AI-generated values can't be known ahead of time. */
+  generateWorkTrialAiInsights: (id: string) => Promise<void>;
 
   referenceChecks: ReferenceCheck[];
   createReferenceCheck: (refCheck: ReferenceCheck) => Promise<void>;
@@ -465,6 +469,17 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       };
       persist<WorkTrial>("work-trials", id, patch);
       setWorkTrials((prev) => prev.map((trial) => (trial.id === id ? { ...trial, ...patch } : trial)));
+    },
+    [canEdit]
+  );
+
+  const generateWorkTrialAiInsights = React.useCallback(
+    async (id: string) => {
+      if (!guardEdit(canEdit, "generateWorkTrialAiInsights")) return;
+      // Awaited-fetch-then-merge rather than an optimistic local patch — same
+      // reasoning as generateReferenceCheckAiInsights above.
+      const updated = await postAction<WorkTrial>(`/api/work-trials/${id}/ai-insights`);
+      setWorkTrials((prev) => prev.map((t) => (t.id === id ? updated : t)));
     },
     [canEdit]
   );
@@ -908,6 +923,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       updateWorkTrial,
       deleteWorkTrial,
       submitWorkTrialScores,
+      generateWorkTrialAiInsights,
       referenceChecks,
       createReferenceCheck,
       updateReferenceCheckOutcome,
@@ -966,6 +982,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       updateWorkTrial,
       deleteWorkTrial,
       submitWorkTrialScores,
+      generateWorkTrialAiInsights,
       referenceChecks,
       createReferenceCheck,
       updateReferenceCheckOutcome,

@@ -312,6 +312,37 @@ export interface WorkTrial {
   uploadedFormFiles?: { url: string; filename: string }[];
   roleCategory?: WorkTrialRoleCategory;
   specialty?: string;
+  /** Persisted AI analysis of the scores + written feedback, null until generated (or if generation has never succeeded). */
+  aiInsights: WorkTrialAiInsights | null;
+}
+
+/**
+ * Shared verdict scale for the AI "intelligence and insights layer" — used by
+ * both work trials and reference checks so one badge style
+ * (AI_STATUS_STYLES in reference-check-helpers.ts) covers both.
+ */
+export type AiOverallStatus =
+  | "Strong Recommend"
+  | "Recommend"
+  | "Recommend with Reservations"
+  | "Do Not Recommend"
+  | "Insufficient Data";
+
+export interface WorkTrialAiInsights {
+  overallStatus: AiOverallStatus;
+  /** 2-4 sentence plain-English synthesis of the scores and written feedback, for a hiring manager deciding whether to advance the candidate. */
+  summary: string;
+  confidenceScore: number;
+  /** Concrete positives worth calling out, grounded in the scores/comments actually given. */
+  keyStrengths: string[];
+  /** Concrete concerns or gaps worth a hiring manager probing further. */
+  areasOfConcern: string[];
+  /** Whether the written feedback lines up with the numeric scores — flags e.g. a high score paired with lukewarm-sounding comments. Blank if there's no written feedback to compare against (an Uploaded-form submission). */
+  alignmentNotes: string;
+  /** Questions worth asking before finalizing an offer decision. */
+  suggestedFollowUps: string[];
+  /** When this was generated — drives "Refresh" vs "Generate" on the review dialog. */
+  generatedAt: string;
 }
 
 // The first 3 are what the current (Sept 2026) /referee redesign writes
@@ -452,12 +483,7 @@ export type ReferenceCheckStatus =
  * dashboard card and flows into Penny's chat context.
  */
 export interface ReferenceCheckAiInsights {
-  overallStatus:
-    | "Strong Recommend"
-    | "Recommend"
-    | "Recommend with Reservations"
-    | "Do Not Recommend"
-    | "Insufficient Data";
+  overallStatus: AiOverallStatus;
   summary: string;
   recommendationScore: number;
   overallScore: number;

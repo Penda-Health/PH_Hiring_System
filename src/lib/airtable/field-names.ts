@@ -174,6 +174,19 @@ export const F = {
     ROLE_CATEGORY: "Role Category",
     SPECIALTY: "Specialty",
     RESCHEDULED_AT: "Rescheduled At",
+    // AI "intelligence and insights layer" (src/lib/ai/work-trial-summary.ts)
+    // — same convention as ReferenceChecks' AI_* block above: persisted so it
+    // shows on the review dialog without regenerating on every view. Array-
+    // shaped fields are newline-joined plain text, not JSON, matching this
+    // table's existing preference for human-readable fields.
+    AI_OVERALL_STATUS: "AI Overall Status",
+    AI_SUMMARY: "AI Summary",
+    AI_CONFIDENCE_SCORE: "AI Confidence Score",
+    AI_KEY_STRENGTHS: "AI Key Strengths",
+    AI_AREAS_OF_CONCERN: "AI Areas Of Concern",
+    AI_ALIGNMENT_NOTES: "AI Alignment Notes",
+    AI_FOLLOW_UP_QUESTIONS: "AI Follow-Up Questions",
+    AI_GENERATED_AT: "AI Generated At",
   },
   ReferenceChecks: {
     REF_ID: "Ref ID",
