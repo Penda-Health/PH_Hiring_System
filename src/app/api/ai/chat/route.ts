@@ -5,6 +5,17 @@ import { buildSystemPrompt, type AiContext } from "@/lib/ai/build-context";
 
 export const runtime = "nodejs";
 
+function describeError(err: unknown, providerLabel: string): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  return raw.includes("rate limit") || raw.includes("429")
+    ? "Rate limit hit — wait a moment and try again."
+    : raw.includes("401") || raw.includes("Unauthorized") || raw.includes("API key")
+      ? `${providerLabel} API key is missing or invalid.`
+      : raw.includes("context length") || raw.includes("too long")
+        ? "The request was too large for the model. Try a shorter conversation."
+        : raw || "Something went wrong generating the response.";
+}
+
 export async function POST(req: Request) {
   const body = await req.json();
   const { messages, providerId, context, canEdit } = body as {
@@ -37,17 +48,14 @@ export async function POST(req: Request) {
       messages: await convertToModelMessages(messages, { tools: aiTools }),
       tools: aiTools,
     });
-    return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({
+      onError: (err) => {
+        console.error(`[api/ai/chat] stream (${providerId}) failed:`, err);
+        return describeError(err, provider.label);
+      },
+    });
   } catch (err) {
-    const raw = err instanceof Error ? err.message : String(err);
-    const msg = raw.includes("rate limit") || raw.includes("429")
-      ? "Rate limit hit — wait a moment and try again."
-      : raw.includes("401") || raw.includes("Unauthorized") || raw.includes("API key")
-        ? `${provider.label} API key is missing or invalid.`
-        : raw.includes("context length") || raw.includes("too long")
-          ? "The request was too large for the model. Try a shorter conversation."
-          : raw || "Something went wrong generating the response.";
     console.error(`[api/ai/chat] streamText (${providerId}) failed:`, err);
-    return Response.json({ error: msg }, { status: 502 });
+    return Response.json({ error: describeError(err, provider.label) }, { status: 502 });
   }
 }
