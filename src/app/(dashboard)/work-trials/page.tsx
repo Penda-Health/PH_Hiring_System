@@ -10,9 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, ClipboardCheck, Copy, Download, LayoutList, Columns3, RefreshCw, Trash2 } from "lucide-react";
+import { Check, ClipboardCheck, Copy, Download, LayoutList, Columns3, RefreshCw, Trash2, ListChecks, Clock, ClipboardList, CheckCircle2, TrendingUp } from "lucide-react";
 import { getDisplayStatus, getCandidateForTrial, getBranchForTrial } from "@/lib/work-trial-helpers";
 import { ManualReviewDialog } from "@/components/work-trials/work-trial-card";
+import { MONTH_RANGE_OPTIONS, MonthRangeOption } from "@/lib/pipeline-helpers";
+import { isWithinMonthRange } from "@/lib/date-utils";
+import { StatTile, StatTileRow } from "@/components/ui/stat-tile";
 
 type StatusFilter = "all" | "Awaiting Arrival" | "Awaiting Score" | "Complete";
 type BookedFilter = "all" | "booked" | "not-booked";
@@ -49,6 +52,12 @@ export default function WorkTrialsPage() {
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all");
   const [bookedFilter, setBookedFilter] = React.useState<BookedFilter>("all");
   const [branchFilter, setBranchFilter] = React.useState("all");
+  // Work trials accumulate indefinitely, so default to a recent rolling
+  // window rather than dumping every trial the org has ever run onto one
+  // page — "Last 30 days" mirrors the same MonthRangeOption pattern the
+  // Roles page already uses for closed/filled roles. Widen or pick "All
+  // time" to look further back.
+  const [monthRange, setMonthRange] = React.useState<MonthRangeOption>("1");
   const [search, setSearch] = React.useState("");
   const [syncing, setSyncing] = React.useState(false);
   const [linkCopied, setLinkCopied] = React.useState(false);
@@ -169,10 +178,18 @@ export default function WorkTrialsPage() {
     }
   }
 
+  // Date-range scoping happens first and separately from the rest of the
+  // filter bar so statusCounts (the tab badges) reflect the selected window
+  // too, rather than counting trials the list below has already hidden.
+  const dateFiltered = React.useMemo(
+    () => workTrials.filter((t) => isWithinMonthRange(t.createdAt || t.date, monthRange)),
+    [workTrials, monthRange]
+  );
+
   // Filtered list
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
-    return workTrials.filter((trial) => {
+    return dateFiltered.filter((trial) => {
       const candidate = getCandidateForTrial(trial, candidates);
       const status = getDisplayStatus(trial);
 
@@ -184,13 +201,28 @@ export default function WorkTrialsPage() {
       if (q && !candidate?.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [workTrials, candidates, statusFilter, bookedFilter, branchFilter, search]);
+  }, [dateFiltered, candidates, statusFilter, bookedFilter, branchFilter, search]);
 
   const statusCounts = React.useMemo(() => {
-    const counts: Record<string, number> = { all: workTrials.length, "Awaiting Arrival": 0, "Awaiting Score": 0, "Complete": 0 };
-    for (const t of workTrials) counts[getDisplayStatus(t)] = (counts[getDisplayStatus(t)] ?? 0) + 1;
+    const counts: Record<string, number> = { all: dateFiltered.length, "Awaiting Arrival": 0, "Awaiting Score": 0, "Complete": 0 };
+    for (const t of dateFiltered) counts[getDisplayStatus(t)] = (counts[getDisplayStatus(t)] ?? 0) + 1;
     return counts;
-  }, [workTrials]);
+  }, [dateFiltered]);
+
+  // Stats row scopes to the date-range only (dateFiltered) — never to the
+  // status/booking/branch/search filters below — so the KPI numbers describe
+  // the whole selected window, not whatever narrower slice is on screen.
+  const stats = React.useMemo(() => {
+    const passCount = dateFiltered.filter((t) => t.passFail === "Pass").length;
+    const failCount = dateFiltered.filter((t) => t.passFail === "Fail").length;
+    const decided = passCount + failCount;
+    return {
+      total: dateFiltered.length,
+      passCount,
+      failCount,
+      passRate: decided > 0 ? Math.round((passCount / decided) * 100) : null,
+    };
+  }, [dateFiltered]);
 
   const kanbanColumns: { status: StatusFilter; label: string }[] = [
     { status: "Awaiting Arrival", label: "Awaiting Arrival" },
@@ -227,6 +259,21 @@ export default function WorkTrialsPage() {
         </div>
       </div>
 
+      {/* Stats — scoped to the date range selected below, not the narrower status/booking/branch/search filters */}
+      <StatTileRow>
+        <StatTile label="Total in range" value={stats.total} icon={ListChecks} tone="neutral" />
+        <StatTile label="Awaiting arrival" value={statusCounts["Awaiting Arrival"] ?? 0} icon={Clock} tone="neutral" />
+        <StatTile label="Awaiting score" value={statusCounts["Awaiting Score"] ?? 0} icon={ClipboardList} tone="warning" />
+        <StatTile label="Complete" value={statusCounts["Complete"] ?? 0} icon={CheckCircle2} tone="accent" />
+        <StatTile
+          label="Pass rate"
+          value={stats.passRate !== null ? `${stats.passRate}%` : "—"}
+          sublabel={stats.passCount + stats.failCount > 0 ? `${stats.passCount} pass · ${stats.failCount} fail` : "No results yet"}
+          icon={TrendingUp}
+          tone={stats.passRate !== null && stats.passRate >= 70 ? "success" : stats.passRate !== null ? "critical" : "neutral"}
+        />
+      </StatTileRow>
+
       {/* Status tabs */}
       <div className="flex gap-1 border-b border-border pb-0">
         {(["all", "Awaiting Arrival", "Awaiting Score", "Complete"] as StatusFilter[]).map((s) => (
@@ -255,6 +302,17 @@ export default function WorkTrialsPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-44 text-sm"
         />
+
+        <Select value={monthRange} onValueChange={(v) => setMonthRange(v as MonthRangeOption)}>
+          <SelectTrigger className="h-8 w-36 text-sm">
+            <SelectValue placeholder="Date range" />
+          </SelectTrigger>
+          <SelectContent>
+            {MONTH_RANGE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <Select value={bookedFilter} onValueChange={(v) => setBookedFilter(v as BookedFilter)}>
           <SelectTrigger className="h-8 w-40 text-sm">

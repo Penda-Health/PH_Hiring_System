@@ -1,4 +1,5 @@
 import { Candidate, OpenRole, Segment } from "@/types";
+import { isWithinMonthRange } from "@/lib/date-utils";
 
 // activeCandidateCountForRole() used to live here as its own separate
 // whitelist of stages — it happened to be exactly the complement of
@@ -118,12 +119,8 @@ export const MONTH_RANGE_OPTIONS: { value: MonthRangeOption; label: string }[] =
 // "3"/"6"/"9" = rolling N×30 days back — so a role closed yesterday is
 // never dropped just because the calendar month rolled over.
 export function isRoleInMonthRange(role: OpenRole, months: MonthRangeOption, now: Date = new Date()): boolean {
-  if (months === "all" || role.status === "Open" || role.status === "On Hold") return true;
+  if (role.status === "Open" || role.status === "On Hold") return true;
   // Roles without a dateClosed were never properly closed via the app — show
   // them rather than hiding them based on the unrelated datePosted field.
-  if (!role.dateClosed) return true;
-  const days = Number(months) * 30;
-  const windowStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-  const closedAt = new Date(role.dateClosed);
-  return closedAt >= windowStart;
+  return isWithinMonthRange(role.dateClosed, months, now);
 }

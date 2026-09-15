@@ -16,3 +16,26 @@ export function daysSince(iso: string): number {
 export function daysUntil(iso: string): number {
   return (new Date(iso).getTime() - Date.now()) / DAY_MS;
 }
+
+/**
+ * True if `iso` falls within the last `months` × 30 days (rolling, not
+ * calendar-month, so a record from yesterday is never dropped just because
+ * the calendar month rolled over) — or always, when `months` is "all".
+ * A missing/unparseable date passes through: a record silently vanishing
+ * because a date field was never set is worse than an unfiltered one
+ * showing up. See pipeline-helpers.ts's isRoleInMonthRange, which this
+ * generalizes for lists that aren't roles (e.g. work trials, reference
+ * checks) — same rolling-window math, one place to get it right.
+ */
+export function isWithinMonthRange(
+  iso: string | null | undefined,
+  months: "1" | "3" | "6" | "9" | "all",
+  now: Date = new Date()
+): boolean {
+  if (months === "all" || !iso) return true;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return true;
+  const days = Number(months) * 30;
+  const windowStart = now.getTime() - days * DAY_MS;
+  return t >= windowStart;
+}
