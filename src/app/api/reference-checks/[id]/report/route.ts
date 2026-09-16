@@ -29,14 +29,22 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "not_complete" }, { status: 409 });
     }
 
-    // Reuse persisted insights (generated from the dashboard card, or by an
-    // earlier download) rather than re-calling the AI provider on every
-    // download — keeps the report instant after the first generation and
-    // keeps the PDF, the card, and Penny's chat context all showing the same
-    // analysis instead of three independently-regenerated ones. Only
-    // generate here, and persist the result, when nothing exists yet.
+    // Reuse persisted insights (generated on request from the dashboard
+    // card, or by an earlier report at Ready for Offer) rather than
+    // re-calling the AI provider on every download — keeps the report
+    // instant after the first generation and keeps the PDF, the card, and
+    // Penny's chat context all showing the same analysis instead of three
+    // independently-regenerated ones. Auto-generate here, and persist the
+    // result, only once the check has reached Ready for Offer — generating
+    // it off an early download (only 1 of 2+ referees in) would bake in an
+    // analysis that's blind to the referees who haven't responded yet, and
+    // then never get regenerated once they do (attachReportPdf in
+    // referee-form.ts only fills this in when it's still null). Before that
+    // point the PDF just omits the AI section, unless a TA explicitly
+    // generated one early via the card's "Generate AI insights" button —
+    // that's an on-request case we always honor once it exists.
     let aiInsights = data.aiInsights;
-    if (!aiInsights) {
+    if (!aiInsights && data.status === "Ready for Offer") {
       // Never lets a slow/unavailable AI provider block the report — it
       // already returns null on any failure (see the module for why).
       aiInsights = await generateReferenceCheckInsights(data);
