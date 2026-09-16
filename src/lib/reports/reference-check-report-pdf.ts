@@ -12,6 +12,7 @@ import type { ReferenceCheckReportData } from "./reference-check-report";
 import type { RefereeStatus } from "@/types";
 import type { ReferenceCheckAiInsights } from "@/types";
 import { detectEmailProvider } from "@/lib/forms/email-provider";
+import { resolveVerificationMethod } from "@/lib/forms/verification-method";
 
 const PAGE_W = 595.28; // A4, points
 const PAGE_H = 841.89;
@@ -439,7 +440,7 @@ function drawRecommendBadge(ctx: Ctx, label: string) {
   ctx.y -= rowH + 10;
 }
 
-function drawRefereeSection(ctx: Ctx, num: number, referee: RefereeStatus) {
+async function drawRefereeSection(ctx: Ctx, num: number, referee: RefereeStatus) {
   ensureSpace(ctx, 40);
   drawSectionHeading(ctx, `Referee ${num}: ${referee.name || "—"}`);
 
@@ -461,12 +462,19 @@ function drawRefereeSection(ctx: Ctx, num: number, referee: RefereeStatus) {
   // Provider isn't stored separately — the "Google Verified" fields are
   // shared by both Google and Yahoo sign-in (see recordGoogleVerification in
   // referee-form.ts), so it's re-derived here from the verified email's own
-  // domain rather than needing a schema change just to label the PDF.
+  // domain rather than needing a schema change just to label the PDF. A
+  // referee who was never actually put through a sign-in gate at all (a
+  // company domain not confirmed to be on Google Workspace — see
+  // verification-method.ts) gets its own honest label instead of reading as
+  // an indistinguishable "Not verified", which would otherwise blend an
+  // intentional bypass with someone who simply skipped signing in.
   const verificationLabel = referee.googleVerified
     ? `Verified via ${detectEmailProvider(referee.googleVerifiedEmail || referee.email) === "yahoo" ? "Yahoo" : "Google"} (${referee.googleVerifiedEmail || referee.email})`
     : referee.googleVerifiedOverrideBy
       ? `Manually verified by ${referee.googleVerifiedOverrideBy}`
-      : "Not verified";
+      : (await resolveVerificationMethod(referee.email)) === "bypassed"
+        ? `Company domain email — no verification needed (${referee.email})`
+        : "Not verified";
 
   const employmentPeriod =
     referee.employmentFrom || referee.employmentTo || referee.stillEmployed
@@ -590,7 +598,7 @@ export async function generateReferenceCheckReportPdf(
   // after each section keeps the boundaries clear even when two sections
   // share a page.
   for (const [i, referee] of Array.from(data.referees.entries())) {
-    drawRefereeSection(ctx, i + 1, referee);
+    await drawRefereeSection(ctx, i + 1, referee);
     drawDivider(ctx);
   }
 
