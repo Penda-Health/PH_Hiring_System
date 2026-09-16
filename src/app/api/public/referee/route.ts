@@ -87,8 +87,13 @@ export async function POST(request: NextRequest) {
     if (existing.alreadySubmitted) return NextResponse.json({ error: "already_submitted" }, { status: 409 });
     // Never trust a client-side "I verified" flag — re-check server-side
     // that a matching Google sign-in (or a TA override) was actually
-    // persisted against this referee slot. See google-verify.ts.
-    if (!existing.googleVerified) {
+    // persisted against this referee slot. See google-verify.ts. The one
+    // exception is a referee whose email couldn't be verified at all (a
+    // company domain that isn't confirmed Google Workspace) — resolved the
+    // same way on both this route and the GET above via
+    // resolveVerificationMethod, so the two can't disagree about who's
+    // exempt. See verification-method.ts.
+    if (!existing.googleVerified && existing.verificationMethod !== "bypassed") {
       return NextResponse.json({ error: "google_verification_required" }, { status: 403 });
     }
     // Compliance/licensing questions only apply to clinical (IPS) roles — enforce

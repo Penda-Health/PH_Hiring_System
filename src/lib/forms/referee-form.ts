@@ -13,6 +13,7 @@ import { loadReferenceCheckReportData } from "@/lib/reports/reference-check-repo
 import { generateReferenceCheckReportPdf } from "@/lib/reports/reference-check-report-pdf";
 import { generateReferenceCheckInsights } from "@/lib/ai/reference-check-summary";
 import { tryAdvanceToOffer } from "@/lib/forms/candidate-offer-readiness";
+import { resolveVerificationMethod, VerificationMethod } from "@/lib/forms/verification-method";
 
 export type RefereeFormData = {
   candidateName: string;
@@ -27,6 +28,8 @@ export type RefereeFormData = {
   refereePhone: string;
   alreadySubmitted: boolean;
   googleVerified: boolean;
+  /** "bypassed" means this referee's email couldn't be verified via Google/Yahoo Sign-In (see verification-method.ts) — the page skips the sign-in gate, and the submit route allows the write through despite googleVerified being false. */
+  verificationMethod: VerificationMethod;
   /** Opaque autosaved-draft blob from a previous session on this (or another) device — see saveRefereeDraft / referee-draft.ts. Null if no draft has been saved server-side yet. */
   draftJson: string | null;
 };
@@ -57,6 +60,8 @@ export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2 
   const referee = refCheck.referees[refereeNum - 1];
   if (!referee) return null;
 
+  const verificationMethod = await resolveVerificationMethod(referee.email);
+
   return {
     candidateName: candidate.name,
     roleTitle,
@@ -67,6 +72,7 @@ export async function loadRefereeFormData(refCheckId: string, refereeNum: 1 | 2 
     refereePhone: referee.phone,
     alreadySubmitted: referee.responded,
     googleVerified: !!referee.googleVerified || !!referee.googleVerifiedOverrideBy,
+    verificationMethod,
     draftJson: referee.draftJson ?? null,
   };
 }

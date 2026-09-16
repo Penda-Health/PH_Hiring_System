@@ -21,7 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GoogleSignInButton } from "@/components/forms/google-sign-in-button";
 import { YahooSignInButton } from "@/components/forms/yahoo-sign-in-button";
-import { detectEmailProvider } from "@/lib/forms/email-provider";
 import { RefereeTopBar } from "@/components/forms/referee/top-bar";
 import { ChoiceGroup } from "@/components/forms/referee/choice-group";
 import { RatingScale } from "@/components/forms/referee/rating-scale";
@@ -38,6 +37,11 @@ type FormData = {
   refereePhone: string;
   alreadySubmitted: boolean;
   googleVerified: boolean;
+  // "bypassed" means this email couldn't be verified via Google/Yahoo
+  // Sign-In (a company domain not confirmed to be on Google Workspace) —
+  // see verification-method.ts. The identity step skips the sign-in gate
+  // for these referees rather than showing a button that can't work.
+  verificationMethod: "google" | "yahoo" | "bypassed";
   draftJson: string | null;
 };
 
@@ -249,7 +253,7 @@ function IdentityVerificationStep({
   verifiedEmail: string | null;
   onVerified: () => void;
 }) {
-  const provider = detectEmailProvider(data.refereeEmail);
+  const provider = data.verificationMethod;
   const [checking, setChecking] = React.useState(false);
   const [mismatch, setMismatch] = React.useState<{ signedInEmail: string } | null>(
     verifyError === "mismatch" && verifiedEmail ? { signedInEmail: verifiedEmail } : null
@@ -294,7 +298,15 @@ function IdentityVerificationStep({
         <Lock className="h-[22px] w-[22px] text-penda-blue" strokeWidth={2} />
       </div>
       <div className={checking ? "pointer-events-none opacity-60" : undefined}>
-        {provider === "yahoo" ? (
+        {provider === "bypassed" ? (
+          <button
+            type="button"
+            onClick={onVerified}
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-penda-blue px-6 text-sm font-semibold text-white hover:bg-penda-blue-dark"
+          >
+            Continue
+          </button>
+        ) : provider === "yahoo" ? (
           <YahooSignInButton token={token} disabled={checking} />
         ) : (
           <GoogleSignInButton onCredential={handleCredential} disabled={checking} />
@@ -313,7 +325,11 @@ function IdentityVerificationStep({
         </p>
       )}
       {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
-      <p className="mt-4 text-[12.5px] text-[#98a2b3]">We only use this to confirm your identity — we never post on your behalf.</p>
+      <p className="mt-4 text-[12.5px] text-[#98a2b3]">
+        {provider === "bypassed"
+          ? "We couldn't confirm a sign-in for this email address, so we're skipping this step — your response is still tied to the email address we have on file."
+          : "We only use this to confirm your identity — we never post on your behalf."}
+      </p>
     </div>
   );
 }
@@ -438,7 +454,7 @@ function RefereeForm() {
         // If there's an unfinished draft for this token — on this device or
         // synced from another one (see loadBestDraft/referee-draft.ts) —
         // resume into it instead of dropping back to a blank screen 2.
-        if (body.googleVerified) {
+        if (body.googleVerified || body.verificationMethod === "bypassed") {
           const draft = loadBestDraft(token, body.draftJson);
           if (draft) {
             setRelationship(draft.relationship);
@@ -864,8 +880,17 @@ function RefereeForm() {
             <p className="mb-3.5 text-xs font-bold uppercase tracking-[0.6px] text-penda-blue">Step 1 of 4 · Verify it&apos;s you</p>
             <h1 className="mb-3 text-2xl font-extrabold leading-[1.3] text-[#101828] sm:text-[28px]">Let&apos;s confirm it&apos;s really you</h1>
             <p className="mb-8 text-[15px] leading-relaxed text-[#475467]">
-              To keep reference checks trustworthy, sign in with the {detectEmailProvider(data.refereeEmail) === "yahoo" ? "Yahoo" : "Google"} account matching{" "}
-              <strong className="text-[#101828]">{data.refereeEmail}</strong> before continuing.
+              {data.verificationMethod === "bypassed" ? (
+                <>
+                  We couldn&apos;t confirm a sign-in for <strong className="text-[#101828]">{data.refereeEmail}</strong>, so
+                  we&apos;ll skip this step — your response will still be tied to that email address.
+                </>
+              ) : (
+                <>
+                  To keep reference checks trustworthy, sign in with the {data.verificationMethod === "yahoo" ? "Yahoo" : "Google"} account matching{" "}
+                  <strong className="text-[#101828]">{data.refereeEmail}</strong> before continuing.
+                </>
+              )}
             </p>
 
             {token && (
@@ -887,12 +912,18 @@ function RefereeForm() {
     );
   }
 
-  const verifiedNote = (
-    <p className="mb-6 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
-      <CheckCircle2 className="h-3.5 w-3.5" />
-      Identity verified with {detectEmailProvider(data.refereeEmail) === "yahoo" ? "Yahoo" : "Google"}.
-    </p>
-  );
+  const verifiedNote =
+    data.verificationMethod === "bypassed" ? (
+      <p className="mb-6 flex items-center gap-1.5 text-xs font-semibold text-[#98a2b3]">
+        <Info className="h-3.5 w-3.5" />
+        Identity sign-in was skipped for this email address.
+      </p>
+    ) : (
+      <p className="mb-6 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        Identity verified with {data.verificationMethod === "yahoo" ? "Yahoo" : "Google"}.
+      </p>
+    );
 
   const draftBanner = draftRestored ? (
     <div className="mb-6">
