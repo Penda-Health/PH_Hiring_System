@@ -1031,17 +1031,26 @@ To enable it, register an app at the
 separate signup from your Yahoo Mail account if you don't already have
 one):
 
-1. **Create App** → choose **Web Application**.
+1. **Create an App**, fill in an **Application Name** (anything —
+   referees never see it) and **Homepage URL** (`https://YOUR_APP_URL`).
 2. Under **Redirect URI(s)**, add exactly:
    ```
    https://YOUR_APP_URL/api/public/referee/verify-yahoo/callback
    ```
    (and `http://localhost:3000/api/public/referee/verify-yahoo/callback`
-   for local dev — Yahoo allows multiple redirect URIs on one app).
-3. Under **API Permissions**, enable **OpenID Connect Permissions** and
-   check **Email** (this grants the `openid` + `email` scopes this app
-   requests).
-4. Save, then copy the **Client ID** and **Client Secret** it generates.
+   for local dev — the form takes multiple redirect URIs on one app).
+3. Under **OAuth Client Type**, choose **Confidential Client** ("choose
+   for traditional web apps") — **not** Public Client. This app exchanges
+   the code for tokens server-side using a client secret (HTTP Basic
+   auth); Public Client skips issuing/using a secret and expects a PKCE
+   flow this app doesn't implement, so Public Client will not work here.
+4. Under **API Permissions → OpenID Connect Permissions**, check
+   **Email** ("Access to email address and verified status" — this
+   grants the `openid` + `email` scopes this app requests). Leave
+   Profile and everything else unchecked; we don't read them.
+5. **Create App**, then copy the **Client ID** and **Client Secret** it
+   generates. (Changing OAuth Client Type after creation regenerates
+   these — grab them fresh once Confidential Client is selected.)
 
 New env vars:
 
