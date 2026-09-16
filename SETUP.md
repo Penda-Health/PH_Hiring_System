@@ -1141,6 +1141,73 @@ shape as §4.5.2/§4.5.3; all key off `Reference Checks` fields):
    when `Status` is now `"Ready for Offer"`, that the candidate has cleared
    2 referees and moved to Offer (regardless of whether every referee sent
    a link has answered yet).
+4. **Notify Google Chat when a check reaches Ready for Offer.** Trigger:
+   *When a record matches conditions*, table `Reference Checks`, condition
+   `Status` **is** `"Ready for Offer"`. Google Chat has no native Airtable
+   action, so the action is **Run a script** posting to a Google Chat
+   space's incoming webhook URL (Space → Apps & integrations → Webhooks →
+   name it, e.g. "Reference Checks" — the URL it gives you is the secret,
+   paste it straight into the script below, nothing app-side to configure):
+
+   ```js
+   // Input variable: recordId — map it to the trigger step's Reference
+   // Checks record ID. Re-fetching the record here (rather than mapping
+   // individual field inputs) sidesteps a common Airtable scripting trap:
+   // input variables built from a linked-record field (Candidate) come
+   // through as an array/object, not the plain text a chat message needs.
+   let table = base.getTable("Reference Checks");
+   let record = await table.selectRecordAsync(input.config().recordId);
+
+   // Belt-and-braces: the trigger condition already guarantees this, but
+   // don't let a delayed/retried run post a stale notification if the
+   // status has since changed.
+   if (record.getCellValueAsString("Status") !== "Ready for Offer") {
+     return;
+   }
+
+   let webhookUrl = "PASTE_THE_GOOGLE_CHAT_WEBHOOK_URL_HERE";
+   let message = {
+     text:
+       "🟢 Reference Check Ready for Offer\n" +
+       `Candidate: ${record.getCellValueAsString("Candidate")}\n` +
+       `Ref ID: ${record.getCellValueAsString("Ref ID")}\n` +
+       "Both required referees have responded — ready to review and extend an offer.",
+   };
+
+   let res = await fetch(webhookUrl, {
+     method: "POST",
+     headers: { "Content-Type": "application/json; charset=UTF-8" },
+     body: JSON.stringify(message),
+   });
+   if (!res.ok) {
+     console.error("Google Chat webhook failed:", res.status, await res.text());
+   }
+   ```
+
+   **If this silently doesn't fire for real candidates**, check (in this
+   order) rather than guessing:
+   1. The automation's **Run history** tab — zero runs means the trigger
+      never fired (config problem, points 2-4 below); a run that shows an
+      error means the trigger is fine and the script/action is the problem
+      (point 5).
+   2. The automation is actually toggled **on** (top-right of its editor) —
+      easy to leave off after testing.
+   3. The trigger is *When a record matches conditions*, not *When a record
+      is created* — a Reference Check record is created with
+      `Status = "Awaiting Verification"`, long before it can ever reach
+      `"Ready for Offer"`, so a create-trigger will never see this
+      transition even though a one-off manual test (editing the field by
+      hand right after creating the test record) can make it look like it
+      works.
+   4. The condition still points at a live option — if `"Ready for Offer"`
+      was ever deleted and re-added to the `Status` field (even with
+      identical spelling), Airtable's condition can silently detach from
+      the old option. Re-open the condition and re-pick the option fresh
+      from the dropdown.
+   5. The script errors on a real record but not the test one — almost
+      always a `getCellValue` (not `getCellValueAsString`) call on a
+      linked/lookup field elsewhere in a customized version of the script
+      above.
 
 ### 4.5.7 Work trial booking window (`/settings` → "Work trial booking window")
 
