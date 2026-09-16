@@ -12,6 +12,7 @@ import { RecommendHireAnswer, ReferenceCheckStatus, Segment } from "@/types";
 import { loadReferenceCheckReportData } from "@/lib/reports/reference-check-report";
 import { generateReferenceCheckReportPdf } from "@/lib/reports/reference-check-report-pdf";
 import { generateReferenceCheckInsights } from "@/lib/ai/reference-check-summary";
+import { tryAdvanceToOffer } from "@/lib/forms/candidate-offer-readiness";
 
 export type RefereeFormData = {
   candidateName: string;
@@ -253,24 +254,18 @@ export async function submitRefereeForm(
   }
 
   if (nextStatus === "Ready for Offer") {
-    const candidateRecord = await getRecord(TABLE_NAMES.Candidates, refCheck.candidateId);
-    if (candidateRecord) {
-      const candidate = candidateFromAirtable(candidateRecord);
-      // Guarded: only auto-advance while the candidate is still sitting at
-      // Reference Check — never overwrite a stage a recruiter already
-      // changed by hand (Hired, Rejected, Withdrawn, or moved back/forward).
-      if (candidate.stage === "Reference Check") {
-        await updateRecord(
-          TABLE_NAMES.Candidates,
-          refCheck.candidateId,
-          cleanFields({ [F.Candidates.STAGE]: "Offer" })
-        );
-      }
-    }
+    // Reference Checks and Work Trials can finish in either order — this
+    // only advances the candidate's pipeline stage once their Work Trial
+    // has ALSO passed; if it hasn't (still in progress, or not yet
+    // positive), this silently no-ops and bm-feedback-form.ts's matching
+    // call is what triggers the advance once the work trial catches up.
+    await tryAdvanceToOffer(refCheck.candidateId);
 
     // Permanent PDF backup: generate the same report the dashboard's
     // download/preview uses and attach it to this record, independent of
-    // this app. Best-effort — a failure here must never fail the referee's
+    // this app. Unconditional on the work-trial gate above — it's just
+    // documentation of the reference check's own content, not a hiring
+    // decision. Best-effort — a failure here must never fail the referee's
     // submission, which has already been recorded above.
     await attachReportPdf(refCheckId);
   }

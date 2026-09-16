@@ -5,6 +5,24 @@ import { getRecord, updateRecord, uploadAttachment } from "@/lib/airtable/client
 import { TABLE_NAMES, F } from "@/lib/airtable/field-names";
 import { branchFromAirtable, candidateFromAirtable, openRoleFromAirtable, workTrialFromAirtable } from "@/lib/airtable/mappers";
 import { computeWeightedTotal, computePassFail, PASS_THRESHOLD, isCultureAutoFail, isTechnicalAutoFail } from "@/lib/work-trial-helpers";
+import { tryAdvanceToOffer } from "@/lib/forms/candidate-offer-readiness";
+
+// Reference Checks and Work Trials can finish in either order (see
+// candidate-offer-readiness.ts) — whenever a work trial's passFail becomes a
+// final "Pass" here, check whether that candidate's reference check already
+// reached "Ready for Offer" and, if so, advance them now. Best-effort: a
+// failure here (e.g. a transient Airtable read) must never fail the BM's
+// actual score submission, which has already been recorded by the caller.
+async function notifyWorkTrialPassed(workTrialId: string): Promise<void> {
+  try {
+    const record = await getRecord(TABLE_NAMES.WorkTrials, workTrialId);
+    if (!record) return;
+    const { candidateId } = workTrialFromAirtable(record);
+    await tryAdvanceToOffer(candidateId);
+  } catch (err) {
+    console.error("[bm-feedback-form] notifyWorkTrialPassed failed:", err);
+  }
+}
 
 export type BmFeedbackFormData = {
   candidateName: string;
@@ -125,6 +143,12 @@ export async function submitScores(
     ...(comments?.areasOfDevelopment? { [F.WorkTrials.AREAS_OF_DEVELOPMENT]:  comments.areasOfDevelopment} : {}),
     ...(comments?.overallRecommendation ? { [F.WorkTrials.OVERALL_RECOMMENDATION]: comments.overallRecommendation } : {}),
   });
+  // Only a BM's own submission finalizes passFail immediately (Incharge
+  // submissions stay "Pending" until approveBmScores below), so only that
+  // case can newly unblock the candidate's offer.
+  if (submittedByRole === "BM" && passFail === "Pass") {
+    await notifyWorkTrialPassed(workTrialId);
+  }
   return { total, passFail };
 }
 
@@ -170,6 +194,11 @@ export async function submitUploadedScores(
     [F.WorkTrials.SUBMISSION_METHOD]: "Uploaded",
     [F.WorkTrials.OVERALL_RECOMMENDATION]: overallRecommendation,
   });
+  // Same reasoning as submitScores above — only a BM's own submission
+  // finalizes passFail immediately.
+  if (submittedByRole === "BM" && passFail === "Pass") {
+    await notifyWorkTrialPassed(workTrialId);
+  }
   return { total, passFail };
 }
 
@@ -189,5 +218,11 @@ export async function approveBmScores(workTrialId: string): Promise<{ total: num
     [F.WorkTrials.PASS_FAIL]: passFail,
     [F.WorkTrials.BM_APPROVED_AT]: new Date().toISOString(),
   });
+  // This is the path where an Incharge-submitted score was left "Pending"
+  // and only now becomes final — the candidate's offer may have been
+  // waiting solely on this.
+  if (passFail === "Pass") {
+    await tryAdvanceToOffer(trial.candidateId);
+  }
   return { total, passFail };
 }
