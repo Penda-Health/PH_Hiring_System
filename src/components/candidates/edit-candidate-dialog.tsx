@@ -100,20 +100,38 @@ export function EditCandidateDialog({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  // Locums fill in as needed across branches — they aren't tied to one
-  // specific open role, so don't auto-attach one when segment/department
-  // changes (or when switching a candidate to Locum with a role already set).
+  // Locums and Relievers fill in as needed across branches — they aren't
+  // tied to one specific open role, so don't auto-attach one when
+  // segment/department changes (or when switching a candidate to one of
+  // these types with a role already set).
+  //
+  // IPS is the same story for a different reason: an IPS function (e.g.
+  // "Pharmacy") is open at dozens of branches at once, and which one this
+  // candidate actually lands at usually isn't known this early — forcing a
+  // branch pick here just means recruiters guess-and-fix it later. That
+  // branch-specific pick only matters once they're actually Hired, where
+  // it's required instead (see MoveStageDialog). SO departments don't have
+  // this problem (typically one seat, not spread across branches), so SO
+  // keeps auto-attaching the in-scope role as before.
+  function skipsAutoRole(segment: Segment, employmentType: EmploymentType) {
+    return employmentType === "Locum" || employmentType === "Reliever" || segment === "IPS";
+  }
+
+  const isFloatingType = form.employmentType === "Locum" || form.employmentType === "Reliever";
+
   function updateSegment(segment: Segment) {
     const depts = departmentOptionsFor(segment);
     const department = depts[0] ?? "";
-    const roleId =
-      form.employmentType === "Locum" ? "" : rolesScopedTo(openRoles, segment, department)[0]?.id ?? "";
+    const roleId = skipsAutoRole(segment, form.employmentType)
+      ? ""
+      : rolesScopedTo(openRoles, segment, department)[0]?.id ?? "";
     setForm((prev) => ({ ...prev, segment, department, roleId }));
   }
 
   function updateDepartment(department: string) {
-    const roleId =
-      form.employmentType === "Locum" ? "" : rolesScopedTo(openRoles, form.segment, department)[0]?.id ?? "";
+    const roleId = skipsAutoRole(form.segment, form.employmentType)
+      ? ""
+      : rolesScopedTo(openRoles, form.segment, department)[0]?.id ?? "";
     setForm((prev) => ({ ...prev, department, roleId }));
   }
 
@@ -121,7 +139,7 @@ export function EditCandidateDialog({
     setForm((prev) => ({
       ...prev,
       employmentType,
-      roleId: employmentType === "Locum" ? "" : prev.roleId,
+      roleId: skipsAutoRole(prev.segment, employmentType) ? "" : prev.roleId,
     }));
   }
 
@@ -268,29 +286,40 @@ export function EditCandidateDialog({
                     </Select>
                   </Field>
                 </div>
-                <Field label="Role">
-                  <Select value={form.roleId} onValueChange={(v) => update("roleId", v)}>
+                <Field label={form.segment === "IPS" ? "Branch / Role (optional until Hired)" : "Role"}>
+                  <Select
+                    value={form.roleId || "__none"}
+                    onValueChange={(v) => update("roleId", v === "__none" ? "" : v)}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder={form.employmentType === "Locum" ? "Not tied to a role (optional)" : "Select a role"} />
+                      <SelectValue placeholder={isFloatingType ? "Not tied to a role (optional)" : "Select a role"} />
                     </SelectTrigger>
                     <SelectContent>
+                      {skipsAutoRole(form.segment, form.employmentType) && (
+                        <SelectItem value="__none">No branch yet</SelectItem>
+                      )}
                       {rolesInScope.map((role) => (
                         <SelectItem key={role.id} value={role.id}>
                           {role.title} · {role.location}
                         </SelectItem>
                       ))}
                       {rolesInScope.length === 0 && (
-                        <SelectItem value={form.roleId || "_none"} disabled>
+                        <SelectItem value="_none_available" disabled>
                           No open roles in this department
                         </SelectItem>
                       )}
                     </SelectContent>
                   </Select>
-                  {form.employmentType === "Locum" && (
+                  {isFloatingType ? (
                     <p className="text-xs text-muted-foreground">
-                      Locums fill in as needed across branches — leave blank unless this one is tied to a specific role.
+                      {form.employmentType}s fill in as needed across branches — leave blank unless this one is tied to a specific role.
                     </p>
-                  )}
+                  ) : form.segment === "IPS" ? (
+                    <p className="text-xs text-muted-foreground">
+                      An IPS function is open at many branches at once — leave blank until you know which one. You&apos;ll
+                      be asked to pick the branch when you move them to Hired.
+                    </p>
+                  ) : null}
                 </Field>
               </div>
 

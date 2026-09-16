@@ -70,8 +70,21 @@ export function MoveStageDialog({
     );
   }, [openRoles, candidate]);
 
+  // IPS functions are open at many branches at once, so EditCandidateDialog
+  // deliberately leaves the branch/role unset up to this point (see its
+  // skipsAutoRole comment) — Hired is where that finally has to be pinned
+  // down, since it's what updates the role's headcount-filled count. SO
+  // roles aren't spread across branches the same way, so they keep the
+  // existing optional behavior. Locums and Relievers float across branches
+  // as needed rather than being tied to one open role, so neither is forced
+  // to pick one even when hired.
+  const isFloatingType = employmentType === "Locum" || employmentType === "Reliever";
+  const roleRequired =
+    stage === "Hired" && candidate?.segment === "IPS" && !isFloatingType;
+
   function handleSave() {
     if (!candidate) return;
+    if (roleRequired && !roleId) return;
     onMove(
       candidate.id,
       stage,
@@ -121,11 +134,15 @@ export function MoveStageDialog({
                     )}
                   </div>
 
-                  {employmentType !== "Locum" && (
+                  {!isFloatingType && (
                     <div className="space-y-1.5">
                       <Label>
                         Assign to Role
-                        <span className="ml-1 text-xs text-muted-foreground">(optional)</span>
+                        {roleRequired ? (
+                          <span className="ml-1 text-xs text-destructive">(required for IPS hires)</span>
+                        ) : (
+                          <span className="ml-1 text-xs text-muted-foreground">(optional)</span>
+                        )}
                       </Label>
                       <Select
                         value={roleId || "__none"}
@@ -133,7 +150,7 @@ export function MoveStageDialog({
                       >
                         <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none">No role yet</SelectItem>
+                          {!roleRequired && <SelectItem value="__none">No role yet</SelectItem>}
                           {rolesForCandidate.map((r) => (
                             <SelectItem key={r.id} value={r.id}>
                               {r.title} · {r.location}
@@ -155,7 +172,11 @@ export function MoveStageDialog({
               )}
             </div>
             <DialogFooter>
-              <Button onClick={handleSave} className="bg-penda-blue hover:bg-penda-blue-dark">
+              <Button
+                onClick={handleSave}
+                disabled={roleRequired && !roleId}
+                className="bg-penda-blue hover:bg-penda-blue-dark"
+              >
                 Save
               </Button>
             </DialogFooter>
