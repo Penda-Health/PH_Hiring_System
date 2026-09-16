@@ -13,8 +13,9 @@ export function getRoleForCandidate(candidate: Candidate, openRoles: OpenRole[])
   return openRoles.find((r) => r.id === candidate.roleId);
 }
 
-// Locums fill in wherever needed rather than against one specific open role,
-// so they're commonly saved with a segment/department but no roleId. Rather
+// Locums and Relievers fill in wherever needed rather than against one
+// specific open role, so they're commonly saved with a segment/department
+// but no roleId (see skipsAutoRole in edit-candidate-dialog.tsx). Rather
 // than show a bare "Unknown role" for them, stand in with the short job-title
 // stub the business already uses for that department (matching the naming
 // real Locum open roles use, e.g. "Labtech - Locum") — falling back to the
@@ -30,7 +31,7 @@ const IPS_LOCUM_ROLE_STUBS: Partial<Record<string, string>> = {
 export interface CandidateRoleDisplay {
   title: string;
   segment?: Segment;
-  /** True when this wasn't a real linked OpenRole — synthesized for an unassigned Locum. */
+  /** True when this wasn't a real linked OpenRole — synthesized for an unassigned Locum/Reliever. */
   isFiller?: boolean;
 }
 
@@ -38,15 +39,25 @@ export function getCandidateRoleDisplay(candidate: Candidate, openRoles: OpenRol
   const role = getRoleForCandidate(candidate, openRoles);
   if (role) return { title: role.title, segment: role.segment };
 
-  if (candidate.employmentType === "Locum" && candidate.department) {
+  if (!candidate.department) return { title: "Unknown role" };
+
+  const isFloatingType = candidate.employmentType === "Locum" || candidate.employmentType === "Reliever";
+  if (isFloatingType) {
     const stub =
       candidate.segment === "IPS"
         ? IPS_LOCUM_ROLE_STUBS[candidate.department] ?? candidate.department
         : candidate.department;
-    return { title: `${stub} - Locum`, segment: candidate.segment, isFiller: true };
+    return { title: `${stub} - ${candidate.employmentType}`, segment: candidate.segment, isFiller: true };
   }
 
-  return { title: "Unknown role" };
+  // Not a floating type, but still no role linked — the normal state for
+  // any IPS candidate before Hired (an IPS function is open at many
+  // branches at once; see EditCandidateDialog's "optional until Hired"
+  // note) as well as any other candidate simply not yet assigned to one.
+  // Segment/department are real, directly-set fields on the candidate
+  // itself even without a specific role picked — showing them beats a bare
+  // "Unknown role" that reads as if nothing were known yet.
+  return { title: `${candidate.department} (role pending)`, segment: candidate.segment };
 }
 
 export function daysInStage(stageEnteredAt: string): number {
