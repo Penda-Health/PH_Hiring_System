@@ -31,10 +31,21 @@ export function EditReferenceCheckDialog({ refCheck, onSave }: Props) {
   // (e.g. the original two are unresponsive) is still always allowed.
   const initiated = !!refCheck.initiatedAt;
 
-  // Re-sync from the latest record whenever the dialog opens, so a stale
-  // edit from before a background refresh never overwrites newer data.
+  // Re-sync from the latest record whenever the dialog *opens* — so a stale
+  // edit from before a background refresh never overwrites newer data — but
+  // only on that open transition, never again while it stays open. The
+  // 60s/tab-focus background refresh (recruitment-context.tsx) refetches
+  // referenceChecks on its own schedule and always hands back freshly
+  // parsed objects, so refCheck's identity changes even when nothing about
+  // it actually did. With refCheck in this effect's deps and no open-edge
+  // guard, that refetch fired this effect while the dialog was still open
+  // and stomped in-progress edits back to the pre-edit values — a
+  // half-typed email correction reverting mid-keystroke, or a just-added
+  // blank referee row (not yet part of refCheck.referees) vanishing outright.
+  const wasOpenRef = React.useRef(false);
   React.useEffect(() => {
-    if (open) setReferees(refereeInputs(refCheck));
+    if (open && !wasOpenRef.current) setReferees(refereeInputs(refCheck));
+    wasOpenRef.current = open;
   }, [open, refCheck]);
 
   const allNamed = referees.every((r) => r.name);
@@ -43,11 +54,29 @@ export function EditReferenceCheckDialog({ refCheck, onSave }: Props) {
     e.preventDefault();
     if (!allNamed) return;
     onSave(refCheck.id, {
-      referees: referees.map((r, i) =>
-        refCheck.referees[i]
-          ? { ...refCheck.referees[i], ...r }
-          : { ...r, emailSent: false, smsSent: false, responded: false }
-      ),
+      referees: referees.map((r, i) => {
+        const original = refCheck.referees[i];
+        if (!original) return { ...r, emailSent: false, smsSent: false, responded: false };
+        // Correcting a referee's email/phone here is silent otherwise — this
+        // dialog only ever patched name/email/phone, leaving emailSent/
+        // smsSent (and the Airtable automation that keys off them to send
+        // the referee-link invite, see SETUP.md §4.5.2 step 6) untouched.
+        // That meant a typo fix after the check was already initiated never
+        // reached the corrected address: the old value stayed "sent" even
+        // though the invite never landed there. Clear the relevant *Sent
+        // flag so the automation treats this slot as pending again and
+        // (re)sends — but only when they haven't responded yet; once a
+        // referee has actually answered, this is just a records correction,
+        // not a reason to re-notify them.
+        const emailChanged = r.email !== original.email;
+        const phoneChanged = r.phone !== original.phone;
+        return {
+          ...original,
+          ...r,
+          ...(!original.responded && emailChanged ? { emailSent: false } : {}),
+          ...(!original.responded && phoneChanged ? { smsSent: false } : {}),
+        };
+      }),
     });
     setOpen(false);
   }

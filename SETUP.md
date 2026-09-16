@@ -789,13 +789,18 @@ NEXT_PUBLIC_APP_URL=      # your deployed URL, e.g. https://ph-hiring-system.ver
    creation would email referees before their details have ever been
    checked. A check holds 2-4 referees (`Referee{1,2,3,4} *` field blocks) —
    loop the script call over however many slots actually have a name filled
-   in, e.g.:
+   in, **skipping any slot whose `Referee{n} Email Sent` is already
+   checked** — this trigger fires on *any* update to an initiated record
+   (e.g. a TA fixing a typo'd referee name), not just the moment it's first
+   initiated, so without this guard every such edit would re-send a fresh
+   invite to referees who'd already gotten one:
    ```javascript
    let record = input.config(); // the Reference Checks record
    for (let n = 1; n <= 4; n++) {
      let name = record[`Referee${n} Name`];
      let email = record[`Referee${n} Email`];
      if (!name || !email) continue; // slot 3/4 is often unused — skip it, don't error
+     if (record[`Referee${n} Email Sent`]) continue; // already sent — only (re)send to pending slots
      let response = await fetch("https://YOUR_APP_URL/api/forms/issue-link", {
        method: "POST",
        headers: { "Content-Type": "application/json", "Authorization": "Bearer YOUR_FORMS_ISSUE_SECRET" },
@@ -805,9 +810,18 @@ NEXT_PUBLIC_APP_URL=      # your deployed URL, e.g. https://ph-hiring-system.ver
      // Send email to `email` with `url` here (Airtable's native email action
      // only fires once per automation run, so this loop needs a scripting
      // step that sends the email itself — e.g. a Gmail/SendGrid API call —
-     // rather than a native "Send email" action after the script step).
+     // rather than a native "Send email" action after the script step), then
+     // check `Referee{n} Email Sent` so this slot isn't resent next edit.
    }
    ```
+   This same `Email Sent` guard is also how a referee's link actually gets
+   re-sent after a TA corrects a typo'd email post-initiation
+   (`EditReferenceCheckDialog`, §4.5.6): the app clears that referee's
+   `Email Sent` (and `SMS Sent`, on a phone edit) the moment their contact
+   details change, but only while they haven't responded yet — this
+   automation is what turns that cleared flag into an actual re-send, so
+   without this guard in place the corrected address would never get a
+   working link.
    A record is still considered done — `Status = "Ready for Offer"`, which
    auto-advances the candidate's `Stage` to `Offer` — the moment any 2 of
    however many referees have responded, so a 3rd/4th referee left
