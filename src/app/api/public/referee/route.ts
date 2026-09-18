@@ -76,7 +76,19 @@ export async function POST(request: NextRequest) {
 
   const json = await request.json().catch(() => null);
   const result = submitSchema.safeParse(json);
-  if (!result.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+  if (!result.success) {
+    // Logged server-side only — field name + constraint, never the
+    // referee's actual answers — so a future rejection here is a log
+    // lookup, not a guessing game against a bare "Something went wrong" the
+    // referee sees with zero detail (this is exactly what a too-long
+    // free-text answer looked like before clamp()/maxLength were added on
+    // the client — see referee/page.tsx).
+    console.error(
+      "[api/public/referee] POST invalid_request:",
+      result.error.issues.map((i) => ({ path: i.path.join("."), message: i.message }))
+    );
+    return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+  }
 
   const payload = await verifyRefereeToken(result.data.token);
   if (!payload) return NextResponse.json({ error: "expired" }, { status: 401 });

@@ -72,6 +72,19 @@ const MIN_EXAMPLE_LENGTH = 100;
 const MIN_TEXT_LENGTH = 10;
 const MIN_COACHING_LENGTH = 50;
 const MIN_RESPONSIBILITIES_LENGTH = 50;
+// Every free-text field the server accepts (submitSchema in
+// api/public/referee/route.ts) caps at 2000 chars via zod's .max(2000). That
+// cap previously wasn't enforced anywhere on this side — a thoughtful
+// referee pasting in a pre-written, detailed answer could sail past it with
+// no feedback, reach the end of the wizard, and get a bare "Something went
+// wrong" 400 with no indication which field (or why). Wiring the same cap
+// in here via maxLength stops it from being typed/pasted in the first
+// place; clamp() below (used in handleSubmit) is the backstop for text that
+// got long before this fix shipped, e.g. already sitting in a saved draft.
+const MAX_TEXT_LENGTH = 2000;
+function clamp(value: string, max = MAX_TEXT_LENGTH) {
+  return value.length > max ? value.slice(0, max) : value;
+}
 
 // The "employment dates you recall" fields are <input type="date"> pickers —
 // deliberately full-date, not <input type="month">, since Safari (desktop
@@ -125,6 +138,7 @@ function TextArea({
   placeholder,
   rows = 3,
   minLength,
+  maxLength = MAX_TEXT_LENGTH,
 }: {
   id?: string;
   value: string;
@@ -132,9 +146,11 @@ function TextArea({
   placeholder?: string;
   rows?: number;
   minLength?: number;
+  maxLength?: number;
 }) {
   const count = value.trim().length;
   const meetsMin = minLength === undefined || count >= minLength;
+  const nearMax = count >= maxLength * 0.9;
   return (
     <div>
       <textarea
@@ -143,11 +159,17 @@ function TextArea({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        maxLength={maxLength}
         className="w-full resize-none rounded-[10px] border border-[#e4e7ec] bg-white px-3 py-3 text-[13.5px] leading-[1.55] text-[#101828] placeholder:text-[#98a2b3] focus:outline-none focus:ring-2 focus:ring-penda-blue/30"
       />
       {minLength !== undefined && (
         <p className={cn("mt-1 text-xs", meetsMin ? "text-[#98a2b3]" : "text-red-500")}>
           {count}/{minLength} characters minimum
+        </p>
+      )}
+      {nearMax && (
+        <p className={cn("mt-1 text-xs", count >= maxLength ? "text-red-500" : "text-[#98a2b3]")}>
+          {count}/{maxLength} characters maximum
         </p>
       )}
     </div>
@@ -710,6 +732,15 @@ function RefereeForm() {
     setSubmitError(null);
     setSubmitting(true);
     try {
+      // Every long free-text field is clamped to the same cap enforced
+      // server-side (submitSchema in api/public/referee/route.ts) right
+      // before sending — not just relying on the textareas' own maxLength.
+      // A draft saved before that maxLength was wired in (or restored from
+      // this device or another, via the cross-device autosave) can still
+      // hold text longer than the cap; without this, that referee would
+      // keep hitting the same opaque 400 on every retry with no way to see
+      // which field was the problem, since the server only ever returns a
+      // generic "invalid_request".
       const res = await fetch("/api/public/referee", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -717,35 +748,36 @@ function RefereeForm() {
           token,
           relationship,
           reportingRelationship,
-          refereeOrganization,
-          phone: phone || undefined,
+          refereeOrganization: clamp(refereeOrganization, 200),
+          phone: phone ? clamp(phone, 30) : undefined,
           durationKnown,
           interactionFrequency,
-          jobTitleRecalled,
+          jobTitleRecalled: clamp(jobTitleRecalled, 150),
           employmentFrom: employmentFrom || undefined,
           employmentTo: stillEmployed ? undefined : employmentTo || undefined,
           stillEmployed,
-          mainResponsibilities,
-          reportedTo: reportedTo || undefined,
+          mainResponsibilities: clamp(mainResponsibilities),
+          reportedTo: reportedTo ? clamp(reportedTo, 150) : undefined,
           leavingReason,
           executionScore,
-          executionExample,
+          executionExample: clamp(executionExample),
           teamworkScore,
-          teamworkExample,
+          teamworkExample: clamp(teamworkExample),
           communicationScore,
-          communicationExample,
+          communicationExample: clamp(communicationExample),
           wouldRehire,
-          wouldRehireExplanation: wouldRehire === "Yes" ? wouldRehireExplanation || undefined : wouldRehireExplanation,
-          topStrengths,
-          coachingArea,
+          wouldRehireExplanation:
+            wouldRehire === "Yes" ? clamp(wouldRehireExplanation) || undefined : clamp(wouldRehireExplanation),
+          topStrengths: clamp(topStrengths),
+          coachingArea: clamp(coachingArea),
           feedbackResponse,
           honestyConcerns,
           complianceIncidents: isClinical ? complianceIncidents : undefined,
           licenseStanding: isClinical ? licenseStanding : undefined,
-          preferPhoneNumber: needsPhone ? preferPhoneNumber : undefined,
+          preferPhoneNumber: needsPhone ? clamp(preferPhoneNumber, 30) : undefined,
           recommendHire,
           consentToContact,
-          notes: notes || undefined,
+          notes: notes ? clamp(notes) : undefined,
         }),
       });
       if (!res.ok) {
@@ -970,10 +1002,11 @@ function RefereeForm() {
                       value={refereeOrganization}
                       onChange={(e) => setRefereeOrganization(e.target.value)}
                       placeholder="e.g. Nairobi Women's Hospital"
+                      maxLength={200}
                     />
                   </Field>
                   <Field label="Your phone number">
-                    <Input className={fieldClass} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 07XX XXX XXX" />
+                    <Input className={fieldClass} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 07XX XXX XXX" maxLength={30} />
                   </Field>
                 </div>
 
@@ -996,7 +1029,7 @@ function RefereeForm() {
                 <p className="text-[15px] font-bold text-[#101828]">Employment verification</p>
 
                 <Field label="Their job title, as you recall it">
-                  <Input className={fieldClass} value={jobTitleRecalled} onChange={(e) => setJobTitleRecalled(e.target.value)} placeholder="e.g. Clinical Officer" />
+                  <Input className={fieldClass} value={jobTitleRecalled} onChange={(e) => setJobTitleRecalled(e.target.value)} placeholder="e.g. Clinical Officer" maxLength={150} />
                 </Field>
 
                 <div>
@@ -1037,7 +1070,7 @@ function RefereeForm() {
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   <Field label="Who did they report to?">
-                    <Input className={fieldClass} value={reportedTo} onChange={(e) => setReportedTo(e.target.value)} placeholder="Name / title" />
+                    <Input className={fieldClass} value={reportedTo} onChange={(e) => setReportedTo(e.target.value)} placeholder="Name / title" maxLength={150} />
                   </Field>
                   <Field label="Why did they leave (or are they still there)?">
                     <BasicSelect
@@ -1217,7 +1250,7 @@ function RefereeForm() {
 
               {needsPhone && (
                 <Field label="Best number to reach you on">
-                  <Input className={fieldClass} value={preferPhoneNumber} onChange={(e) => setPreferPhoneNumber(e.target.value)} placeholder="+254…" />
+                  <Input className={fieldClass} value={preferPhoneNumber} onChange={(e) => setPreferPhoneNumber(e.target.value)} placeholder="+254…" maxLength={30} />
                 </Field>
               )}
 
