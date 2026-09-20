@@ -50,6 +50,7 @@ function makeEmptyForm(branchId: string, expansionContext: boolean): Branch {
 export function NewBranchDialog({ branches, onCreate, expansionContext }: Props) {
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<Branch>(() => makeEmptyForm(nextBranchId(branches), !!expansionContext));
 
   function set<K extends keyof Branch>(k: K, v: Branch[K]) {
@@ -58,6 +59,7 @@ export function NewBranchDialog({ branches, onCreate, expansionContext }: Props)
 
   function reset() {
     setForm(makeEmptyForm(nextBranchId(branches), !!expansionContext));
+    setSubmitError(null);
   }
 
   const valid =
@@ -73,10 +75,13 @@ export function NewBranchDialog({ branches, onCreate, expansionContext }: Props)
     e.preventDefault();
     if (!valid) return;
     setSaving(true);
+    setSubmitError(null);
     try {
       await onCreate(form);
       setOpen(false);
       reset();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -97,6 +102,12 @@ export function NewBranchDialog({ branches, onCreate, expansionContext }: Props)
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <BranchFormFields form={form} set={set} />
+
+          {submitError && (
+            <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+              {submitError}
+            </p>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

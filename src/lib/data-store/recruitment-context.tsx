@@ -36,6 +36,7 @@ import { listResource, createResource, updateResource, deleteResource, postActio
 import { useAuth } from "@/lib/auth/auth-context";
 import { canEditRecruitmentData, canDeleteRecords, canManageRoles, canSeeSalary } from "@/lib/permissions";
 import { useUndoToast, DEFAULT_UNDO_WINDOW_MS } from "@/components/ui/undo-toast";
+import { reportError } from "@/components/ui/error-toast";
 
 type RecruitmentDataContextValue = {
   loading: boolean;
@@ -135,12 +136,31 @@ type RecruitmentDataContextValue = {
 
 const RecruitmentDataContext = React.createContext<RecruitmentDataContextValue | null>(null);
 
+// Human label for the resource name persist() already receives, used only to
+// phrase the error toast below — never sent anywhere, just friendlier than
+// echoing the raw Airtable table slug back at the user.
+const RESOURCE_LABELS: Partial<Record<string, string>> = {
+  requisitions: "requisition",
+  "open-roles": "role",
+  interviews: "interview",
+  "work-trials": "work trial",
+  "reference-checks": "reference check",
+  offers: "offer",
+  candidates: "candidate",
+  relievers: "reliever",
+  locums: "locum",
+  branches: "branch",
+};
+
 // Fires the persist call in the background; local state has already been
-// updated optimistically by the caller, so a failure here just gets logged
-// rather than rolled back (internal ops tool, not a payments flow).
+// updated optimistically by the caller, so a failure here doesn't roll
+// anything back (internal ops tool, not a payments flow) — it still has to
+// reach the user somehow, though, or their edit silently doesn't save. See
+// error-toast.tsx.
 function persist<T>(resource: string, id: string, patch: Partial<T>) {
   updateResource<T>(resource, id, patch).catch((err) => {
     console.error(`Failed to persist ${resource}/${id} to Airtable:`, err);
+    reportError(`Your change to this ${RESOURCE_LABELS[resource] ?? "record"} didn't save — please try again.`);
   });
 }
 
@@ -227,7 +247,12 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         setRelievers(relieversRes);
         setLocums(locumsRes);
       } catch (err) {
-        if (!cancelled) console.error("Failed to load extended recruitment data:", err);
+        if (!cancelled) {
+          console.error("Failed to load extended recruitment data:", err);
+          reportError(
+            "Some recruitment data (requisitions, interviews, work trials, reference checks, offers, or pools) failed to load — try refreshing the page."
+          );
+        }
       } finally {
         if (!cancelled) setExtendedLoading(false);
       }
@@ -366,9 +391,12 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         const status = fullyApproved ? "Converted to Open Role" : "Pending Approval";
         persist<Requisition>("requisitions", id, { currentApproverIndex: nextIndex, status });
         if (fullyApproved) {
-          convertToOpenRole(req).catch((err) =>
-            console.error(`Failed to create Open Role from requisition ${req.reqId}:`, err)
-          );
+          convertToOpenRole(req).catch((err) => {
+            console.error(`Failed to create Open Role from requisition ${req.reqId}:`, err);
+            reportError(
+              `Requisition ${req.reqId} was approved, but creating its Open Role failed — please create it manually or try approving again.`
+            );
+          });
         }
         return prev.map((r) => (r.id === id ? { ...r, currentApproverIndex: nextIndex, status } : r));
       });
@@ -443,9 +471,12 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       scheduleDelete({
         label: `${candidateName ?? "Work trial"}'s work trial`,
         onCommit: () =>
-          deleteResource("work-trials", id).catch((err) =>
-            console.error("Failed to delete work trial from Airtable:", err)
-          ),
+          deleteResource("work-trials", id).catch((err) => {
+            console.error("Failed to delete work trial from Airtable:", err);
+            reportError(
+              `Couldn't delete ${candidateName ? `${candidateName}'s work trial` : "that work trial"} — it wasn't removed. Please try again.`
+            );
+          }),
         onUndo: () => {
           if (removed) setWorkTrials((prev) => [removed, ...prev]);
         },
@@ -576,9 +607,12 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       scheduleDelete({
         label: `${candidateName ?? "Reference check"}'s reference check`,
         onCommit: () =>
-          deleteResource("reference-checks", id).catch((err) =>
-            console.error("Failed to delete reference check from Airtable:", err)
-          ),
+          deleteResource("reference-checks", id).catch((err) => {
+            console.error("Failed to delete reference check from Airtable:", err);
+            reportError(
+              `Couldn't delete ${candidateName ? `${candidateName}'s reference check` : "that reference check"} — it wasn't removed. Please try again.`
+            );
+          }),
         onUndo: () => {
           if (removed) setReferenceChecks((prev) => [removed, ...prev]);
         },
@@ -720,6 +754,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         onCommit: () =>
           deleteResource("relievers", id).catch((err) => {
             console.error(`Failed to delete reliever ${id} from Airtable:`, err);
+            reportError(`Couldn't delete ${removed?.name ?? "that reliever"} — it wasn't removed. Please try again.`);
           }),
         onUndo: () => {
           if (removed) setRelievers((prev) => [removed, ...prev]);
@@ -748,6 +783,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         onCommit: () =>
           deleteResource("locums", id).catch((err) => {
             console.error(`Failed to delete locum ${id} from Airtable:`, err);
+            reportError(`Couldn't delete ${removed?.name ?? "that locum"} — it wasn't removed. Please try again.`);
           }),
         onUndo: () => {
           if (removed) setLocums((prev) => [removed, ...prev]);
@@ -801,7 +837,12 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
             bmApprovedAt: null,
             reminder12hSent: false,
             escalation24hSent: false,
-          } as WorkTrial).catch((err) => console.error("Failed to auto-create work trial:", err));
+          } as WorkTrial).catch((err) => {
+            console.error("Failed to auto-create work trial:", err);
+            reportError(
+              `${candidate.name} was moved to Work Trial, but the work trial record couldn't be created — add it manually from the Work Trials page.`
+            );
+          });
         }
         return;
       }
@@ -829,7 +870,12 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
           dailyRate: 0,
           licenseNumber: "Pending",
           availability: "TBD",
-        } as Locum).catch((err) => console.error("Failed to auto-create locum:", err));
+        } as Locum).catch((err) => {
+          console.error("Failed to auto-create locum:", err);
+          reportError(
+            `${candidate.name} was hired, but couldn't be added to the Locum pool — add them manually from the Pools page.`
+          );
+        });
       } else if (hireType === "Reliever") {
         const linkedRole = openRoles.find((r) => r.id === candidate.roleId);
         createReliever({
@@ -840,7 +886,12 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
           status: "Active",
           phone: candidate.phone || "",
           email: candidate.email || undefined,
-        } as Reliever).catch((err) => console.error("Failed to auto-create reliever:", err));
+        } as Reliever).catch((err) => {
+          console.error("Failed to auto-create reliever:", err);
+          reportError(
+            `${candidate.name} was hired, but couldn't be added to the Reliever pool — add them manually from the Pools page.`
+          );
+        });
       }
 
       // Update linked role headcount.
@@ -884,6 +935,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         onCommit: () =>
           deleteResource("candidates", id).catch((err) => {
             console.error(`Failed to delete candidate ${id} from Airtable:`, err);
+            reportError(`Couldn't delete ${removed?.name ?? "that candidate"} — it wasn't removed. Please try again.`);
           }),
         onUndo: () => {
           if (removed) setCandidates((prev) => [removed, ...prev]);

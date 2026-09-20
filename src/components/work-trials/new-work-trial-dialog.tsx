@@ -41,20 +41,25 @@ const EMPTY_WORK_TRIAL: WorkTrial = {
 export function NewWorkTrialDialog({ candidates, branches, onCreate }: Props) {
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({ candidateId: "", branchId: "", date: "", supervisor: "" });
 
   function reset() {
     setForm({ candidateId: "", branchId: "", date: "", supervisor: "" });
+    setSubmitError(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.candidateId || !form.branchId || !form.date || !form.supervisor.trim()) return;
     setSaving(true);
+    setSubmitError(null);
     try {
       await onCreate({ ...EMPTY_WORK_TRIAL, ...form });
       setOpen(false);
       reset();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -123,6 +128,11 @@ export function NewWorkTrialDialog({ candidates, branches, onCreate }: Props) {
               required
             />
           </div>
+          {submitError && (
+            <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+              {submitError}
+            </p>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button

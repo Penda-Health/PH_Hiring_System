@@ -37,6 +37,7 @@ export function ScheduleInterviewDialog({
   const open = isControlled ? controlledOpen : uncontrolledOpen;
   const setOpen = isControlled ? setControlledOpen : setUncontrolledOpen;
   const [submitting, setSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({
     candidateId: defaultCandidateId ?? candidates[0]?.id ?? "",
     stage: "First Interview" as InterviewStage,
@@ -85,17 +86,20 @@ export function ScheduleInterviewDialog({
       outcome: "Pending",
     };
     setSubmitting(true);
+    setSubmitError(null);
     try {
       await onCreate(interview);
       setOpen(false);
       setForm((prev) => ({ ...prev, date: "", time: "", location: "", interviewers: "" }));
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSubmitError(null); }}>
       {!isControlled && (
         <DialogTrigger asChild>
           <Button className="bg-penda-blue hover:bg-penda-blue-dark">Schedule Interview</Button>
@@ -173,6 +177,12 @@ export function ScheduleInterviewDialog({
               required
             />
           </Field>
+
+          {submitError && (
+            <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+              {submitError}
+            </p>
+          )}
 
           <DialogFooter>
             <Button type="submit" disabled={submitting} className="bg-penda-blue hover:bg-penda-blue-dark">

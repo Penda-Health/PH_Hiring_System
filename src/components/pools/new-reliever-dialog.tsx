@@ -23,6 +23,7 @@ export function NewRelieverDialog({
 }) {
   const [open, setOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({
     name: "",
     role: RELIEVER_CADRES[0],
@@ -48,17 +49,20 @@ export function NewRelieverDialog({
       phone: form.phone,
     };
     setSubmitting(true);
+    setSubmitError(null);
     try {
       await onCreate(reliever);
       setOpen(false);
       setForm({ name: "", role: RELIEVER_CADRES[0], phone: "", email: "", startDate: "" });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSubmitError(null); }}>
       <DialogTrigger asChild>
         <Button className="bg-penda-blue hover:bg-penda-blue-dark">Add Reliever</Button>
       </DialogTrigger>
@@ -111,6 +115,12 @@ export function NewRelieverDialog({
           <p className="text-xs text-muted-foreground rounded-md border border-border bg-muted/40 px-3 py-2">
             Branch assignment can be done later from the Reliever Pool once a deployment is confirmed.
           </p>
+
+          {submitError && (
+            <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+              {submitError}
+            </p>
+          )}
 
           <DialogFooter>
             <Button type="submit" disabled={submitting} className="bg-penda-blue hover:bg-penda-blue-dark">

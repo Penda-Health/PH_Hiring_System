@@ -19,6 +19,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 export function NewOfferDialog({ candidates, onCreate }: Props) {
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({
     candidateId: "",
     offeredSalary: "",
@@ -29,6 +30,7 @@ export function NewOfferDialog({ candidates, onCreate }: Props) {
 
   function reset() {
     setForm({ candidateId: "", offeredSalary: "", budgetedSalary: "", dateSent: today(), deadline: "" });
+    setSubmitError(null);
   }
 
   function set(k: keyof typeof form, v: string) {
@@ -48,6 +50,7 @@ export function NewOfferDialog({ candidates, onCreate }: Props) {
     e.preventDefault();
     if (!valid) return;
     setSaving(true);
+    setSubmitError(null);
     try {
       const offer: Offer = {
         id: "",
@@ -63,6 +66,8 @@ export function NewOfferDialog({ candidates, onCreate }: Props) {
       await onCreate(offer);
       setOpen(false);
       reset();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -138,6 +143,11 @@ export function NewOfferDialog({ candidates, onCreate }: Props) {
               />
             </div>
           </div>
+          {submitError && (
+            <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+              {submitError}
+            </p>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button

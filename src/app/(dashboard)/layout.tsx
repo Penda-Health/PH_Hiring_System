@@ -10,6 +10,7 @@ import { RecruitmentDataProvider, useRecruitmentData } from "@/lib/data-store/re
 import { Spinner } from "@/components/ui/spinner";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { UndoToastProvider } from "@/components/ui/undo-toast";
+import { ErrorToastProvider } from "@/components/ui/error-toast";
 
 function DataLoadingGate({ children }: { children: React.ReactNode }) {
   const { loading, error, canEdit } = useRecruitmentData();
@@ -63,20 +64,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // for a pending delete's 30s window to keep counting down, which is true
     // here since both providers live above the routed `children`.
     <UndoToastProvider>
-      <RecruitmentDataProvider>
-        <div className="flex min-h-screen bg-gradient-to-br from-penda-bg via-[#EAEEFB] to-[#DCE2F3] dark:from-[#0A0F1F] dark:via-[#0C0F18] dark:to-[#090C14]">
-          <Sidebar />
-          <div className="flex-1 flex flex-col">
-            <Topbar />
-            <main className="flex-1 p-4 md:p-6">
-              <ErrorBoundary>
-                <DataLoadingGate>{children}</DataLoadingGate>
-              </ErrorBoundary>
-            </main>
+      <ErrorToastProvider>
+        <RecruitmentDataProvider>
+          <div className="flex min-h-screen bg-gradient-to-br from-penda-bg via-[#EAEEFB] to-[#DCE2F3] dark:from-[#0A0F1F] dark:via-[#0C0F18] dark:to-[#090C14]">
+            <Sidebar />
+            <div className="flex-1 flex flex-col">
+              <Topbar />
+              <main className="flex-1 p-4 md:p-6">
+                <ErrorBoundary>
+                  <DataLoadingGate>{children}</DataLoadingGate>
+                </ErrorBoundary>
+              </main>
+            </div>
+            <AiAssistantLauncher />
           </div>
-          <AiAssistantLauncher />
-        </div>
-      </RecruitmentDataProvider>
+        </RecruitmentDataProvider>
+      </ErrorToastProvider>
     </UndoToastProvider>
   );
 }

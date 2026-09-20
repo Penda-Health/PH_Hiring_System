@@ -54,6 +54,7 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [segment, setSegment] = React.useState<Segment>("IPS");
   const [form, setForm] = React.useState(makeEmptyForm("IPS"));
   const [notes, setNotes] = React.useState("");
@@ -116,6 +117,7 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
     setMultiBranch(false);
     setSelectedBranchIds([]);
     setFillPlan("external");
+    setSubmitError(null);
   }
 
   // Toggling group-role mode on/off swaps which branch field(s) actually
@@ -180,6 +182,7 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
     e.preventDefault();
     if (!valid) return;
     setSaving(true);
+    setSubmitError(null);
     try {
       const role: OpenRole = {
         ...form,
@@ -212,6 +215,8 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
         router.push(href);
       }
       reset();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -521,6 +526,12 @@ export function NewOpenRoleDialog({ branches, openRoles, onCreate }: Props) {
             <Label>Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any relevant context…" rows={3} />
           </div>
+
+          {submitError && (
+            <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+              {submitError}
+            </p>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

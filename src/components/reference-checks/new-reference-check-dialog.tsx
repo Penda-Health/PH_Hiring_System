@@ -187,6 +187,7 @@ export function NewReferenceCheckDialog({ onCreate }: Props) {
   const { candidates, referenceChecks, createCandidate } = useRecruitmentData();
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [candidateId, setCandidateId] = React.useState("");
   const [referees, setReferees] = React.useState<{ name: string; email: string; phone: string }[]>([
     { name: "", email: "", phone: "" },
@@ -211,6 +212,7 @@ export function NewReferenceCheckDialog({ onCreate }: Props) {
       { name: "", email: "", phone: "" },
       { name: "", email: "", phone: "" },
     ]);
+    setSubmitError(null);
   }
 
   const allNamed = referees.every((r) => r.name);
@@ -219,6 +221,7 @@ export function NewReferenceCheckDialog({ onCreate }: Props) {
     e.preventDefault();
     if (!candidateId || !allNamed) return;
     setSaving(true);
+    setSubmitError(null);
     try {
       const now = new Date().toISOString();
       const refCheck: ReferenceCheck = {
@@ -243,6 +246,8 @@ export function NewReferenceCheckDialog({ onCreate }: Props) {
       await onCreate(refCheck);
       setOpen(false);
       reset();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -309,6 +314,11 @@ export function NewReferenceCheckDialog({ onCreate }: Props) {
               <Plus className="h-4 w-4 mr-1.5" />
               Add referee
             </Button>
+          )}
+          {submitError && (
+            <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+              {submitError}
+            </p>
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

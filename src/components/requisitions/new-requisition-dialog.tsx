@@ -40,6 +40,7 @@ export function NewRequisitionDialog({
 }) {
   const [open, setOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
   const initialType: RequisitionType = "IPS Gap";
   const initialSegment = segmentForType(initialType);
   const [form, setForm] = React.useState<{
@@ -115,17 +116,20 @@ export function NewRequisitionDialog({
       expectedStartDate: form.expectedStartDate || undefined,
     };
     setSubmitting(true);
+    setSubmitError(null);
     try {
       await onCreate(req);
       setOpen(false);
       setForm((prev) => ({ ...prev, roleTitle: "", department: "", justification: "" }));
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSubmitError(null); }}>
       <DialogTrigger asChild>
         <Button className="bg-penda-blue hover:bg-penda-blue-dark">New Requisition</Button>
       </DialogTrigger>
@@ -272,6 +276,12 @@ export function NewRequisitionDialog({
               </label>
             </Field>
           </div>
+
+          {submitError && (
+            <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+              {submitError}
+            </p>
+          )}
 
           <DialogFooter>
             <Button type="submit" disabled={submitting} className="bg-penda-blue hover:bg-penda-blue-dark">
