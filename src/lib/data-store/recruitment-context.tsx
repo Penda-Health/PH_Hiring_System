@@ -295,17 +295,47 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   }, []);
 
   // Checked against Airtable's 5 req/sec-per-base cap: this fires 6 requests
-  // together every 60s per open tab, which can burst past 5/sec on its own
+  // together every tick per open tab, which can burst past 5/sec on its own
   // before even counting other users/tabs. Left as Promise.all (not
   // staggered) because airtableRequest() already retries 429s with backoff
   // (client.ts) — a burst here degrades to a short delay, not a failure. If
   // this ever needs tightening (e.g. many staff on the dashboard at once),
   // stagger these six calls or move to a shared server-side poll instead.
+  //
+  // Only ticks while the tab is actually visible — a dashboard left open in
+  // a background tab all day was previously polling just as hard as an
+  // active one, which is what blew through Vercel's Fluid Active CPU cap
+  // (6 function invocations/minute per idle tab, all day, every tab). A
+  // 3-minute interval plus a catch-up refresh on becoming visible again
+  // keeps the data fresh for whoever's actually looking at it, without
+  // paying for tabs nobody's looking at.
   React.useEffect(() => {
-    const interval = setInterval(refreshCoreData, 60_000);
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    function start() {
+      if (interval) return;
+      interval = setInterval(refreshCoreData, 180_000);
+    }
+    function stop() {
+      if (!interval) return;
+      clearInterval(interval);
+      interval = null;
+    }
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        refreshCoreData(); // catch up on whatever changed while hidden
+        start();
+      } else {
+        stop();
+      }
+    }
+
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("focus", refreshCoreData);
     return () => {
-      clearInterval(interval);
+      stop();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("focus", refreshCoreData);
     };
   }, [refreshCoreData]);
