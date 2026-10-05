@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { FormShell, FormMessage, FormStepper, DraftRestoredBanner, type FormShellBrand } from "@/components/forms/form-shell";
 import { DatePickerCalendar } from "@/components/forms/date-picker-calendar";
 import { MapPin, Phone, Calendar, CheckCircle2 } from "lucide-react";
-import { minBookableDate, MIN_LEAD_HOURS } from "@/lib/work-trial-timing";
+import { minBookableDate, MIN_LEAD_HOURS, isCutoffExempt } from "@/lib/work-trial-timing";
 import { loadDraft, saveDraft, clearDraft } from "@/lib/forms/work-trial-request-draft";
 
 const BRAND: FormShellBrand = {
@@ -116,6 +116,12 @@ function WorkTrialRequestForm() {
   const [selectedCadre, setSelectedCadre] = React.useState("");
   const [subRole, setSubRole] = React.useState("");
 
+  // Final role stored in Airtable: sub-role when the cadre has sub-options,
+  // otherwise the cadre name itself (e.g. "Nurse", "Clinical Officer").
+  // Declared up here (not just where it's rendered) because the booked-dates
+  // fetch below also needs it to scope "already booked" to this cadre.
+  const selectedRole = SPECIALIST_SUB_ROLES[selectedCadre] ? subRole : selectedCadre;
+
   // Schedule step
   const [sessionToken, setSessionToken] = React.useState("");
   const [candidateName, setCandidateName] = React.useState("");
@@ -152,6 +158,10 @@ function WorkTrialRequestForm() {
   // here, so the two can never disagree. `null` = bookings are fully closed
   // right now (the cutoff has already passed).
   const [maxDate, setMaxDate] = React.useState<Date | null>(null);
+  // Same ceiling with the admin cutoff ignored — what a cutoff-exempt cadre
+  // (CUTOFF_EXEMPT_CADRES, currently just Dental) actually gets. See
+  // `effectiveMaxDate` below, which picks between the two.
+  const [maxDateNoCutoff, setMaxDateNoCutoff] = React.useState<Date | null>(null);
   const [loadingConfig, setLoadingConfig] = React.useState(true);
 
   // Whether a saved draft was restored on mount — drives the "we restored
@@ -210,22 +220,32 @@ function WorkTrialRequestForm() {
         setSpecialtyConfigs((d.specialtyConfigs ?? []).filter((s: SpecialtyConfig) => s.active));
         setAvailableCadres(d.availableCadres ?? []);
         setMaxDate(d.maxDate ? new Date(`${d.maxDate}T00:00:00`) : null);
+        setMaxDateNoCutoff(d.maxDateNoCutoff ? new Date(`${d.maxDateNoCutoff}T00:00:00`) : null);
       })
       .catch(() => {})
       .finally(() => setLoadingConfig(false));
   }, []);
 
-  const bookingClosed = !loadingConfig && !maxDate;
+  // Dental is exempt from the Settings-page booking cutoff (its own branch+
+  // day constraints already cap how far out it can be booked) — see
+  // CUTOFF_EXEMPT_CADRES in work-trial-timing.ts, the shared source of truth
+  // for this exemption on both client and server.
+  const effectiveMaxDate = isCutoffExempt(selectedCadre) ? maxDateNoCutoff : maxDate;
+  const bookingClosed = !loadingConfig && !effectiveMaxDate;
 
-  // When the branch changes: fetch already-booked dates so the calendar can
-  // grey them out, and clear any previously selected date that might now clash.
+  // When the branch (or cadre) changes: fetch already-booked dates so the
+  // calendar can grey them out, and clear any previously selected date that
+  // might now clash. Scoped to this cadre — a branch can run one trial per
+  // cadre per day, but different cadres don't compete for the same slot.
+  const cadreForAvailability = rescheduling ? existingSpecialty : selectedRole;
   React.useEffect(() => {
     if (!branchId) {
       setBookedDates([]);
       return;
     }
     setLoadingAvailability(true);
-    fetch(`/api/public/work-trial-request?branchId=${encodeURIComponent(branchId)}&bookedDates=true`)
+    const cadreParam = cadreForAvailability ? `&cadre=${encodeURIComponent(cadreForAvailability)}` : "";
+    fetch(`/api/public/work-trial-request?branchId=${encodeURIComponent(branchId)}&bookedDates=true${cadreParam}`)
       .then((r) => r.json())
       .then((d) => {
         const dates: string[] = d.bookedDates ?? [];
@@ -235,7 +255,7 @@ function WorkTrialRequestForm() {
       })
       .catch(() => setBookedDates([]))
       .finally(() => setLoadingAvailability(false));
-  }, [branchId]);
+  }, [branchId, cadreForAvailability]);
 
   function handlePhoneChange(e: React.ChangeEvent<HTMLInputElement>) {
     setPhoneLocal(e.target.value.replace(/\D/g, "").slice(0, 9));
@@ -359,10 +379,6 @@ function WorkTrialRequestForm() {
   }
 
   // ── Derived values ────────────────────────────────────────────────────────
-  // Final role stored in Airtable: sub-role when the cadre has sub-options,
-  // otherwise the cadre name itself (e.g. "Nurse", "Clinical Officer").
-  const selectedRole = SPECIALIST_SUB_ROLES[selectedCadre] ? subRole : selectedCadre;
-
   // Specialty config lookup: some cadre names differ from the Airtable specialty
   // key (e.g. "Sonographer" cadre ↔ "Sonography" config). CADRE_TO_SPECIALTY_KEY
   // bridges that; anything not in the map uses the cadre name directly.
@@ -675,7 +691,7 @@ function WorkTrialRequestForm() {
                   value={date}
                   onChange={setDate}
                   minDate={minDate}
-                  maxDate={maxDate ?? undefined}
+                  maxDate={effectiveMaxDate ?? undefined}
                   allowedDays={allowedDayNumbers}
                   allowedDaysLabel={allowedDaysLabel}
                   placeholder={loadingAvailability ? "Checking availability…" : "Select a date"}
@@ -685,10 +701,10 @@ function WorkTrialRequestForm() {
                 <p className="text-xs text-muted-foreground">
                   {allowedDayNumbers
                     ? `Available: ${activeSpecialtyConfig?.availableDays.join(", ") ?? "selected days"}${
-                        maxDate ? ` · through ${formatDateDisplay(maxDate.toISOString().slice(0, 10))}` : ""
+                        effectiveMaxDate ? ` · through ${formatDateDisplay(effectiveMaxDate.toISOString().slice(0, 10))}` : ""
                       }`
                     : `Available from tomorrow · Monday – Saturday${
-                        maxDate ? ` · through ${formatDateDisplay(maxDate.toISOString().slice(0, 10))}` : ""
+                        effectiveMaxDate ? ` · through ${formatDateDisplay(effectiveMaxDate.toISOString().slice(0, 10))}` : ""
                       }`}
                 </p>
               </>

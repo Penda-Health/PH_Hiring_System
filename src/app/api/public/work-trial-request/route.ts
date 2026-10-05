@@ -15,7 +15,7 @@ import {
   appSettingsFromAirtable,
 } from "@/lib/airtable/mappers";
 import { rateLimit } from "@/lib/rate-limit";
-import { isDateBookable, maxBookableDate } from "@/lib/work-trial-timing";
+import { isDateBookable, maxBookableDate, isCutoffExempt } from "@/lib/work-trial-timing";
 
 // The booking-cutoff setting lives on the singleton "App Settings" row (see
 // src/app/api/settings/route.ts) — `null` when a Recruitment Manager hasn't
@@ -23,6 +23,24 @@ import { isDateBookable, maxBookableDate } from "@/lib/work-trial-timing";
 async function getWorkTrialBookingCutoff(): Promise<string | null> {
   const records = await listRecords(TABLE_NAMES.AppSettings);
   return records[0] ? appSettingsFromAirtable(records[0]).workTrialBookingCutoffDate : null;
+}
+
+// Sub-roles (Dentist, COHO, Dental Lead, Sonographer Incharge …) are stored
+// verbatim in a WorkTrial's Specialty field but share their parent cadre's
+// branch/day rules, cutoff exemption, and same-day booking capacity. General
+// (non-specialist) roles aren't in this map — their Specialty value already
+// *is* the parent cadre (e.g. "Nurse"), so the lookup falls back to itself.
+const SPECIALTY_PARENT_MAP: Record<string, string> = {
+  "Dentist":              "Dental",
+  "COHO":                 "Dental",
+  "Dental Assistant":     "Dental",
+  "Dental Lead":          "Dental",
+  "Sonographer":          "Sonography",
+  "Sonographer Incharge": "Sonography",
+};
+function parentCadreOf(specialty: string | null | undefined): string | null {
+  if (!specialty) return null;
+  return SPECIALTY_PARENT_MAP[specialty] ?? specialty;
 }
 
 // ── Phone helpers ─────────────────────────────────────────────────────────────
@@ -44,17 +62,27 @@ export async function GET(request: NextRequest) {
   const limited = rateLimit(request, "public:work-trial-request:get", { limit: 60, windowMs: 10 * 60 * 1000 });
   if (limited) return limited;
 
-  // ── Booked-dates sub-route: ?branchId=XXX&bookedDates=true ────────────────
-  // Returns dates already taken at a specific branch so the calendar can
-  // grey them out before the candidate tries to book.
+  // ── Booked-dates sub-route: ?branchId=XXX&bookedDates=true&cadre=YYY ──────
+  // Returns dates already taken at a specific branch *for the same cadre*
+  // so the calendar can grey them out before the candidate tries to book. A
+  // branch can run one trial per cadre per day (one supervisor's worth of
+  // attention), but different cadres don't compete for the same slot — a
+  // Nurse trial and a Dental trial can both happen at the same branch on the
+  // same day. `cadre` is optional for back-compat; when omitted every
+  // booking at the branch counts, same as before.
   const url = new URL(request.url);
   const bookedBranchId = url.searchParams.get("branchId");
   if (bookedBranchId && url.searchParams.get("bookedDates") === "true") {
     try {
+      const requestedCadre = parentCadreOf(url.searchParams.get("cadre"));
       const allTrials = await listRecords(TABLE_NAMES.WorkTrials);
       const bookedDates = allTrials
         .map(workTrialFromAirtable)
-        .filter((t) => t.branchId === bookedBranchId && Boolean(t.date))
+        .filter((t) => {
+          if (t.branchId !== bookedBranchId || !t.date) return false;
+          if (!requestedCadre) return true;
+          return parentCadreOf(t.specialty) === requestedCadre;
+        })
         .map((t) => t.date as string);
       return NextResponse.json({ bookedDates });
     } catch (err) {
@@ -115,6 +143,11 @@ export async function GET(request: NextRequest) {
     if (!availableCadres.includes("Other")) availableCadres.push("Other");
 
     const max = maxBookableDate(bookingCutoffDate);
+    // The default rolling window with the admin cutoff ignored — what a
+    // cutoff-exempt cadre (see CUTOFF_EXEMPT_CADRES) actually gets. Cadre
+    // isn't known yet at this point in the flow (role step hasn't run), so
+    // both ceilings are sent and the client picks per the cadre it selects.
+    const maxNoCutoff = maxBookableDate(null);
     return NextResponse.json({
       branches,
       specialtyConfigs,
@@ -125,6 +158,7 @@ export async function GET(request: NextRequest) {
       // through separately (even though it's folded into `maxDate` already)
       // so the client can show the actual configured date in copy.
       maxDate: max ? max.toISOString().slice(0, 10) : null,
+      maxDateNoCutoff: maxNoCutoff ? maxNoCutoff.toISOString().slice(0, 10) : null,
       bookingCutoffDate,
     });
   } catch (err) {
@@ -312,11 +346,13 @@ export async function POST(request: NextRequest) {
   }
 
   // Ceiling on the other end — the rolling default window, pulled in by a
-  // Recruitment Manager's cutoff if one is set (Settings page). This was
-  // previously enforced only client-side (a `maxDate` the calendar greyed
-  // out), so a submission built by hand could carry any future date through
-  // untouched — close that the same way `isDateBookable` closed the min side.
-  const cutoff = await getWorkTrialBookingCutoff();
+  // Recruitment Manager's cutoff if one is set (Settings page) unless the
+  // cadre is cutoff-exempt (see CUTOFF_EXEMPT_CADRES). This was previously
+  // enforced only client-side (a `maxDate` the calendar greyed out), so a
+  // submission built by hand could carry any future date through untouched —
+  // close that the same way `isDateBookable` closed the min side.
+  const parentCadre = parentCadreOf(specialty);
+  const cutoff = isCutoffExempt(parentCadre) ? null : await getWorkTrialBookingCutoff();
   const latestBookable = maxBookableDate(cutoff);
   if (!latestBookable || new Date(`${date}T00:00:00`).getTime() > latestBookable.getTime()) {
     return NextResponse.json({ error: "outside_booking_window" }, { status: 400 });
@@ -349,18 +385,10 @@ export async function POST(request: NextRequest) {
     }
 
     // For specialist roles validate branch + day against the specialty config.
-    // Sub-roles (Dentist, COHO, Dental Lead, Sonographer Incharge …) are stored
-    // verbatim in the Specialty field but validated against their parent config.
-    const SPECIALTY_PARENT_MAP: Record<string, string> = {
-      "Dentist":              "Dental",
-      "COHO":                 "Dental",
-      "Dental Assistant":     "Dental",
-      "Dental Lead":          "Dental",
-      "Sonographer":          "Sonography",
-      "Sonographer Incharge": "Sonography",
-    };
+    // Sub-roles are stored verbatim in the Specialty field but validated
+    // against their parent config (see parentCadreOf above).
     if (roleCategory === "Specialist" && specialty) {
-      const configSpecialty = SPECIALTY_PARENT_MAP[specialty] ?? specialty;
+      const configSpecialty = parentCadreOf(specialty) ?? specialty;
       const configRecords = await listRecords(TABLE_NAMES.WorkTrialSpecialtyConfig);
       const config = configRecords
         .map(specialtyConfigFromAirtable)

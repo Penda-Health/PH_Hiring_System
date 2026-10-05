@@ -40,6 +40,18 @@ export function isDateBookable(dateStr: string, now: Date = new Date()): boolean
 // used to hardcode client-side only, before the cutoff setting existed.
 export const DEFAULT_BOOKING_WINDOW_DAYS = 14;
 
+// Cadres (top-level, pre-sub-role) fully exempt from the Settings-page
+// cutoff. Dental already has its own tight capacity constraint — one branch,
+// Mon/Tue/Wed/Thu/Sat only — so a general cutoff tuned for the rest of the
+// pipeline was only shrinking Dental's already-narrow window further,
+// sometimes to nothing. Exempt cadres still get the minimum lead time and
+// the default rolling window below, just not the admin cutoff on top of it.
+export const CUTOFF_EXEMPT_CADRES = ["Dental"];
+
+export function isCutoffExempt(cadre: string | null | undefined): boolean {
+  return Boolean(cadre && CUTOFF_EXEMPT_CADRES.includes(cadre));
+}
+
 /**
  * Latest bookable calendar date, given an optional admin-set cutoff and
  * `now`. `cutoffDate` (YYYY-MM-DD) is exclusive — that date and everything
