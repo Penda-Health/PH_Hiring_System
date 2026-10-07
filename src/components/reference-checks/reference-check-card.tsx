@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RefereeStatusRow } from "./referee-status-row";
 import { VerifyReferenceCheckDialog } from "./verify-reference-check-dialog";
 import { EditReferenceCheckDialog } from "./edit-reference-check-dialog";
+import { ResendRefereeDialog } from "./resend-referee-dialog";
 import { AI_STATUS_STYLES, getCandidateForRefCheck, OUTCOME_STYLES, STATUS_STYLES } from "@/lib/reference-check-helpers";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 
@@ -110,6 +111,13 @@ export function ReferenceCheckCard({
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-center gap-0.5">
             {canEdit && <EditReferenceCheckDialog refCheck={refCheck} onSave={updateReferenceCheck} />}
+            {canEdit && refCheck.status !== "Awaiting Verification" && (
+              <ResendRefereeDialog
+                refCheck={refCheck}
+                candidateName={candidate?.name ?? "this candidate"}
+                onSave={updateReferenceCheck}
+              />
+            )}
             {canDelete && (
               <Button
                 size="icon"
