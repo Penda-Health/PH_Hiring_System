@@ -235,6 +235,7 @@ const refereeStatusSchema = z.object({
   emailSent: z.boolean(),
   smsSent: z.boolean(),
   responded: z.boolean(),
+  sendRequestedAt: z.string().max(40).optional(),
   respondedAt: z.string().max(40).optional(),
   relationship: z.string().trim().max(100).optional(),
   directlySupervised: z.boolean().optional(),

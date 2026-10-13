@@ -544,6 +544,7 @@ function refereeFromAirtable(
     emailSent: bool(f[keys[`${prefix}_EMAIL_SENT`]]),
     smsSent: bool(f[keys[`${prefix}_SMS_SENT`]]),
     responded: bool(f[keys[`${prefix}_RESPONDED`]]),
+    sendRequestedAt: opt(f[keys[`${prefix}_SEND_REQUESTED_AT`]]),
     respondedAt: opt(f[keys[`${prefix}_RESPONDED_AT`]]),
     relationship: opt(f[keys[`${prefix}_RELATIONSHIP`]]),
     directlySupervised: bool(f[keys[`${prefix}_DIRECTLY_SUPERVISED`]]),
@@ -607,6 +608,14 @@ function refereeToAirtable(prefix: RefereePrefix, referee: RefereeStatus | undef
     [keys[`${prefix}_EMAIL_SENT`]]: v(referee?.emailSent),
     [keys[`${prefix}_SMS_SENT`]]: v(referee?.smsSent),
     [keys[`${prefix}_RESPONDED`]]: v(referee?.responded),
+    // Unlike every other field here, an *unset* sendRequestedAt must stay
+    // unset (cleanFields then drops the key, leaving Airtable's value
+    // alone) rather than defaulting to null — otherwise any ordinary edit
+    // that touches `referees` (e.g. fixing a typo'd name) would null out an
+    // in-flight send-request timestamp, and the automation watching this
+    // field for changes would misfire. Only an actually-removed referee
+    // slot (referee === undefined) gets it explicitly cleared.
+    [keys[`${prefix}_SEND_REQUESTED_AT`]]: referee === undefined ? null : referee.sendRequestedAt,
     [keys[`${prefix}_RESPONDED_AT`]]: v(referee?.respondedAt?.slice(0, 10)),
     [keys[`${prefix}_RELATIONSHIP`]]: v(referee?.relationship),
     [keys[`${prefix}_DIRECTLY_SUPERVISED`]]: v(referee?.directlySupervised),

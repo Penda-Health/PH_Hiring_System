@@ -779,49 +779,64 @@ NEXT_PUBLIC_APP_URL=      # your deployed URL, e.g. https://ph-hiring-system.ver
 5. Repeat the same pattern for the branch-manager feedback link, triggered
    off the work trial's date (e.g. "the morning of Trial Date") with
    `type: "bm-feedback"` and the BM's email instead.
-6. For referee links, trigger on `Reference Checks` record **create or
-   update** where `Initiated At` is not blank — **not** on record creation.
-   A reference check can be created two ways (see §4.5.6): a TA-added record
-   sets `Initiated At` immediately, so create and initiate happen in the same
-   moment; a candidate-submitted record is created with `Initiated At` blank
-   and only gets it set once a TA reviews and verifies it, which can be
-   hours or days after the record first appears. Triggering off record
-   creation would email referees before their details have ever been
-   checked. A check holds 2-4 referees (`Referee{1,2,3,4} *` field blocks) —
-   loop the script call over however many slots actually have a name filled
-   in, **skipping any slot whose `Referee{n} Email Sent` is already
-   checked** — this trigger fires on *any* update to an initiated record
-   (e.g. a TA fixing a typo'd referee name), not just the moment it's first
-   initiated, so without this guard every such edit would re-send a fresh
-   invite to referees who'd already gotten one:
+6. Referee links need **4 separate automations**, one per referee slot
+   (`Referee{1,2,3,4} *` field blocks), each triggered on `Reference Checks`
+   record **"When a record matches conditions"**, restricted (in the
+   trigger's own field-watch setting) to fire only on a change to
+   **`Referee{n} Send Requested At`** — nothing else. Conditions for
+   automation N:
+   - `Referee{n} Name` is not empty
+   - `Referee{n} Email` is not empty
+   - `Referee{n} Email Sent` is unchecked
+   - `Initiated At` is not empty
+
+   `Send Requested At` is a write-only signal the app bumps to "now"
+   (date+time, GMT) every time it wants this slot's invite sent — on first
+   initiation and on every manual resend (`ResendRefereeDialog`) — and it is
+   *always* a fresh value, never a repeat. This is deliberate: Airtable's
+   "matches conditions" trigger only fires on the transition from
+   *not*-matching to matching, never on an edit that leaves a
+   still-matching record matching — so watching `Initiated At`/`Email`/
+   `Phone` directly (an earlier version of this automation did) silently
+   stopped firing for any record that already satisfied the conditions,
+   which is why resends and even some first-sends never went out. Pairing a
+   field that changes on every send-request with a `Referee{n} Email Sent`
+   condition that the app always clears first guarantees a genuine non-match
+   → match transition each time, so the trigger reliably fires on every
+   intended send without re-firing on unrelated edits (e.g. a TA fixing a
+   typo'd name, which never touches `Send Requested At`).
+
+   Because this trigger ignores record creation entirely, a check's first
+   invite must also come from an *update*, never the create call itself — a
+   TA-added record (see §4.5.6) is created without `Initiated At`, then
+   immediately updated to set it (together with `Send Requested At` for
+   every named referee), which is what actually fires these automations. A
+   candidate-submitted record is created with `Initiated At` blank by
+   design and only gets both fields set later, once a TA reviews and
+   verifies it (`verifyAndInitiateReferenceCheck`) — that's already a
+   genuine update, so no split is needed there.
+
+   Action chain for each automation: a scripting step that mints the link,
+   then a step that actually sends the email (Airtable's native email
+   action only fires once per automation run, so this needs a Gmail/
+   SendGrid-style API call rather than a native "Send email" action after
+   the script step), then an **Update record** step setting
+   `Referee{n} Email Sent` to checked — without that last step, sent
+   invites never show as sent and `Email Sent` never re-blocks a repeat
+   trigger.
    ```javascript
    let record = input.config(); // the Reference Checks record
-   for (let n = 1; n <= 4; n++) {
-     let name = record[`Referee${n} Name`];
-     let email = record[`Referee${n} Email`];
-     if (!name || !email) continue; // slot 3/4 is often unused — skip it, don't error
-     if (record[`Referee${n} Email Sent`]) continue; // already sent — only (re)send to pending slots
-     let response = await fetch("https://YOUR_APP_URL/api/forms/issue-link", {
-       method: "POST",
-       headers: { "Content-Type": "application/json", "Authorization": "Bearer YOUR_FORMS_ISSUE_SECRET" },
-       body: JSON.stringify({ type: "referee", refCheckId: record.id, refereeNum: n }),
-     });
-     let { url } = await response.json();
-     // Send email to `email` with `url` here (Airtable's native email action
-     // only fires once per automation run, so this loop needs a scripting
-     // step that sends the email itself — e.g. a Gmail/SendGrid API call —
-     // rather than a native "Send email" action after the script step), then
-     // check `Referee{n} Email Sent` so this slot isn't resent next edit.
-   }
+   let n = /* 1-4 — this automation's referee slot */;
+   let response = await fetch("https://YOUR_APP_URL/api/forms/issue-link", {
+     method: "POST",
+     headers: { "Content-Type": "application/json", "Authorization": "Bearer YOUR_FORMS_ISSUE_SECRET" },
+     body: JSON.stringify({ type: "referee", refCheckId: record.id, refereeNum: n }),
+   });
+   let { url } = await response.json();
+   // Send email to record[`Referee${n} Email`] with `url` here, then let the
+   // automation's own "Update record" action check Referee{n} Email Sent —
+   // don't set it from the script, so a failed send leaves it unchecked.
    ```
-   This same `Email Sent` guard is also how a referee's link actually gets
-   re-sent after a TA corrects a typo'd email post-initiation
-   (`EditReferenceCheckDialog`, §4.5.6): the app clears that referee's
-   `Email Sent` (and `SMS Sent`, on a phone edit) the moment their contact
-   details change, but only while they haven't responded yet — this
-   automation is what turns that cleared flag into an actual re-send, so
-   without this guard in place the corrected address would never get a
-   working link.
    A record is still considered done — `Status = "Ready for Offer"`, which
    auto-advances the candidate's `Stage` to `Offer` — the moment any 2 of
    however many referees have responded, so a 3rd/4th referee left
@@ -903,9 +918,12 @@ submitted/approved it.
   User/Manager types 2-4 referees' name/email/phone directly on
   `/reference-checks` (an "Add referee" control appears up to 4; a "remove"
   control on each row down to 2). The record is created already
-  `source: "TA Added"`, `status: "Awaiting Responses"`, with
-  `verifiedAt`/`verifiedBy`/`initiatedAt` all set immediately
-  (self-verified by construction — a staff member typed it in).
+  `source: "TA Added"`, `status: "Awaiting Responses"`, `verifiedAt`/
+  `verifiedBy` set immediately (self-verified by construction — a staff
+  member typed it in). `initiatedAt` is deliberately left out of that same
+  create call and set by an immediate follow-up update instead — the
+  referee-link automations ignore record creation (see §4.5.2 step 6), so
+  without that follow-up update this path's first invite would never fire.
 - **Candidate self-serve** (`/reference-check-request?token=...`, new) —
   the candidate fills in 2-4 of their own referees' details (same add/remove
   UI as the TA path). This creates the record as

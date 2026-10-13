@@ -4,6 +4,14 @@
 // scripts can never drift out of sync with each other.
 
 const dateOpts = { dateFormat: { name: "iso", format: "YYYY-MM-DD" } };
+// Date+time (not date-only) so two resends on the same calendar day still
+// produce a distinct value — the "send referee link" automations watch
+// this field for any change, and a date-only value could repeat within a day.
+const dateTimeOpts = {
+  dateFormat: { name: "iso", format: "YYYY-MM-DD" },
+  timeFormat: { name: "24hour", format: "HH:mm" },
+  timeZone: "utc",
+};
 const checkboxOpts = { icon: "check", color: "greenBright" };
 const currencyOpts = { symbol: "KES ", precision: 0 };
 const intOpts = { precision: 0 };
@@ -289,6 +297,7 @@ const F = {
     REFEREE1_REMINDER_24H_SENT: "Referee 1 Reminder 24h Sent",
     REFEREE1_REMINDER_48H_SENT: "Referee 1 Reminder 48h Sent",
     REFEREE1_DRAFT_JSON: "Referee 1 Draft Json",
+    REFEREE1_SEND_REQUESTED_AT: "Referee 1 Send Requested At",
     REFEREE2_NAME: "Referee 2 Name",
     REFEREE2_EMAIL: "Referee 2 Email",
     REFEREE2_PHONE: "Referee 2 Phone",
@@ -342,6 +351,7 @@ const F = {
     REFEREE2_REMINDER_24H_SENT: "Referee 2 Reminder 24h Sent",
     REFEREE2_REMINDER_48H_SENT: "Referee 2 Reminder 48h Sent",
     REFEREE2_DRAFT_JSON: "Referee 2 Draft Json",
+    REFEREE2_SEND_REQUESTED_AT: "Referee 2 Send Requested At",
     REFEREE3_NAME: "Referee 3 Name",
     REFEREE3_EMAIL: "Referee 3 Email",
     REFEREE3_PHONE: "Referee 3 Phone",
@@ -395,6 +405,7 @@ const F = {
     REFEREE3_REMINDER_24H_SENT: "Referee 3 Reminder 24h Sent",
     REFEREE3_REMINDER_48H_SENT: "Referee 3 Reminder 48h Sent",
     REFEREE3_DRAFT_JSON: "Referee 3 Draft Json",
+    REFEREE3_SEND_REQUESTED_AT: "Referee 3 Send Requested At",
     REFEREE4_NAME: "Referee 4 Name",
     REFEREE4_EMAIL: "Referee 4 Email",
     REFEREE4_PHONE: "Referee 4 Phone",
@@ -448,6 +459,7 @@ const F = {
     REFEREE4_REMINDER_24H_SENT: "Referee 4 Reminder 24h Sent",
     REFEREE4_REMINDER_48H_SENT: "Referee 4 Reminder 48h Sent",
     REFEREE4_DRAFT_JSON: "Referee 4 Draft Json",
+    REFEREE4_SEND_REQUESTED_AT: "Referee 4 Send Requested At",
     OUTCOME: "Outcome",
     DRIVE_FOLDER_URL: "Drive Folder URL",
     CREATED_AT: "Created At",
@@ -874,6 +886,7 @@ const TABLES = [
       { name: F.ReferenceChecks.REFEREE1_REMINDER_24H_SENT, type: "checkbox", options: checkboxOpts },
       { name: F.ReferenceChecks.REFEREE1_REMINDER_48H_SENT, type: "checkbox", options: checkboxOpts },
       { name: F.ReferenceChecks.REFEREE1_DRAFT_JSON, type: "multilineText" },
+      { name: F.ReferenceChecks.REFEREE1_SEND_REQUESTED_AT, type: "dateTime", options: dateTimeOpts },
       { name: F.ReferenceChecks.REFEREE2_NAME, type: "singleLineText" },
       { name: F.ReferenceChecks.REFEREE2_EMAIL, type: "email" },
       { name: F.ReferenceChecks.REFEREE2_PHONE, type: "phoneNumber" },
@@ -971,6 +984,7 @@ const TABLES = [
       { name: F.ReferenceChecks.REFEREE2_REMINDER_24H_SENT, type: "checkbox", options: checkboxOpts },
       { name: F.ReferenceChecks.REFEREE2_REMINDER_48H_SENT, type: "checkbox", options: checkboxOpts },
       { name: F.ReferenceChecks.REFEREE2_DRAFT_JSON, type: "multilineText" },
+      { name: F.ReferenceChecks.REFEREE2_SEND_REQUESTED_AT, type: "dateTime", options: dateTimeOpts },
       { name: F.ReferenceChecks.REFEREE3_NAME, type: "singleLineText" },
       { name: F.ReferenceChecks.REFEREE3_EMAIL, type: "email" },
       { name: F.ReferenceChecks.REFEREE3_PHONE, type: "phoneNumber" },
@@ -1068,6 +1082,7 @@ const TABLES = [
       { name: F.ReferenceChecks.REFEREE3_REMINDER_24H_SENT, type: "checkbox", options: checkboxOpts },
       { name: F.ReferenceChecks.REFEREE3_REMINDER_48H_SENT, type: "checkbox", options: checkboxOpts },
       { name: F.ReferenceChecks.REFEREE3_DRAFT_JSON, type: "multilineText" },
+      { name: F.ReferenceChecks.REFEREE3_SEND_REQUESTED_AT, type: "dateTime", options: dateTimeOpts },
       { name: F.ReferenceChecks.REFEREE4_NAME, type: "singleLineText" },
       { name: F.ReferenceChecks.REFEREE4_EMAIL, type: "email" },
       { name: F.ReferenceChecks.REFEREE4_PHONE, type: "phoneNumber" },
@@ -1165,6 +1180,7 @@ const TABLES = [
       { name: F.ReferenceChecks.REFEREE4_REMINDER_24H_SENT, type: "checkbox", options: checkboxOpts },
       { name: F.ReferenceChecks.REFEREE4_REMINDER_48H_SENT, type: "checkbox", options: checkboxOpts },
       { name: F.ReferenceChecks.REFEREE4_DRAFT_JSON, type: "multilineText" },
+      { name: F.ReferenceChecks.REFEREE4_SEND_REQUESTED_AT, type: "dateTime", options: dateTimeOpts },
       { name: F.ReferenceChecks.OUTCOME, type: "singleSelect", options: choices(["Pending", "Positive", "Negative", "Mixed"]) },
       { name: F.ReferenceChecks.DRIVE_FOLDER_URL, type: "url" },
       { name: F.ReferenceChecks.CREATED_AT, type: "date", options: dateOpts },

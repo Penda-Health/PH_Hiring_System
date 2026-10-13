@@ -548,8 +548,24 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   const createReferenceCheck = React.useCallback(
     async (refCheck: ReferenceCheck) => {
       if (!guardEdit(canEdit, "createReferenceCheck")) return;
-      const created = await createResource<ReferenceCheck>("reference-checks", refCheck);
-      setReferenceChecks((prev) => [created, ...prev]);
+      // Airtable's "send referee link" automations never fire on record
+      // creation, only on a later update — so a TA-added check (created and
+      // initiated in the same moment) is created without Initiated At, then
+      // immediately followed by an update that sets it alongside a fresh
+      // Send Requested At per named referee, which is what actually fires
+      // the invite.
+      const { initiatedAt, ...withoutInitiation } = refCheck;
+      const created = await createResource<ReferenceCheck>("reference-checks", {
+        ...withoutInitiation,
+        initiatedAt: null,
+      });
+      const now = initiatedAt ?? new Date().toISOString();
+      const patch: Partial<ReferenceCheck> = {
+        initiatedAt: now,
+        referees: created.referees.map((r) => (r.name && r.email ? { ...r, sendRequestedAt: now } : r)),
+      };
+      persist<ReferenceCheck>("reference-checks", created.id, patch);
+      setReferenceChecks((prev) => [{ ...created, ...patch }, ...prev]);
     },
     [canEdit]
   );
@@ -578,11 +594,17 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       const now = new Date().toISOString();
       const existing = referenceChecks.find((c) => c.id === id);
       const patch: Partial<ReferenceCheck> = {
-        referees: referees.map((referee, i) =>
-          existing?.referees[i]
+        referees: referees.map((referee, i) => {
+          const merged = existing?.referees[i]
             ? { ...existing.referees[i], ...referee }
-            : { ...referee, emailSent: false, smsSent: false, responded: false }
-        ),
+            : { ...referee, emailSent: false, smsSent: false, responded: false };
+          // Stamp the trigger field fresh for every named referee — this is
+          // the check's first-ever send, via a genuine update call (this
+          // record was created earlier, pending verification), so it
+          // already fires the automation; see createReferenceCheck for the
+          // create-then-update split that TA-added checks need instead.
+          return referee.name && referee.email ? { ...merged, sendRequestedAt: now } : merged;
+        }),
         status: "Awaiting Responses",
         verifiedAt: now,
         verifiedBy: user?.name || user?.email || "",

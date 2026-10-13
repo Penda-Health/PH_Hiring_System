@@ -1,10 +1,13 @@
 "use client";
 
 // Resends a referee-check invite to exactly one referee on this card — e.g.
-// to fix a typo'd email — without touching the other referees. "Resend"
-// here means clearing that referee's emailSent/smsSent flags: there's no
-// in-app send step, so the external Airtable automation (SETUP.md §4.5.2)
-// picks the cleared flag up on its next run and sends the invite itself.
+// to fix a typo'd email, or just to nudge someone who hasn't responded —
+// without touching the other referees. There's no in-app send step: this
+// writes a fresh Referee N Send Requested At timestamp (and clears Email
+// Sent), which is what the external Airtable automation (SETUP.md §4.5.2)
+// watches to actually send the invite. The timestamp — not the cleared
+// Email Sent flag — is what makes every click fire the automation, even a
+// same-day repeat resend with no other changes.
 import * as React from "react";
 import { ReferenceCheck } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -54,7 +57,11 @@ export function ResendRefereeDialog({ refCheck, candidateName, onSave }: Props) 
           ...r,
           email: emailDraft,
           phone: phoneDraft,
-          ...(emailDraft !== r.email ? { emailSent: false } : {}),
+          // Always re-open the guard and bump the trigger timestamp —
+          // every "Save & resend" click should fire a fresh invite, not
+          // just ones where the email/phone actually changed.
+          emailSent: false,
+          sendRequestedAt: new Date().toISOString(),
           ...(phoneDraft !== r.phone ? { smsSent: false } : {}),
         };
       }),
@@ -164,10 +171,20 @@ export function ResendRefereeDialog({ refCheck, candidateName, onSave }: Props) 
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-success-bg text-success-fg">
               <Check className="h-5 w-5" />
             </div>
-            <p className="text-sm text-muted-foreground">
-              {selectedReferee.name} will get a fresh invite at <span className="font-medium text-foreground">{emailDraft}</span> within a
-              few minutes.
-            </p>
+            {/* refCheck is kept fresh by the dashboard's own data polling, so
+                once the Airtable automation sends the email and ticks
+                Email Sent, this flips to a confirmed state on its own —
+                no extra polling needed here. */}
+            {selectedReferee.emailSent ? (
+              <p className="text-sm text-muted-foreground">
+                Sent to <span className="font-medium text-foreground">{emailDraft}</span>.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {selectedReferee.name} will get a fresh invite at <span className="font-medium text-foreground">{emailDraft}</span> within a
+                few minutes.
+              </p>
+            )}
             <Button onClick={() => setOpen(false)} className="bg-penda-blue hover:bg-penda-blue-dark text-white">
               Done
             </Button>

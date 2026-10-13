@@ -373,6 +373,8 @@ export interface RefereeStatus {
   emailSent: boolean;
   smsSent: boolean;
   responded: boolean;
+  /** Write-only trigger field: the app bumps this to "now" whenever it wants the invite-sending automation to fire (initial send or resend) — the automation watches only this field, never emailSent/phone, so a routine edit can't accidentally resend. Never read back by the UI. */
+  sendRequestedAt?: string;
   respondedAt?: string;
   relationship?: string;
   /** Derived server-side from `reportingRelationship === "Reported directly to me"` — no longer a standalone question the referee answers directly. */
