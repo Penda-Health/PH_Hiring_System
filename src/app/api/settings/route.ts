@@ -9,6 +9,8 @@ import { z } from "zod";
 import { listRecords, createRecord, updateRecord } from "@/lib/airtable/client";
 import { TABLE_NAMES } from "@/lib/airtable/field-names";
 import { appSettingsFromAirtable, appSettingsToAirtable } from "@/lib/airtable/mappers";
+import { requisitionWorkflowsSchema } from "@/lib/airtable/schemas";
+import { isGoogleChatWebhookUrl } from "@/lib/notifications/google-chat";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 async function getSettingsRecord() {
@@ -22,7 +24,14 @@ export async function GET() {
     return NextResponse.json(
       record
         ? appSettingsFromAirtable(record)
-        : { id: null, workTrialBookingCutoffDate: null, updatedBy: null, updatedAt: null }
+        : {
+            id: null,
+            workTrialBookingCutoffDate: null,
+            requisitionWorkflows: null,
+            requisitionsChatWebhookUrl: null,
+            updatedBy: null,
+            updatedAt: null,
+          }
     );
   } catch (err) {
     console.error("[api/settings] GET failed:", err);
@@ -30,13 +39,26 @@ export async function GET() {
   }
 }
 
+// Every field is optional so each Settings card saves only its own piece
+// without clobbering the others.
 const patchSchema = z.object({
   // Exclusive cutoff date, or null to clear it back to the default rolling
   // window — see src/lib/work-trial-timing.ts.
   workTrialBookingCutoffDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format")
-    .nullable(),
+    .nullable()
+    .optional(),
+  // Who approves IPS / SO requisitions — see src/lib/requisitions/approval.ts.
+  requisitionWorkflows: requisitionWorkflowsSchema.optional(),
+  requisitionsChatWebhookUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine((url) => url === "" || isGoogleChatWebhookUrl(url), {
+      message: "Must be a Google Chat webhook URL (https://chat.googleapis.com/...)",
+    })
+    .optional(),
 });
 
 export async function PATCH(request: NextRequest) {
@@ -56,6 +78,10 @@ export async function PATCH(request: NextRequest) {
     const existing = await getSettingsRecord();
     const fields = appSettingsToAirtable({
       workTrialBookingCutoffDate: result.data.workTrialBookingCutoffDate,
+      requisitionWorkflows: result.data.requisitionWorkflows,
+      // "" = clear it; Airtable takes null for a blank URL field.
+      requisitionsChatWebhookUrl:
+        result.data.requisitionsChatWebhookUrl === undefined ? undefined : result.data.requisitionsChatWebhookUrl || null,
       updatedBy,
     });
 

@@ -6,9 +6,9 @@ export function branchName(branchId: string | undefined, branches: Branch[]): st
 }
 
 /**
- * Builds the OpenRole payload created when a Requisition is converted.
- * Shared by the logged-in `convertToOpenRole()` flow and the public
- * requisition-request route so the two never drift apart.
+ * Builds the OpenRole payload created when a Requisition's final approver
+ * signs off (src/lib/requisitions/approval.ts) — the one place every entry
+ * path (in-app forms and public links) converts to an Open Role.
  *
  * Public-link submissions have no staff member driving the conversion, so
  * `recruiter` is left "Unassigned" rather than defaulting to the submitter's

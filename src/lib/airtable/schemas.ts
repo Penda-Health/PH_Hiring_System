@@ -66,12 +66,49 @@ export const requisitionSchema = z.object({
   budgetEvaluationConfirmed: z.boolean().optional(),
 });
 
-const PENDA_EMAIL_DOMAIN = "@pendahealth.com";
+// In-app create (POST /api/requisitions). Status, approver chain/index and
+// submitter identity are all assigned server-side from the approval
+// workflow and the signed-in session (src/lib/requisitions/approval.ts) —
+// omitted here so a client can't pre-approve its own request. Zod strips
+// unknown keys, so older clients that still send these are harmless.
+export const requisitionCreateSchema = requisitionSchema.omit({
+  status: true,
+  approverChain: true,
+  currentApproverIndex: true,
+  submittedBy: true,
+  submittedAt: true,
+  source: true,
+  submitterName: true,
+  submitterEmail: true,
+});
+
+// PATCH /api/requisitions/[id] — ordinary edits only. Approval state moves
+// exclusively through POST /api/requisitions/[id]/decision, which checks
+// the actor is the step's named approver; letting the generic PATCH write
+// status/currentApproverIndex would bypass that check entirely.
+export const requisitionPatchSchema = requisitionSchema.omit({
+  status: true,
+  approverChain: true,
+  currentApproverIndex: true,
+  submittedBy: true,
+  submittedAt: true,
+  source: true,
+  submitterName: true,
+  submitterEmail: true,
+});
+
+const PENDA_EMAIL_DOMAINS = ["@pendahealth.com", "@penda.co.ke"];
+
+export function isPendaEmail(email: string): boolean {
+  const normalized = email.trim().toLowerCase();
+  return PENDA_EMAIL_DOMAINS.some((domain) => normalized.endsWith(domain));
+}
 
 // Stricter schema for the unauthenticated /api/public/requisition-request
-// endpoint: submitter identity fields are required here (optional on the
-// base schema above since the logged-in flow doesn't collect them), and the
-// email domain is enforced server-side too, mirroring the client-side check.
+// endpoint. The submitter's identity is a Google ID token (`credential`)
+// rather than a typed-in email: the route verifies it and uses the verified
+// Penda address as Submitter Email, so every request is tied to a real
+// Google account.
 export const publicRequisitionRequestSchema = requisitionSchema
   .omit({
     status: true,
@@ -86,18 +123,28 @@ export const publicRequisitionRequestSchema = requisitionSchema
   })
   .extend({
     submitterName: z.string().trim().min(1, "Name is required").max(150),
-    submitterEmail: z
-      .string()
-      .trim()
-      .max(255)
-      .email("Enter a valid email")
-      .toLowerCase()
-      .refine((email) => email.endsWith(PENDA_EMAIL_DOMAIN), {
-        message: `Email must be a ${PENDA_EMAIL_DOMAIN} address`,
-      }),
     submitterRole: z.string().trim().min(1, "Role is required").max(150),
+    credential: z.string().min(1, "Sign in with your Penda Google account").max(4096),
     honeypot: z.string().max(0).optional(),
   });
+
+const approvalStepSchema = z.object({
+  id: z.string().trim().min(1).max(64),
+  label: z.string().trim().min(1, "Every step needs a label").max(100),
+  approverName: z.string().trim().min(1, "Every step needs an approver name").max(150),
+  approverEmail: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Every step needs a valid Google account email")
+    .max(255),
+  appliesTo: z.array(z.enum(["SO New Role", "SO Replacement", "IPS Gap"])).max(3).optional(),
+});
+
+export const requisitionWorkflowsSchema = z.object({
+  IPS: z.object({ steps: z.array(approvalStepSchema).max(10) }),
+  SO: z.object({ steps: z.array(approvalStepSchema).max(10) }),
+});
 
 export const openRoleSchema = z.object({
   roleId: z.string().max(30).optional(),

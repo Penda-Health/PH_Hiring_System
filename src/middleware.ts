@@ -21,6 +21,8 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/bm-feedback") ||
     request.nextUrl.pathname.startsWith("/referee") ||
     request.nextUrl.pathname.startsWith("/requisition-request") ||
+    // Approver's emailed link — token + Google sign-in, see /api/public/requisition-approval.
+    request.nextUrl.pathname.startsWith("/requisition-approval") ||
     request.nextUrl.pathname.startsWith("/confirm-employment") ||
     request.nextUrl.pathname.startsWith("/work-trial-request") ||
     request.nextUrl.pathname.startsWith("/reference-check-request") ||

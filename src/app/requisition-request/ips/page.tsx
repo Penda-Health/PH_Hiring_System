@@ -9,13 +9,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormShell, FormStatusCard, DraftRestoredBanner, type FormShellBrand } from "@/components/forms/form-shell";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
+import { RequesterGoogleIdentity, type RequesterIdentity } from "@/components/requisitions/requester-google-identity";
+import { ApprovalChainPreview } from "@/components/requisitions/approval-chain-preview";
+import type { WorkflowPreviewStep } from "@/lib/requisitions/workflow";
 import { IPS_FUNCTIONS } from "@/lib/department-options";
 import { loadIpsDraft, saveIpsDraft, clearIpsDraft } from "@/lib/forms/requisition-request-draft";
 
 const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · IPS Requisition",
-  headline: "Turn an approved gap into an open role.",
-  lede: "Use this once the role's approval is complete — it enters the hiring pipeline as soon as you submit.",
+  headline: "Raise a staffing gap for approval.",
+  lede: "Your request goes to each approver in turn and enters the hiring pipeline once the last one signs off.",
   footer: "Questions? careers@pendahealth.com",
 };
 
@@ -30,7 +33,6 @@ const GAP_REASONS: { value: GapReason; label: string; description: string }[] = 
 const IPS_ROLES = ["Nurse", "Clinical Officer", "Pharmacist", "Lab Technician", "Pharmacy Technician"];
 const EMPLOYMENT_TYPES: EmploymentType[] = ["Full-time", "Part-time", "Contract", "Reliever", "Locum"];
 const URGENCIES: Priority[] = ["Critical", "High", "Medium", "Low"];
-const PENDA_EMAIL_DOMAIN = "@pendahealth.com";
 
 type Branch = { id: string; name: string; city: string };
 
@@ -40,7 +42,10 @@ export default function PublicIpsRequisitionRequestPage() {
   const [roleTitleSuggestions, setRoleTitleSuggestions] = React.useState<string[]>(IPS_ROLES);
 
   const [submitterName, setSubmitterName] = React.useState("");
-  const [submitterEmail, setSubmitterEmail] = React.useState("");
+  // Google sign-in, not a typed email — see RequesterGoogleIdentity.
+  const [identity, setIdentity] = React.useState<RequesterIdentity | null>(null);
+  const submitterEmail = identity?.email ?? "";
+  const [approvers, setApprovers] = React.useState<WorkflowPreviewStep[] | null>(null);
   const [submitterRole, setSubmitterRole] = React.useState("");
   const [honeypot, setHoneypot] = React.useState("");
 
@@ -64,13 +69,13 @@ export default function PublicIpsRequisitionRequestPage() {
       .then((res) => res.json())
       .then((body) => {
         setBranches(body.branches ?? []);
+        setApprovers(body.approvers ?? []);
         setRoleTitleSuggestions(Array.from(new Set([...IPS_ROLES, ...(body.roleTitles ?? [])])).sort((a, b) => a.localeCompare(b)));
 
         const draft = loadIpsDraft();
         if (draft) {
           setSubmitterName(draft.submitterName);
-          setSubmitterEmail(draft.submitterEmail);
-          setSubmitterRole(draft.submitterRole);
+              setSubmitterRole(draft.submitterRole);
           setGapReason(draft.gapReason as GapReason);
           setRoleTitle(draft.roleTitle);
           setDepartment(draft.department);
@@ -130,7 +135,6 @@ export default function PublicIpsRequisitionRequestPage() {
     clearIpsDraft();
     setDraftRestored(false);
     setSubmitterName("");
-    setSubmitterEmail("");
     setSubmitterRole("");
     setGapReason("New Addition");
     setRoleTitle("");
@@ -143,10 +147,9 @@ export default function PublicIpsRequisitionRequestPage() {
     setContext("");
   }
 
-  const emailValid = submitterEmail.trim().toLowerCase().endsWith(PENDA_EMAIL_DOMAIN);
   const canSubmit =
     submitterName.trim() &&
-    emailValid &&
+    identity &&
     submitterRole.trim() &&
     roleTitle.trim() &&
     department.trim() &&
@@ -162,7 +165,7 @@ export default function PublicIpsRequisitionRequestPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           submitterName,
-          submitterEmail,
+          credential: identity?.credential,
           submitterRole,
           honeypot,
           type: "IPS Gap",
@@ -182,6 +185,15 @@ export default function PublicIpsRequisitionRequestPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        if (body.error === "invalid_google_token") {
+          // Google ID tokens last an hour — a long form can outlive one.
+          setIdentity(null);
+          throw new Error("Your Google sign-in expired. Sign in again above, then resubmit — your answers are kept.");
+        }
+        if (body.error === "not_penda_account") {
+          setIdentity(null);
+          throw new Error("Sign in with your Penda Google account to submit.");
+        }
         throw new Error(
           body.issues?.[0]?.message ?? (res.status === 422 ? "Please check the form for errors." : "Something went wrong. Please try again.")
         );
@@ -198,8 +210,11 @@ export default function PublicIpsRequisitionRequestPage() {
   if (submitted) {
     return (
       <FormShell brand={BRAND}>
-        <FormStatusCard variant="success" title="Request received" subtitle={`Thanks ${submitterName}, your requisition has been created.`}>
-          <p>The role is now an open role in our pipeline. You&apos;ll receive email updates at {submitterEmail} as it progresses.</p>
+        <FormStatusCard variant="success" title="Submitted for approval" subtitle={`Thanks ${submitterName}, your request is with the first approver.`}>
+          <p>
+            Each approver is emailed in turn, and the recruitment team&apos;s Google Chat is kept updated. Once the last
+            approver signs off it becomes an open role in our pipeline. Updates go to {submitterEmail}.
+          </p>
         </FormStatusCard>
       </FormShell>
     );
@@ -208,7 +223,7 @@ export default function PublicIpsRequisitionRequestPage() {
   return (
     <FormShell brand={BRAND}
       title="IPS Gap Requisition Request"
-      subtitle="Use this link once the role's approval is complete."
+      subtitle="Sign in with your Penda Google account, describe the gap, and it goes for approval."
     >
       <div className="space-y-6">
         {draftRestored && <DraftRestoredBanner onDiscard={discardDraftAndRestart} />}
@@ -224,20 +239,13 @@ export default function PublicIpsRequisitionRequestPage() {
               <Input value={submitterRole} onChange={(e) => setSubmitterRole(e.target.value)} required />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Your work email</Label>
-            <Input
-              type="email"
-              value={submitterEmail}
-              onChange={(e) => setSubmitterEmail(e.target.value)}
-              required
-              className={submitterEmail.trim() && !emailValid ? "border-destructive focus-visible:ring-destructive" : ""}
-              aria-invalid={submitterEmail.trim() ? !emailValid : undefined}
-            />
-            {submitterEmail.trim() && !emailValid && (
-              <p className="text-xs text-destructive">Must be a {PENDA_EMAIL_DOMAIN} email address.</p>
-            )}
-          </div>
+          <RequesterGoogleIdentity
+            identity={identity}
+            onChange={(next) => {
+              setIdentity(next);
+              if (next?.name && !submitterName.trim()) setSubmitterName(next.name);
+            }}
+          />
           <input
             type="text"
             name="company_website"
@@ -364,10 +372,18 @@ export default function PublicIpsRequisitionRequestPage() {
           </div>
         </div>
 
+        <div className="space-y-2 rounded-lg border border-border p-4">
+          <p className="text-sm font-medium">Who approves this</p>
+          <ApprovalChainPreview steps={approvers} type={"IPS Gap"} />
+          <p className="text-xs text-muted-foreground">
+            Each approver gets an email in turn. It becomes an open role once the last one approves.
+          </p>
+        </div>
+
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <Button onClick={handleSubmit} disabled={!canSubmit || submitting} className="w-full bg-penda-blue hover:bg-penda-blue-dark">
-          {submitting ? "Submitting…" : "Submit requisition"}
+          {submitting ? "Submitting…" : "Submit for approval"}
         </Button>
       </div>
     </FormShell>

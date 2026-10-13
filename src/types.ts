@@ -126,6 +126,10 @@ export interface AppSettings {
    * the default rolling window (see src/lib/work-trial-timing.ts).
    */
   workTrialBookingCutoffDate: string | null;
+  /** Who approves IPS vs SO requisitions — `null` until first saved from /settings. */
+  requisitionWorkflows: RequisitionWorkflows | null;
+  /** Google Chat space incoming-webhook URL that every requisition event posts to. */
+  requisitionsChatWebhookUrl: string | null;
   updatedBy: string | null;
   updatedAt: string | null;
 }
@@ -181,6 +185,46 @@ export interface Requisition {
   submitterRole?: string;
   source?: "internal" | "public-link";
   budgetEvaluationConfirmed?: boolean;
+  /** Snapshot of the segment's workflow at submission — see src/lib/requisitions/approval.ts. */
+  approvalSteps?: RequisitionApprovalStep[];
+  approvalLog?: RequisitionApprovalLogEntry[];
+  currentApproverName?: string;
+  currentApproverEmail?: string;
+  approvalRequestedAt?: string;
+  approvalEmailSent?: boolean;
+  /** The submitter's email came from a verified Google sign-in, not just typed in. */
+  submitterGoogleVerified?: boolean;
+}
+
+/** One approver in a requisition approval workflow — always a specific Google account. */
+export interface RequisitionApprovalStep {
+  /** Stable key so the Settings editor can reorder rows without remounting them. */
+  id: string;
+  /** What the step is, e.g. "HOD" or "Director of People". */
+  label: string;
+  approverName: string;
+  /** The Google account that must sign in to approve this step. */
+  approverEmail: string;
+  /** Requisition types this step applies to; empty/missing = every type in the segment. */
+  appliesTo?: RequisitionType[];
+}
+
+export interface RequisitionApprovalWorkflow {
+  steps: RequisitionApprovalStep[];
+}
+
+export type RequisitionWorkflows = Record<Segment, RequisitionApprovalWorkflow>;
+
+export interface RequisitionApprovalLogEntry {
+  stepIndex: number;
+  label: string;
+  approverEmail: string;
+  decision: "Approved" | "Rejected";
+  /** Verified email of whoever actually acted — differs from approverEmail only on a manager override. */
+  decidedBy: string;
+  decidedAt: string;
+  comment?: string;
+  via: "email-link" | "in-app" | "override";
 }
 
 export interface OpenRole {

@@ -31,7 +31,6 @@ function dedupWorkTrials(trials: WorkTrial[]): WorkTrial[] {
   }
   return Array.from(byCandidate.values()).concat(orphaned);
 }
-import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
 import { listResource, createResource, updateResource, deleteResource, postAction } from "@/lib/airtable/browser-api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { canEditRecruitmentData, canDeleteRecords, canManageRoles, canSeeSalary } from "@/lib/permissions";
@@ -65,8 +64,12 @@ type RecruitmentDataContextValue = {
 
   requisitions: Requisition[];
   createRequisition: (req: Requisition) => Promise<Requisition>;
-  approveRequisition: (id: string) => void;
-  rejectRequisition: (id: string) => void;
+  decideRequisition: (
+    id: string,
+    decision: "Approved" | "Rejected",
+    opts: { stepIndex: number; comment?: string; override?: boolean }
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  resendRequisitionApproval: (id: string) => Promise<boolean>;
 
   interviews: Interview[];
   updateInterview: (id: string, patch: Partial<Interview>) => void;
@@ -365,16 +368,6 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit]
   );
 
-  const convertToOpenRole = React.useCallback(
-    async (req: Requisition) => {
-      if (!guardEdit(canEdit, "convertToOpenRole")) return;
-      const newRole = buildOpenRoleFromRequisition(req, branches);
-      const created = await createResource<OpenRole>("open-roles", newRole);
-      setOpenRoles((prev) => [created, ...prev]);
-    },
-    [branches, canEdit]
-  );
-
   const createOpenRole = React.useCallback(
     async (role: OpenRole) => {
       if (!guardEdit(canEdit, "createOpenRole")) return;
@@ -410,40 +403,39 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit]
   );
 
-  const approveRequisition = React.useCallback(
-    (id: string) => {
-      if (!guardEdit(canEdit, "approveRequisition")) return;
-      setRequisitions((prev) => {
-        const req = prev.find((r) => r.id === id);
-        if (!req) return prev;
-        const nextIndex = req.currentApproverIndex + 1;
-        const fullyApproved = nextIndex >= req.approverChain.length;
-        const status = fullyApproved ? "Converted to Open Role" : "Pending Approval";
-        persist<Requisition>("requisitions", id, { currentApproverIndex: nextIndex, status });
-        if (fullyApproved) {
-          convertToOpenRole(req).catch((err) => {
-            console.error(`Failed to create Open Role from requisition ${req.reqId}:`, err);
-            reportError(
-              `Requisition ${req.reqId} was approved, but creating its Open Role failed — please create it manually or try approving again.`
-            );
-          });
-        }
-        return prev.map((r) => (r.id === id ? { ...r, currentApproverIndex: nextIndex, status } : r));
+  // Approval state lives server-side (src/lib/requisitions/approval.ts) —
+  // the server checks the signed-in account is the step's named approver,
+  // records the decision, notifies the next approver + Google Chat, and on
+  // the final approval creates the Open Role itself. So unlike most mutators
+  // here this isn't optimistic: local state only changes once it succeeds.
+  // Not behind guardEdit either — approvers can have a view-only role.
+  const decideRequisition = React.useCallback(
+    async (
+      id: string,
+      decision: "Approved" | "Rejected",
+      opts: { stepIndex: number; comment?: string; override?: boolean }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const res = await fetch(`/api/requisitions/${id}/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision, ...opts }),
       });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, error: body.error ?? "server_error" };
+      setRequisitions((prev) => prev.map((r) => (r.id === id ? body.requisition : r)));
+      if (body.openRoleId) await refreshCoreData();
+      return { ok: true };
     },
-    [convertToOpenRole, canEdit]
+    [refreshCoreData]
   );
 
-  const rejectRequisition = React.useCallback(
-    (id: string) => {
-      if (!guardEdit(canEdit, "rejectRequisition")) return;
-      persist<Requisition>("requisitions", id, { status: "Rejected" });
-      setRequisitions((prev) =>
-        prev.map((req) => (req.id === id ? { ...req, status: "Rejected" } : req))
-      );
-    },
-    [canEdit]
-  );
+  const resendRequisitionApproval = React.useCallback(async (id: string): Promise<boolean> => {
+    const res = await fetch(`/api/requisitions/${id}/resend-approval`, { method: "POST" });
+    if (!res.ok) return false;
+    const body = await res.json();
+    setRequisitions((prev) => prev.map((r) => (r.id === id ? body.requisition : r)));
+    return true;
+  }, []);
 
   const updateInterview = React.useCallback(
     (id: string, patch: Partial<Interview>) => {
@@ -1017,8 +1009,8 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       newEmployees,
       requisitions,
       createRequisition,
-      approveRequisition,
-      rejectRequisition,
+      decideRequisition,
+      resendRequisitionApproval,
       interviews,
       updateInterview,
       createInterview,
@@ -1076,8 +1068,8 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       newEmployees,
       requisitions,
       createRequisition,
-      approveRequisition,
-      rejectRequisition,
+      decideRequisition,
+      resendRequisitionApproval,
       interviews,
       updateInterview,
       createInterview,

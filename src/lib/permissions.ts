@@ -80,12 +80,24 @@ export const RECRUITMENT_DATA_API_PREFIXES = [
 
 // Requisition *intake* (POST /api/requisitions) is the front door for branch
 // managers/contributors to raise a hiring gap — it must stay open to every
-// staff role. Everything else (approving/rejecting that requisition, and all
-// other create/edit calls) is restricted to canEditRecruitmentData() roles.
-const UNGATED_MUTATIONS: { method: string; path: string }[] = [{ method: "POST", path: "/api/requisitions" }];
+// staff role. Approving/rejecting is open at this layer too, because
+// approvers (HODs, directors) often have a view-only role — the decision
+// route does its own, stricter check instead: the signed-in account must be
+// that step's named approver (src/app/api/requisitions/[id]/decision).
+// Every other create/edit call is restricted to canEditRecruitmentData().
+const UNGATED_MUTATIONS: { method: string; path: string | RegExp }[] = [
+  { method: "POST", path: "/api/requisitions" },
+  { method: "POST", path: /^\/api\/requisitions\/[^/]+\/decision$/ },
+];
 
 export function isGatedMutation(method: string, pathname: string): boolean {
   if (method === "GET") return false;
-  if (UNGATED_MUTATIONS.some((m) => m.method === method && pathname === m.path)) return false;
+  if (
+    UNGATED_MUTATIONS.some(
+      (m) => m.method === method && (typeof m.path === "string" ? pathname === m.path : m.path.test(pathname))
+    )
+  ) {
+    return false;
+  }
   return RECRUITMENT_DATA_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }

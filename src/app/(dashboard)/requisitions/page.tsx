@@ -11,8 +11,15 @@ import { CopyPublicLinkMenu } from "@/components/requisitions/copy-public-link-m
 
 export default function RequisitionsPage() {
   const { user } = useAuth();
-  const { requisitions, branches, createRequisition, approveRequisition, rejectRequisition, canEdit, extendedLoading } =
-    useRecruitmentData();
+  const {
+    requisitions,
+    branches,
+    createRequisition,
+    decideRequisition,
+    resendRequisitionApproval,
+    canEdit,
+    extendedLoading,
+  } = useRecruitmentData();
 
   return (
     <div className="space-y-4">
@@ -39,9 +46,10 @@ export default function RequisitionsPage() {
           <RequisitionTable
             requisitions={requisitions}
             branches={branches}
-            onApprove={approveRequisition}
-            onReject={rejectRequisition}
+            user={user ?? null}
             canEdit={canEdit}
+            onDecide={decideRequisition}
+            onResend={resendRequisitionApproval}
           />
         </CardContent>
       </Card>

@@ -109,7 +109,8 @@ export function NewRequisitionDialog({
       urgency: form.urgency,
       jdAttached: form.jdAttached,
       status: "Pending Approval",
-      approverChain: ["Mash", "Mwihaki"],
+      // Assigned server-side from Settings → Requisition approvals.
+      approverChain: [],
       currentApproverIndex: 0,
       submittedBy,
       submittedAt: new Date().toISOString(),

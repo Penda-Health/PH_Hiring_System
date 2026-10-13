@@ -68,6 +68,21 @@ export const F = {
     SUBMITTER_ROLE: "Submitter Role",
     SOURCE: "Source",
     BUDGET_EVALUATION_CONFIRMED: "Budget Evaluation Confirmed",
+    // Configurable approval workflow (Settings → Requisition approvals; see
+    // src/lib/requisitions/approval.ts). APPROVAL_STEPS is a JSON snapshot
+    // of the segment's workflow taken at submission, so editing the workflow
+    // later never reshuffles a request already in flight. APPROVER_CHAIN
+    // above keeps holding just the step labels for older views.
+    APPROVAL_STEPS: "Approval Steps",
+    APPROVAL_LOG: "Approval Log",
+    CURRENT_APPROVER_NAME: "Current Approver Name",
+    CURRENT_APPROVER_EMAIL: "Current Approver Email",
+    APPROVAL_LINK: "Approval Link",
+    // Same "fresh value on every send-request" signal as the referee
+    // Send Requested At fields — the approval-email automation keys off it.
+    APPROVAL_REQUESTED_AT: "Approval Requested At",
+    APPROVAL_EMAIL_SENT: "Approval Email Sent",
+    SUBMITTER_GOOGLE_VERIFIED: "Submitter Google Verified",
   },
   OpenRoles: {
     ROLE_ID: "Role ID",
@@ -511,6 +526,8 @@ export const F = {
   },
   AppSettings: {
     WORK_TRIAL_BOOKING_CUTOFF_DATE: "Work Trial Booking Cutoff Date",
+    REQUISITION_WORKFLOWS: "Requisition Workflows",
+    REQUISITIONS_CHAT_WEBHOOK_URL: "Requisitions Chat Webhook URL",
     UPDATED_BY: "Updated By",
     UPDATED_AT: "Updated At",
   },

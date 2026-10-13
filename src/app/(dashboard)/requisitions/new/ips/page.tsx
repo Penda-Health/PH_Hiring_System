@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 import { IPS_FUNCTIONS } from "@/lib/department-options";
+import { ApprovalChainPreview, useWorkflowPreview } from "@/components/requisitions/approval-chain-preview";
 
 const GAP_REASONS: { value: GapReason; label: string; description: string }[] = [
   { value: "Transfer", label: "Transfer", description: "Employee moved to a different branch or department" },
@@ -72,6 +73,8 @@ function NewIpsGapRequisitionForm() {
     if (!branchId && ipsBranches[0]) setBranchId(ipsBranches[0].id);
   }, [ipsBranches, branchId]);
 
+  const workflowPreview = useWorkflowPreview();
+
   const canSubmit = roleTitle.trim() && department.trim() && branchId && context.trim().length >= 20;
 
   async function handleSubmit() {
@@ -91,7 +94,8 @@ function NewIpsGapRequisitionForm() {
       urgency,
       jdAttached: false,
       status: "Pending Approval",
-      approverChain: ["Recruiter", "TA Manager"],
+      // Assigned server-side from Settings → Requisition approvals.
+      approverChain: [],
       currentApproverIndex: 0,
       submittedBy: user?.name ?? "Unknown",
       submittedAt: new Date().toISOString(),
@@ -247,6 +251,15 @@ function NewIpsGapRequisitionForm() {
             <Label>Context for this request (min. 20 characters)</Label>
             <Textarea value={context} onChange={(e) => setContext(e.target.value)} rows={4} required />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Approval chain</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ApprovalChainPreview steps={workflowPreview?.IPS ?? null} type="IPS Gap" />
         </CardContent>
       </Card>
 

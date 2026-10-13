@@ -171,3 +171,35 @@ export async function verifyReferenceCheckRequestToken(
     return null;
   }
 }
+
+// Emailed to the current approver of a requisition (see
+// src/lib/requisitions/approval.ts). Bound to one step: once that step is
+// decided the requisition's currentApproverIndex moves on and the decision
+// route rejects this token as stale, so a forwarded or re-opened old link
+// can't act on a later step. Possession alone isn't enough either — the
+// approver must also sign in with the step's Google account.
+export type RequisitionApprovalTokenPayload = {
+  type: "requisition-approval";
+  requisitionId: string;
+  stepIndex: number;
+};
+
+export async function signRequisitionApprovalToken(
+  payload: Omit<RequisitionApprovalTokenPayload, "type">
+): Promise<string> {
+  return new SignJWT({ type: "requisition-approval", ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("30d")
+    .sign(secret());
+}
+
+export async function verifyRequisitionApprovalToken(token: string): Promise<RequisitionApprovalTokenPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    if (payload.type !== "requisition-approval") return null;
+    return payload as unknown as RequisitionApprovalTokenPayload;
+  } catch {
+    return null;
+  }
+}

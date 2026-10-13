@@ -22,6 +22,9 @@ import {
   WorkTrialRoleCategory,
   StaffingProjection,
   AppSettings,
+  RequisitionApprovalStep,
+  RequisitionApprovalLogEntry,
+  RequisitionWorkflows,
 } from "@/types";
 import { AirtableRecord, allLinks, cleanFields, firstLink, link, links } from "./client";
 import { F } from "./field-names";
@@ -35,6 +38,18 @@ function num(v: unknown): number {
 function bool(v: unknown): boolean {
   return v === true;
 }
+// Approval Steps / Approval Log / Requisition Workflows are JSON stored in
+// long-text fields. A hand-edited or truncated value must not take down the
+// whole Requisitions list, so anything unparseable reads as "not set".
+function json<T>(v: unknown): T | undefined {
+  if (typeof v !== "string" || !v.trim()) return undefined;
+  try {
+    return JSON.parse(v) as T;
+  } catch {
+    return undefined;
+  }
+}
+
 function opt<T>(v: unknown): T | undefined {
   return v === undefined || v === null || v === "" ? undefined : (v as T);
 }
@@ -129,6 +144,16 @@ export function requisitionFromAirtable(r: AirtableRecord): Requisition {
     submitterRole: opt(f[F.Requisitions.SUBMITTER_ROLE]),
     source: opt(f[F.Requisitions.SOURCE]),
     budgetEvaluationConfirmed: bool(f[F.Requisitions.BUDGET_EVALUATION_CONFIRMED]),
+    approvalSteps: json<RequisitionApprovalStep[]>(f[F.Requisitions.APPROVAL_STEPS]),
+    approvalLog: json<RequisitionApprovalLogEntry[]>(f[F.Requisitions.APPROVAL_LOG]),
+    currentApproverName: opt(f[F.Requisitions.CURRENT_APPROVER_NAME]),
+    currentApproverEmail: opt(f[F.Requisitions.CURRENT_APPROVER_EMAIL]),
+    approvalRequestedAt: opt(f[F.Requisitions.APPROVAL_REQUESTED_AT]),
+    approvalEmailSent: bool(f[F.Requisitions.APPROVAL_EMAIL_SENT]),
+    submitterGoogleVerified: bool(f[F.Requisitions.SUBMITTER_GOOGLE_VERIFIED]),
+    // Approval Link is deliberately not mapped: it's a bearer link for the
+    // current approver's inbox, and this mapper feeds GET /api/requisitions,
+    // which every signed-in staff member can read.
   };
 }
 export function requisitionToAirtable(r: Partial<Requisition>) {
@@ -162,6 +187,13 @@ export function requisitionToAirtable(r: Partial<Requisition>) {
     [F.Requisitions.SUBMITTER_ROLE]: r.submitterRole,
     [F.Requisitions.SOURCE]: r.source,
     [F.Requisitions.BUDGET_EVALUATION_CONFIRMED]: r.budgetEvaluationConfirmed,
+    [F.Requisitions.APPROVAL_STEPS]: r.approvalSteps ? JSON.stringify(r.approvalSteps) : undefined,
+    [F.Requisitions.APPROVAL_LOG]: r.approvalLog ? JSON.stringify(r.approvalLog) : undefined,
+    [F.Requisitions.CURRENT_APPROVER_NAME]: r.currentApproverName,
+    [F.Requisitions.CURRENT_APPROVER_EMAIL]: r.currentApproverEmail,
+    [F.Requisitions.APPROVAL_REQUESTED_AT]: r.approvalRequestedAt,
+    [F.Requisitions.APPROVAL_EMAIL_SENT]: r.approvalEmailSent,
+    [F.Requisitions.SUBMITTER_GOOGLE_VERIFIED]: r.submitterGoogleVerified,
   });
 }
 
@@ -508,6 +540,8 @@ export function appSettingsFromAirtable(r: AirtableRecord): AppSettings {
   return {
     id: r.id,
     workTrialBookingCutoffDate: opt<string>(f[F.AppSettings.WORK_TRIAL_BOOKING_CUTOFF_DATE]) ?? null,
+    requisitionWorkflows: json<RequisitionWorkflows>(f[F.AppSettings.REQUISITION_WORKFLOWS]) ?? null,
+    requisitionsChatWebhookUrl: opt<string>(f[F.AppSettings.REQUISITIONS_CHAT_WEBHOOK_URL]) ?? null,
     updatedBy: opt<string>(f[F.AppSettings.UPDATED_BY]) ?? null,
     updatedAt: opt<string>(f[F.AppSettings.UPDATED_AT]) ?? null,
   };
@@ -520,6 +554,9 @@ export function appSettingsToAirtable(s: Partial<AppSettings> & { updatedBy?: st
     // real blank rather than being silently skipped.
     [F.AppSettings.WORK_TRIAL_BOOKING_CUTOFF_DATE]:
       s.workTrialBookingCutoffDate === undefined ? undefined : s.workTrialBookingCutoffDate,
+    [F.AppSettings.REQUISITION_WORKFLOWS]:
+      s.requisitionWorkflows === undefined ? undefined : s.requisitionWorkflows === null ? null : JSON.stringify(s.requisitionWorkflows),
+    [F.AppSettings.REQUISITIONS_CHAT_WEBHOOK_URL]: s.requisitionsChatWebhookUrl,
     [F.AppSettings.UPDATED_BY]: s.updatedBy,
     [F.AppSettings.UPDATED_AT]: s.updatedBy ? new Date().toISOString() : undefined,
   });

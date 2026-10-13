@@ -1,21 +1,13 @@
 // Server-only data access for the public, no-login requisition-request
 // links (/requisition-request/so and /requisition-request/ips). Unlike the
 // other public forms in this directory, these aren't record-bound — anyone
-// with the static link can submit a brand-new Requisition, which is
-// immediately converted to an Open Role since approval/budget evaluation
-// already happened over email before the link was shared.
-import { createRecord, listRecords } from "@/lib/airtable/client";
-import { TABLE_NAMES, F } from "@/lib/airtable/field-names";
-import {
-  branchFromAirtable,
-  openRoleFromAirtable,
-  requisitionFromAirtable,
-  requisitionToAirtable,
-  openRoleToAirtable,
-} from "@/lib/airtable/mappers";
-import { Requisition, Segment, OpenRole } from "@/types";
-import { buildOpenRoleFromRequisition } from "@/lib/requisitions-helpers";
-import { nextSequentialId } from "@/lib/airtable/route-handlers";
+// signed in with a Penda Google account can submit a brand-new Requisition,
+// which then goes through the same approval workflow as an in-app one.
+import { listRecords } from "@/lib/airtable/client";
+import { TABLE_NAMES } from "@/lib/airtable/field-names";
+import { branchFromAirtable, openRoleFromAirtable } from "@/lib/airtable/mappers";
+import { Segment } from "@/types";
+import { createRequisitionWithApproval, NewRequisitionInput } from "@/lib/requisitions/approval";
 
 export async function loadActiveBranches(segment: Segment): Promise<{ id: string; name: string; city: string }[]> {
   const records = await listRecords(TABLE_NAMES.Branches);
@@ -34,51 +26,20 @@ export async function loadRoleTitleSuggestions(segment: Segment): Promise<string
 }
 
 /**
- * Creates the Requisition (already approved/converted, no approver chain)
- * and the matching Open Role in one call, mirroring the in-app
- * convertToOpenRole() flow but with no logged-in user driving it.
+ * Creates a public-link requisition and starts its approval workflow — the
+ * same path as the in-app forms (src/lib/requisitions/approval.ts). It only
+ * becomes an Open Role once every configured approver has signed off.
+ * `submitterEmail` must already be a verified Google identity (see the
+ * public route).
  */
 export async function submitPublicRequisitionRequest(
-  input: Omit<Requisition, "id" | "reqId" | "status" | "approverChain" | "currentApproverIndex" | "submittedBy" | "submittedAt">
-): Promise<{ requisitionId: string; openRoleId: string }> {
-  // Same server-assigned sequential ID logic as the authenticated
-  // POST /api/requisitions route (see route-handlers.ts) — `REQ-${Date.now()}`
-  // previously minted 13-digit IDs that broke the REQ-NNN pattern every
-  // other requisition (and the nextSequentialId scan itself) expects.
-  const reqId = await nextSequentialId(
-    TABLE_NAMES.Requisitions,
-    { airtableField: F.Requisitions.REQ_ID, prefix: "REQ", pad: 3, min: 6 },
-    {}
-  );
-  const requisitionPayload: Partial<Requisition> = {
+  input: Omit<NewRequisitionInput, "submittedBy" | "submittedAt" | "source">
+): Promise<{ requisitionId: string; reqId: string }> {
+  const requisition = await createRequisitionWithApproval({
     ...input,
-    reqId,
-    status: "Converted to Open Role",
-    approverChain: [],
-    currentApproverIndex: 0,
     submittedBy: input.submitterName ?? "",
     submittedAt: new Date().toISOString(),
     source: "public-link",
-  };
-
-  const createdReqRecord = await createRecord(TABLE_NAMES.Requisitions, requisitionToAirtable(requisitionPayload));
-  const requisition = requisitionFromAirtable(createdReqRecord);
-
-  const branches = await listRecords(TABLE_NAMES.Branches).then((records) => records.map(branchFromAirtable));
-  const openRolePayload = buildOpenRoleFromRequisition(requisition, branches, { isPublicSubmission: true });
-
-  // Same server-assigned Role ID logic as POST /api/open-roles — previously
-  // the record was created with no Role ID at all, leaving it blank/
-  // inconsistent with every other Open Role.
-  const roleId = await nextSequentialId(
-    TABLE_NAMES.OpenRoles,
-    { airtableField: F.OpenRoles.ROLE_ID, prefix: (body: Partial<OpenRole>) => (body.segment === "SO" ? "SO" : "IPS"), pad: 3 },
-    openRolePayload
-  );
-  const openRoleFields = openRoleToAirtable(openRolePayload);
-  openRoleFields[F.OpenRoles.ROLE_ID] = roleId;
-
-  const createdRoleRecord = await createRecord(TABLE_NAMES.OpenRoles, openRoleFields);
-
-  return { requisitionId: requisition.id, openRoleId: createdRoleRecord.id };
+  });
+  return { requisitionId: requisition.id, reqId: requisition.reqId };
 }

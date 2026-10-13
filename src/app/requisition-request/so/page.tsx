@@ -9,13 +9,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormShell, FormStatusCard, DraftRestoredBanner, type FormShellBrand } from "@/components/forms/form-shell";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
+import { RequesterGoogleIdentity, type RequesterIdentity } from "@/components/requisitions/requester-google-identity";
+import { ApprovalChainPreview } from "@/components/requisitions/approval-chain-preview";
+import type { WorkflowPreviewStep } from "@/lib/requisitions/workflow";
 import { SO_DEPARTMENTS } from "@/lib/department-options";
 import { loadSoDraft, saveSoDraft, clearSoDraft } from "@/lib/forms/requisition-request-draft";
 
 const BRAND: FormShellBrand = {
   eyebrow: "Penda Health · Support Office Requisition",
-  headline: "Turn an approved role into an open requisition.",
-  lede: "Use this once budget evaluation and approval are complete — it enters the hiring pipeline as soon as you submit.",
+  headline: "Raise a support office role for approval.",
+  lede: "Your request goes to each approver in turn and enters the hiring pipeline once the last one signs off.",
   footer: "Questions? careers@pendahealth.com",
 };
 
@@ -27,11 +30,13 @@ const SO_TYPES: { value: RequisitionType; label: string; description: string }[]
 const LEVELS: RequisitionLevel[] = ["Entry", "Junior", "Mid", "Senior", "Lead", "Manager", "Senior Manager", "Head/Director"];
 const REASON_TYPES: VacancyReasonType[] = ["Resignation", "Termination", "Internal Promotion", "Retirement", "Contract End", "Other"];
 const URGENCIES: Priority[] = ["Critical", "High", "Medium", "Low"];
-const PENDA_EMAIL_DOMAIN = "@pendahealth.com";
 
 export default function PublicSoRequisitionRequestPage() {
   const [submitterName, setSubmitterName] = React.useState("");
-  const [submitterEmail, setSubmitterEmail] = React.useState("");
+  // Google sign-in, not a typed email — see RequesterGoogleIdentity.
+  const [identity, setIdentity] = React.useState<RequesterIdentity | null>(null);
+  const submitterEmail = identity?.email ?? "";
+  const [approvers, setApprovers] = React.useState<WorkflowPreviewStep[] | null>(null);
   const [submitterRole, setSubmitterRole] = React.useState("");
   const [honeypot, setHoneypot] = React.useState("");
 
@@ -61,13 +66,15 @@ export default function PublicSoRequisitionRequestPage() {
   React.useEffect(() => {
     fetch("/api/public/requisition-request?segment=SO")
       .then((res) => res.json())
-      .then((body) => setRoleTitleSuggestions(body.roleTitles ?? []))
+      .then((body) => {
+        setRoleTitleSuggestions(body.roleTitles ?? []);
+        setApprovers(body.approvers ?? []);
+      })
       .catch(() => {});
 
     const draft = loadSoDraft();
     if (draft) {
       setSubmitterName(draft.submitterName);
-      setSubmitterEmail(draft.submitterEmail);
       setSubmitterRole(draft.submitterRole);
       setType(draft.type as RequisitionType);
       setRoleTitle(draft.roleTitle);
@@ -145,7 +152,6 @@ export default function PublicSoRequisitionRequestPage() {
     clearSoDraft();
     setDraftRestored(false);
     setSubmitterName("");
-    setSubmitterEmail("");
     setSubmitterRole("");
     setType("SO New Role");
     setRoleTitle("");
@@ -167,10 +173,9 @@ export default function PublicSoRequisitionRequestPage() {
 
   const isNewRole = type === "SO New Role";
 
-  const emailValid = submitterEmail.trim().toLowerCase().endsWith(PENDA_EMAIL_DOMAIN);
   const canSubmit =
     submitterName.trim() &&
-    emailValid &&
+    identity &&
     submitterRole.trim() &&
     roleTitle.trim() &&
     department.trim() &&
@@ -186,7 +191,7 @@ export default function PublicSoRequisitionRequestPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           submitterName,
-          submitterEmail,
+          credential: identity?.credential,
           submitterRole,
           honeypot,
           type,
@@ -210,6 +215,15 @@ export default function PublicSoRequisitionRequestPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        if (body.error === "invalid_google_token") {
+          // Google ID tokens last an hour — a long form can outlive one.
+          setIdentity(null);
+          throw new Error("Your Google sign-in expired. Sign in again above, then resubmit — your answers are kept.");
+        }
+        if (body.error === "not_penda_account") {
+          setIdentity(null);
+          throw new Error("Sign in with your Penda Google account to submit.");
+        }
         throw new Error(
           body.issues?.[0]?.message ?? (res.status === 422 ? "Please check the form for errors." : "Something went wrong. Please try again.")
         );
@@ -226,8 +240,11 @@ export default function PublicSoRequisitionRequestPage() {
   if (submitted) {
     return (
       <FormShell brand={BRAND}>
-        <FormStatusCard variant="success" title="Request received" subtitle={`Thanks ${submitterName}, your requisition has been created.`}>
-          <p>The role is now an open role in our pipeline. You&apos;ll receive email updates at {submitterEmail} as it progresses.</p>
+        <FormStatusCard variant="success" title="Submitted for approval" subtitle={`Thanks ${submitterName}, your request is with the first approver.`}>
+          <p>
+            Each approver is emailed in turn, and the recruitment team&apos;s Google Chat is kept updated. Once the last
+            approver signs off it becomes an open role in our pipeline. Updates go to {submitterEmail}.
+          </p>
         </FormStatusCard>
       </FormShell>
     );
@@ -236,7 +253,7 @@ export default function PublicSoRequisitionRequestPage() {
   return (
     <FormShell brand={BRAND}
       title="Support Office Requisition Request"
-      subtitle="Use this link once the role's budget evaluation and approval are complete."
+      subtitle="Sign in with your Penda Google account, describe the role, and it goes for approval."
     >
       <div className="space-y-6">
         {draftRestored && <DraftRestoredBanner onDiscard={discardDraftAndRestart} />}
@@ -252,20 +269,13 @@ export default function PublicSoRequisitionRequestPage() {
               <Input value={submitterRole} onChange={(e) => setSubmitterRole(e.target.value)} required />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Your work email</Label>
-            <Input
-              type="email"
-              value={submitterEmail}
-              onChange={(e) => setSubmitterEmail(e.target.value)}
-              required
-              className={submitterEmail.trim() && !emailValid ? "border-destructive focus-visible:ring-destructive" : ""}
-              aria-invalid={submitterEmail.trim() ? !emailValid : undefined}
-            />
-            {submitterEmail.trim() && !emailValid && (
-              <p className="text-xs text-destructive">Must be a {PENDA_EMAIL_DOMAIN} email address.</p>
-            )}
-          </div>
+          <RequesterGoogleIdentity
+            identity={identity}
+            onChange={(next) => {
+              setIdentity(next);
+              if (next?.name && !submitterName.trim()) setSubmitterName(next.name);
+            }}
+          />
           {/* Honeypot — hidden from real users via CSS, left blank means non-spam */}
           <input
             type="text"
@@ -458,14 +468,22 @@ export default function PublicSoRequisitionRequestPage() {
               onChange={(e) => setBudgetEvaluationConfirmed(e.target.checked)}
               className="mt-0.5 h-4 w-4 rounded border-input"
             />
-            I confirm budget evaluation and email approval for this role are complete.
+            I confirm a budget evaluation has been done for this role.
           </label>
+        </div>
+
+        <div className="space-y-2 rounded-lg border border-border p-4">
+          <p className="text-sm font-medium">Who approves this</p>
+          <ApprovalChainPreview steps={approvers} type={type} />
+          <p className="text-xs text-muted-foreground">
+            Each approver gets an email in turn. It becomes an open role once the last one approves.
+          </p>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <Button onClick={handleSubmit} disabled={!canSubmit || submitting} className="w-full bg-penda-blue hover:bg-penda-blue-dark">
-          {submitting ? "Submitting…" : "Submit requisition"}
+          {submitting ? "Submitting…" : "Submit for approval"}
         </Button>
       </div>
     </FormShell>

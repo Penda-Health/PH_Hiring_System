@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
+import { ApprovalChainPreview, useWorkflowPreview } from "@/components/requisitions/approval-chain-preview";
 import { SO_DEPARTMENTS } from "@/lib/department-options";
 
 const SO_TYPES: { value: RequisitionType; label: string; description: string }[] = [
@@ -23,9 +23,6 @@ const SO_TYPES: { value: RequisitionType; label: string; description: string }[]
 const LEVELS: RequisitionLevel[] = ["Entry", "Junior", "Mid", "Senior", "Lead", "Manager", "Senior Manager", "Head/Director"];
 const REASON_TYPES: VacancyReasonType[] = ["Resignation", "Termination", "Internal Promotion", "Retirement", "Contract End", "Other"];
 const URGENCIES: Priority[] = ["Critical", "High", "Medium", "Low"];
-
-const NEW_ROLE_CHAIN = ["Hiring Manager", "HOD", "HRBP", "HR Ops", "Director of People"];
-const REPLACEMENT_CHAIN = ["Hiring Manager", "HOD", "Director of People"];
 
 export default function NewSoRequisitionPage() {
   return (
@@ -73,7 +70,7 @@ function NewSoRequisitionForm() {
   const [error, setError] = React.useState<string | null>(null);
 
   const isNewRole = type === "SO New Role";
-  const chain = isNewRole ? NEW_ROLE_CHAIN : REPLACEMENT_CHAIN;
+  const workflowPreview = useWorkflowPreview();
 
   const canSubmit = isNewRole
     ? roleTitle.trim() && department.trim() && justification.trim().length >= 100
@@ -99,7 +96,8 @@ function NewSoRequisitionForm() {
       jdAttached: isNewRole ? jdAttached : jdStillCurrent,
       jdUrl: jdUrl || undefined,
       status: "Pending Approval",
-      approverChain: chain,
+      // Assigned server-side from Settings → Requisition approvals.
+      approverChain: [],
       currentApproverIndex: 0,
       submittedBy: user?.name ?? "Unknown",
       submittedAt: new Date().toISOString(),
@@ -320,14 +318,7 @@ function NewSoRequisitionForm() {
           <CardTitle>Approval chain</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center gap-2">
-            {chain.map((step, i) => (
-              <React.Fragment key={step}>
-                <Badge variant="outline">{step}</Badge>
-                {i < chain.length - 1 && <span className="text-muted-foreground">→</span>}
-              </React.Fragment>
-            ))}
-          </div>
+          <ApprovalChainPreview steps={workflowPreview?.SO ?? null} type={type} />
         </CardContent>
       </Card>
 

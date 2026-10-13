@@ -1269,6 +1269,103 @@ table, not an email-sending flow.
 
 ---
 
+### 4.5.8 Requisition approval workflow (`/settings` → "Requisition approvals")
+
+Every requisition — the in-app IPS Gap / SO forms, the quick-add dialog,
+and the public `/requisition-request/*` links (§4.5.3) — is created as
+`Pending Approval` and walks an ordered list of approvers before it becomes
+an Open Role. The logic is all in `src/lib/requisitions/approval.ts`.
+
+**Setting it up (Recruitment Manager, `/settings`):**
+
+- **Approvers** — separate lists for **IPS** and **SO**. Each step is a
+  label (e.g. "HOD"), the approver's name, and the **Google account email**
+  they must sign in with. SO steps can be limited to *New roles only* or
+  *Replacements only* (e.g. HRBP and HR Ops only on new roles). Until a
+  segment has approvers saved, its new requests wait for a Recruitment
+  Manager to approve them in the app (and Google Chat says so).
+- **Google Chat** — paste the space's incoming-webhook URL (Space → Apps &
+  integrations → Webhooks) and use **Send test message** to check it.
+  Every new request, each approval, a rejection and the new Open Role are
+  posted there, threaded per requisition. These are sent by the app itself,
+  not an Airtable automation.
+
+Each request copies the workflow into its own `Approval Steps` field when
+it's submitted, so editing the approvers later only affects new requests.
+
+**How an approver acts:**
+
+- **From the email** — the link opens `/requisition-approval?token=...`
+  (no app login). They must **sign in with the Google account set for
+  their step**; any other account is refused, so a forwarded email can't
+  approve anything. The link is tied to that one step and stops working
+  once the step is decided. Rejecting requires a comment.
+- **In the app** — on `/requisitions`, the named approver (signed in as
+  that Google account) sees **Review** on the row. A Recruitment Manager
+  can also act on any step as a logged **override** (e.g. approver on
+  leave). Everyone else sees **History**. Recruitment Users/Managers can
+  **Resend email** to the current approver.
+
+Every decision is appended to `Approval Log` (JSON: who, when, comment,
+and whether it came from the email link, the app, or an override). On the
+last approval the app creates the Open Role itself; status becomes
+`Converted to Open Role`.
+
+**New Airtable columns** (already added by `npm run airtable:schema`):
+
+| Table | New columns |
+|---|---|
+| Requisitions | `Approval Steps`, `Approval Log`, `Current Approver Name`, `Current Approver Email`, `Approval Link`, `Approval Requested At`, `Approval Email Sent`, `Submitter Google Verified` |
+| App Settings | `Requisition Workflows`, `Requisitions Chat Webhook URL` |
+
+**Airtable automations to configure** (Automations → Create automation, in
+the base):
+
+A. **Approval email to the current approver** — this is what emails each
+   approver in turn.
+   - Trigger: *When a record matches conditions*, table `Requisitions`, all of:
+     `Status` is `Pending Approval`; `Current Approver Email` is not empty;
+     `Approval Link` is not empty; `Approval Email Sent` is unchecked.
+   - Action 1: **Send email** — To: `Current Approver Email`. Subject:
+     `Approval needed: {Req ID} – {Role Title} ({Segment})`. Body: who it's
+     for (`Current Approver Name`), what's requested (`Role Title`,
+     `Type`, `Headcount`, `Urgency`, `Submitter Name`), and the
+     **`Approval Link`** as a button/link, plus a line saying they'll be
+     asked to sign in with their Penda Google account.
+   - Action 2: **Update record** (the trigger record) — check
+     `Approval Email Sent`.
+
+   Why this fires once per step: whenever the request moves to a new
+   approver (or someone clicks Resend email), the app writes the new
+   approver, a new link and a fresh `Approval Requested At`, and **clears
+   `Approval Email Sent` in the same write**. That turns the record from
+   not-matching into matching, which is the only change a "matches
+   conditions" trigger fires on (same reasoning as the referee automations
+   in §4.5.2 step 6). Action 2 then makes it stop matching until the next
+   step. If you test with the automation switched off, the record is left
+   matching, and Resend email won't re-fire it. Fix that by checking
+   `Approval Email Sent` by hand once, then clicking Resend email.
+
+B. **Approved — tell the requester.** Trigger: *When a record matches
+   conditions*, table `Requisitions`, `Status` is `Converted to Open Role`.
+   Send email to `Submitter Email` (merge `Submitter Name`, `Req ID`,
+   `Role Title`): approved and now an open role in the pipeline.
+
+C. **Rejected — tell the requester.** Trigger: *When a record matches
+   conditions*, table `Requisitions`, `Status` is `Rejected`. Send email
+   to `Submitter Email`. The rejection reason is in Google Chat and on the
+   request's History in the app (`Approval Log` is JSON, so it isn't
+   pasted into the email).
+
+**Known limitations**
+
+- An approver who can't sign in with Google can't approve from the email.
+  A Recruitment Manager can approve on their behalf in the app; it's
+  logged as an override.
+- Requisitions created before this workflow existed keep their old
+  label-only approver chain and show "All approved" or the old labels in
+  the Approval column.
+
 ## 4.5.3 Public requisition-request links + 6-month employment confirmation
 
 Two more no-login flows, same pattern as section 4.5 (no Supabase session,
@@ -1277,20 +1374,19 @@ they're static reusable URLs, not record-bound):
 
 - `/requisition-request/so` and `/requisition-request/ips` — copy/paste or
   embed these anywhere (Slack, email signature, an intranet page). Anyone
-  who opens one fills in their name, **`@pendahealth.com` work email**
-  (anything else is rejected, not just warned), their own role, and the
-  requisition details — no login. Get the links from the **Copy public
-  link** button on `/requisitions` (visible to Recruitment User/Manager
-  only).
+  who opens one **signs in with their Penda Google account** (Google
+  Identity Services, verified server-side — a non-Penda account is
+  rejected), fills in their name, their own role, and the requisition
+  details — no app login. The verified Google email becomes the request's
+  `Submitter Email` (and `Submitter Google Verified` is checked). Get the
+  links from the **Copy public link** button on `/requisitions` (visible to
+  Recruitment User/Manager only).
 
-  Submitting **skips the in-app approver chain entirely** — these links are
-  meant to be used only after approval and budget evaluation already
-  happened over email, so the requisition is created as already
-  `Converted to Open Role` and a matching Open Role appears immediately in
-  the pipeline. There's no Approve/Reject step and no human gate inside the
-  app for this entry path — that's intentional, not a bug, but it does mean
-  anyone with the link can create a real Open Role, so don't post these
-  links anywhere outside trusted internal channels.
+  Submitting goes through the **same approval workflow as an in-app
+  request** (§4.5.8): the requisition is created as `Pending Approval`,
+  the first approver is emailed, and it only becomes an Open Role once the
+  last approver signs off. (Before §4.5.8 these links skipped approval and
+  created the Open Role immediately — that's no longer the case.)
 
 - `/confirm-employment?token=...` — record-bound like the section 4.5 forms.
   Sent to the original requisition submitter roughly 6 months after their
@@ -1323,11 +1419,11 @@ All five are plain "watch a field, send an email" automations — no app code
 involved, same **Run a script → Send email** shape as section 4.5.2. Build
 each as: **Automations → Create automation** in the Airtable base.
 
-1. **Request received & approved** — trigger: *When a record matches
-   conditions*, table `Requisitions`, condition `Source = public-link`
-   (record created). The public-link path auto-converts to an Open Role
-   immediately, so "received" and "approved" collapse into a single email.
-   Send to `Submitter Email`, merge `Submitter Name`, `Role Title`.
+1. **Request approved / rejected** — now part of §4.5.8 (automations B
+   and C there), for every source, not just public links. If you'd built
+   the old "Request received & approved" automation (trigger
+   `Source = public-link`), turn it off — public-link requests are no
+   longer approved on creation.
 
 2. **Allocated to a recruiter** — trigger: *When a record matches
    conditions*, table `Open Roles`, condition `Recruiter is not empty` (only
@@ -1446,6 +1542,7 @@ change silently failing.
 | Public JWT form routes (`/work-trial`, `/bm-feedback`, `/referee`) | ✅ this guide |
 | IPS Gap / SO Requisition guided forms (login required) | ✅ `/requisitions/new/ips`, `/requisitions/new/so` |
 | Public requisition-request links + 6-month confirmation | ✅ section 4.5.3 (app side) / ⏳ you configure the 5 Airtable automations |
+| Requisition approval workflow (Settings approvers, email links with Google sign-in, Google Chat) | ✅ section 4.5.8 (app side) / ⏳ you set approvers + webhook in Settings and configure Airtable automations A–C |
 | Make.com scenario blueprints | ⏳ next phase |
 | Africa's Talking SMS | ⏳ next phase |
 | AI assistant ("Penny") — Groq/Gemini/Cloudflare, agentic actions | ✅ section 7 (app side) / ⏳ you add the API keys |

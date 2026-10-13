@@ -45,3 +45,23 @@ export async function getCurrentUserRole(): Promise<UserRoleName | undefined> {
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   return (profile?.role as UserRoleName | undefined) ?? undefined;
 }
+
+/**
+ * The signed-in staff member's verified email (from their Google login),
+ * display name and role — for routes that record *who* acted (e.g. a
+ * requisition approval), not just whether they're allowed to.
+ */
+export async function getCurrentUserIdentity(): Promise<{ email: string; name: string; role: UserRoleName | undefined } | null> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return null;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) return null;
+  const { data: profile } = await supabase.from("profiles").select("role, display_name").eq("id", user.id).single();
+  return {
+    email: user.email.toLowerCase(),
+    name: (profile?.display_name as string | undefined) || (user.user_metadata?.full_name as string | undefined) || user.email,
+    role: (profile?.role as UserRoleName | undefined) ?? undefined,
+  };
+}

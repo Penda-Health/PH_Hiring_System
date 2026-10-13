@@ -130,6 +130,21 @@ const F = {
     SUBMITTER_ROLE: "Submitter Role",
     SOURCE: "Source",
     BUDGET_EVALUATION_CONFIRMED: "Budget Evaluation Confirmed",
+    // Configurable approval workflow (Settings → Requisition approvals; see
+    // src/lib/requisitions/approval.ts). APPROVAL_STEPS is a JSON snapshot
+    // of the segment's workflow taken at submission, so editing the workflow
+    // later never reshuffles a request already in flight. APPROVER_CHAIN
+    // above keeps holding just the step labels for older views.
+    APPROVAL_STEPS: "Approval Steps",
+    APPROVAL_LOG: "Approval Log",
+    CURRENT_APPROVER_NAME: "Current Approver Name",
+    CURRENT_APPROVER_EMAIL: "Current Approver Email",
+    APPROVAL_LINK: "Approval Link",
+    // Same "fresh value on every send-request" signal as the referee
+    // Send Requested At fields — the approval-email automation keys off it.
+    APPROVAL_REQUESTED_AT: "Approval Requested At",
+    APPROVAL_EMAIL_SENT: "Approval Email Sent",
+    SUBMITTER_GOOGLE_VERIFIED: "Submitter Google Verified",
   },
   OpenRoles: {
     ROLE_ID: "Role ID",
@@ -551,6 +566,8 @@ const F = {
   // app-wide settings can land as additional fields on that same row later.
   AppSettings: {
     WORK_TRIAL_BOOKING_CUTOFF_DATE: "Work Trial Booking Cutoff Date",
+    REQUISITION_WORKFLOWS: "Requisition Workflows",
+    REQUISITIONS_CHAT_WEBHOOK_URL: "Requisitions Chat Webhook URL",
     UPDATED_BY: "Updated By",
     UPDATED_AT: "Updated At",
   },
@@ -633,6 +650,14 @@ const TABLES = [
       { name: F.Requisitions.SUBMITTER_ROLE, type: "singleLineText" },
       { name: F.Requisitions.SOURCE, type: "singleSelect", options: choices(["internal", "public-link"]) },
       { name: F.Requisitions.BUDGET_EVALUATION_CONFIRMED, type: "checkbox", options: checkboxOpts },
+      { name: F.Requisitions.APPROVAL_STEPS, type: "multilineText" },
+      { name: F.Requisitions.APPROVAL_LOG, type: "multilineText" },
+      { name: F.Requisitions.CURRENT_APPROVER_NAME, type: "singleLineText" },
+      { name: F.Requisitions.CURRENT_APPROVER_EMAIL, type: "email" },
+      { name: F.Requisitions.APPROVAL_LINK, type: "url" },
+      { name: F.Requisitions.APPROVAL_REQUESTED_AT, type: "dateTime", options: dateTimeOpts },
+      { name: F.Requisitions.APPROVAL_EMAIL_SENT, type: "checkbox", options: checkboxOpts },
+      { name: F.Requisitions.SUBMITTER_GOOGLE_VERIFIED, type: "checkbox", options: checkboxOpts },
     ],
   },
   {
@@ -1316,6 +1341,10 @@ const TABLES = [
       // (candidate self-serve /work-trial-request). Blank = no cutoff, falls
       // back to the default rolling window (see src/lib/work-trial-timing.ts).
       { name: F.AppSettings.WORK_TRIAL_BOOKING_CUTOFF_DATE, type: "date", options: dateOpts },
+      // JSON: { IPS: { steps: [...] }, SO: { steps: [...] } } — see
+      // RequisitionWorkflows in src/types.ts. Edited from /settings.
+      { name: F.AppSettings.REQUISITION_WORKFLOWS, type: "multilineText" },
+      { name: F.AppSettings.REQUISITIONS_CHAT_WEBHOOK_URL, type: "url" },
       { name: F.AppSettings.UPDATED_BY, type: "singleLineText" },
       { name: F.AppSettings.UPDATED_AT, type: "date", options: dateOpts },
     ],
