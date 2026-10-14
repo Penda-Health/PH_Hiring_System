@@ -128,22 +128,42 @@ export const publicRequisitionRequestSchema = requisitionSchema
     honeypot: z.string().max(0).optional(),
   });
 
-const approvalStepSchema = z.object({
-  id: z.string().trim().min(1).max(64),
-  label: z.string().trim().min(1, "Every step needs a label").max(100),
-  approverName: z.string().trim().min(1, "Every step needs an approver name").max(150),
-  approverEmail: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .email("Every step needs a valid Google account email")
-    .max(255),
-  appliesTo: z.array(z.enum(["SO New Role", "SO Replacement", "IPS Gap"])).max(3).optional(),
+const approvalStepSchema = z
+  .object({
+    id: z.string().trim().min(1).max(64),
+    label: z.string().trim().min(1, "Every step needs a label").max(100),
+    approverType: z.enum(["person", "regional_manager", "branch_manager"]).optional(),
+    // Required for "person" steps only (refined below) — branch-based steps
+    // are resolved per request from the branch, so they're saved blank.
+    approverName: z.string().trim().max(150),
+    approverEmail: z.string().trim().toLowerCase().max(255),
+    appliesTo: z.array(z.enum(["SO New Role", "SO Replacement", "IPS Gap"])).max(3).optional(),
+  })
+  .superRefine((step, ctx) => {
+    if ((step.approverType ?? "person") !== "person") return;
+    if (!step.approverName) ctx.addIssue({ code: "custom", path: ["approverName"], message: "Every person step needs an approver name" });
+    if (!z.string().email().safeParse(step.approverEmail).success) {
+      ctx.addIssue({ code: "custom", path: ["approverEmail"], message: "Every person step needs a valid Google account email" });
+    }
+  });
+
+const regionalManagerSchema = z.object({
+  name: z.string().trim().min(1, "Every regional manager needs a name").max(150),
+  email: z.string().trim().toLowerCase().email("Every regional manager needs a valid Google account email").max(255),
 });
 
 export const requisitionWorkflowsSchema = z.object({
   IPS: z.object({ steps: z.array(approvalStepSchema).max(10) }),
-  SO: z.object({ steps: z.array(approvalStepSchema).max(10) }),
+  // SO requests have no branch, so their steps can only be fixed people.
+  SO: z.object({
+    steps: z
+      .array(approvalStepSchema)
+      .max(10)
+      .refine((steps) => steps.every((s) => (s.approverType ?? "person") === "person"), {
+        message: "SO steps must be specific people — SO requests have no branch to look an RM or BM up from",
+      }),
+  }),
+  regionalManagers: z.array(regionalManagerSchema).max(50).optional(),
 });
 
 export const openRoleSchema = z.object({

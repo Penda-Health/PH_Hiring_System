@@ -341,7 +341,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
       <WorkTrialBookingWindowCard />
-      <RequisitionApprovalsCard profiles={profiles} />
+      <RequisitionApprovalsCard profiles={profiles} branches={branches} />
       <Card>
         <CardHeader>
           <CardTitle>Deleted items</CardTitle>

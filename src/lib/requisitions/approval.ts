@@ -25,7 +25,7 @@ import { nextSequentialId } from "@/lib/airtable/route-handlers";
 import { signRequisitionApprovalToken } from "@/lib/forms/tokens";
 import { postToGoogleChat } from "@/lib/notifications/google-chat";
 import { buildOpenRoleFromRequisition, branchName } from "@/lib/requisitions-helpers";
-import { sameEmail, stepsForType } from "@/lib/requisitions/workflow";
+import { approverTypeOf, resolveStep, sameEmail, stepsForType } from "@/lib/requisitions/workflow";
 import {
   Branch,
   OpenRole,
@@ -61,8 +61,34 @@ function truncate(text: string | undefined, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
-function personLine(step: Pick<RequisitionApprovalStep, "label" | "approverName" | "approverEmail">): string {
-  return `*${step.label}*: ${step.approverName} (${step.approverEmail})`;
+function personLine(step: RequisitionApprovalStep, branchLabel?: string): string {
+  if (step.approverEmail) return `*${step.label}*: ${step.approverName} (${step.approverEmail})`;
+  // A branch-based step with nobody on file — say exactly what to fix.
+  const who = step.approverName ? `${step.approverName} — ` : "";
+  const fix =
+    approverTypeOf(step) === "branch_manager"
+      ? `add the BM email for ${branchLabel ?? "the branch"} in Settings → Branches`
+      : step.approverName
+        ? `add ${step.approverName}'s Google account in Settings → Requisition approvals → Regional managers`
+        : `set the Regional Manager for ${branchLabel ?? "the branch"} in Settings → Branches`;
+  return `*${step.label}*: ${who}⚠️ no Google account on file, so no email was sent. To fix: ${fix}, then click "Resend email" on the request.`;
+}
+
+/**
+ * Re-resolves a branch-based step (RM / BM) at the moment it becomes the
+ * current one, so a Regional Manager added or changed after submission is
+ * picked up. Writes the refreshed snapshot back if anything changed.
+ */
+async function resolveCurrentStep(req: Requisition, stepIndex: number): Promise<RequisitionApprovalStep[]> {
+  const steps = req.approvalSteps ?? [];
+  const step = steps[stepIndex];
+  if (!step || approverTypeOf(step) === "person") return steps;
+  const [{ workflows }, branches] = await Promise.all([loadApprovalSettings(), loadBranches()]);
+  const resolved = resolveStep(step, branches.find((b) => b.id === req.branchId), workflows?.regionalManagers);
+  if (resolved.approverEmail === step.approverEmail && resolved.approverName === step.approverName) return steps;
+  const updated = steps.map((s, i) => (i === stepIndex ? resolved : s));
+  await updateRecord(TABLE_NAMES.Requisitions, req.id, requisitionToAirtable({ approvalSteps: updated }));
+  return updated;
 }
 
 function threadKey(req: Requisition): string {
@@ -78,6 +104,9 @@ function threadKey(req: Requisition): string {
  */
 async function requestStep(requisitionId: string, stepIndex: number, step: RequisitionApprovalStep): Promise<Requisition> {
   const token = await signRequisitionApprovalToken({ requisitionId, stepIndex });
+  // A blank email (unresolved RM/BM) still gets the link stored, but the
+  // email automation requires Current Approver Email, so nothing is sent
+  // until it's fixed and resent.
   const record = await updateRecord(TABLE_NAMES.Requisitions, requisitionId, {
     ...requisitionToAirtable({
       currentApproverIndex: stepIndex,
@@ -101,11 +130,31 @@ export type NewRequisitionInput = Omit<
  * entry path (in-app and public link) so none of them can skip approval.
  */
 export async function createRequisitionWithApproval(input: NewRequisitionInput): Promise<Requisition> {
-  const [{ workflows, chatWebhookUrl }, reqId] = await Promise.all([
+  const [{ workflows, chatWebhookUrl }, reqId, branches] = await Promise.all([
     loadApprovalSettings(),
     nextSequentialId(TABLE_NAMES.Requisitions, { airtableField: F.Requisitions.REQ_ID, prefix: "REQ", pad: 3, min: 6 }, {}),
+    loadBranches(),
   ]);
-  const steps = stepsForType(workflows?.[input.segment], input.type);
+  const branch = branches.find((b) => b.id === input.branchId);
+  const configured = stepsForType(workflows?.[input.segment], input.type).map((s) =>
+    resolveStep(s, branch, workflows?.regionalManagers)
+  );
+  // Nobody approves their own request: a step whose approver is the
+  // requester (e.g. an RM raising a gap for their own region) is dropped
+  // and logged as skipped, and the request goes to the next approver.
+  const skipped = configured.filter((s) => sameEmail(s.approverEmail, input.submitterEmail));
+  const steps = configured.filter((s) => !skipped.includes(s));
+  const submittedAt = new Date().toISOString();
+  const skipLog: RequisitionApprovalLogEntry[] = skipped.map((s) => ({
+    stepIndex: -1,
+    label: s.label,
+    approverEmail: s.approverEmail,
+    decision: "Skipped",
+    decidedBy: "system",
+    decidedAt: submittedAt,
+    comment: "The requester is this step's approver",
+    via: "system",
+  }));
 
   const created = await createRecord(
     TABLE_NAMES.Requisitions,
@@ -116,13 +165,13 @@ export async function createRequisitionWithApproval(input: NewRequisitionInput):
       approvalSteps: steps,
       approverChain: steps.map((s) => s.label),
       currentApproverIndex: 0,
-      approvalLog: [],
+      approvalLog: skipLog,
     })
   );
   let requisition = requisitionFromAirtable(created);
   if (steps.length > 0) requisition = await requestStep(requisition.id, 0, steps[0]);
 
-  const branches = await loadBranches();
+  const branchLabel = branch ? branchName(branch.id, branches) : undefined;
   const lines = [
     `📝 *New ${requisition.segment} requisition — ${requisition.reqId}*`,
     `Role: ${requisition.roleTitle} ×${requisition.headcount}${requisition.branchId ? ` (${branchName(requisition.branchId, branches)})` : ""}`,
@@ -131,10 +180,13 @@ export async function createRequisitionWithApproval(input: NewRequisitionInput):
   ];
   const reason = truncate(requisition.context || requisition.justification, 300);
   if (reason) lines.push(`Reason: ${reason}`);
+  for (const s of skipped) lines.push(`⏭️ ${s.label} step skipped — ${s.approverName} raised this request.`);
   lines.push(
     steps.length > 0
-      ? `➡️ Awaiting approval — ${personLine(steps[0])}`
-      : `⚠️ No ${requisition.segment} approval workflow is set up. A Recruitment Manager needs to add approvers in Settings → Requisition approvals, then approve this request in the app.`
+      ? `➡️ Awaiting approval — ${personLine(steps[0], branchLabel)}`
+      : configured.length > 0
+        ? `⚠️ Every approver on this workflow is the requester, so a Recruitment Manager needs to approve it in the app.`
+        : `⚠️ No ${requisition.segment} approval workflow is set up. A Recruitment Manager needs to add approvers in Settings → Requisition approvals, then approve this request in the app.`
   );
   lines.push(`${appUrl()}/requisitions`);
   await postToGoogleChat(chatWebhookUrl, lines.join("\n"), threadKey(requisition));
@@ -218,10 +270,12 @@ export async function decideRequisition(args: {
 
   if (!isFinal) {
     await updateRecord(TABLE_NAMES.Requisitions, req.id, requisitionToAirtable({ approvalLog }));
-    const updated = await requestStep(req.id, nextIndex, steps[nextIndex]);
+    const refreshed = await resolveCurrentStep(req, nextIndex);
+    const updated = await requestStep(req.id, nextIndex, refreshed[nextIndex]);
+    const branchLabel = req.branchId ? branchName(req.branchId, await loadBranches()) : undefined;
     await postToGoogleChat(
       chatWebhookUrl,
-      `✅ *${req.reqId}* (${req.roleTitle}) approved by ${actorLine}${commentLine}\n➡️ Next — ${personLine(steps[nextIndex])}`,
+      `✅ *${req.reqId}* (${req.roleTitle}) approved by ${actorLine}${commentLine}\n➡️ Next — ${personLine(refreshed[nextIndex], branchLabel)}`,
       threadKey(req)
     );
     return { ok: true, requisition: updated };
@@ -281,8 +335,9 @@ export async function resendApprovalRequest(
   if (!record) return { ok: false, error: "not_found" };
   const req = requisitionFromAirtable(record);
   if (req.status !== "Pending Approval") return { ok: false, error: "not_pending" };
-  const step = req.approvalSteps?.[req.currentApproverIndex];
-  if (!step) return { ok: false, error: "no_approver" };
+  const steps = await resolveCurrentStep(req, req.currentApproverIndex);
+  const step = steps[req.currentApproverIndex];
+  if (!step?.approverEmail) return { ok: false, error: "no_approver" };
   return { ok: true, requisition: await requestStep(req.id, req.currentApproverIndex, step) };
 }
 

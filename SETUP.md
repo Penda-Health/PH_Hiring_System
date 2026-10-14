@@ -1278,12 +1278,30 @@ an Open Role. The logic is all in `src/lib/requisitions/approval.ts`.
 
 **Setting it up (Recruitment Manager, `/settings`):**
 
-- **Approvers** — separate lists for **IPS** and **SO**. Each step is a
-  label (e.g. "HOD"), the approver's name, and the **Google account email**
-  they must sign in with. SO steps can be limited to *New roles only* or
-  *Replacements only* (e.g. HRBP and HR Ops only on new roles). Until a
-  segment has approvers saved, its new requests wait for a Recruitment
-  Manager to approve them in the app (and Google Chat says so).
+- **Approvers** — separate lists for **IPS** and **SO**, reordered by
+  dragging the grip handle (or focusing it and using the arrow keys). Each
+  IPS step is one of:
+  - **Specific person** — a fixed Google account, e.g. the Deputy Head of
+    IPS for final sign-off.
+  - **Branch's Regional Manager** — resolved per request from the branch's
+    `Regional Manager` name, via the **Regional managers** list below.
+  - **Branch Manager** — the branch's `BM Email` (Settings → Branches).
+
+  SO requests have no branch, so SO steps are always specific people. They
+  can be limited to *New roles only* or *Replacements only* (e.g. HRBP and
+  HR Ops only on new roles). Suggested IPS setup: Branch's Regional Manager
+  → Deputy Head of IPS. Until a segment has approvers saved, its new
+  requests wait for a Recruitment Manager to approve them in the app (and
+  Google Chat says so).
+- **Regional managers** — one row per RM name used on Branches (pre-filled
+  from the branch data), each with the Google account they approve with.
+  Matching is by name, case-insensitive. A short name like "Ndegwa" also
+  matches "Ndegwa Gathuri", but only when exactly one entry fits. If an RM
+  has no account on file, their step can't be emailed. Google Chat says
+  what to fix, and **Resend email** on the request looks the RM up again.
+- **Self-approval is skipped.** If the requester is a step's approver (e.g.
+  an RM raising a gap for their own region), that step is dropped at
+  submission and logged as *Skipped*. The request goes to the next approver.
 - **Google Chat** — paste the space's incoming-webhook URL (Space → Apps &
   integrations → Webhooks) and use **Send test message** to check it.
   Every new request, each approval, a rejection and the new Open Role are
@@ -1291,7 +1309,9 @@ an Open Role. The logic is all in `src/lib/requisitions/approval.ts`.
   not an Airtable automation.
 
 Each request copies the workflow into its own `Approval Steps` field when
-it's submitted, so editing the approvers later only affects new requests.
+it's submitted, so editing the steps later only affects new requests.
+Role-based steps (RM/BM) are looked up again when they become the current
+step, so a changed or newly added RM account is used without resubmitting.
 
 **How an approver acts:**
 

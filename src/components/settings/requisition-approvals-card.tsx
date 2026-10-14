@@ -1,18 +1,38 @@
 "use client";
 
 // Settings → Requisition approvals. A Recruitment Manager sets, separately
-// for IPS and SO, the ordered approvers every requisition walks through
-// (each one a specific Google account), plus the Google Chat space that
-// hears about every request and decision. Saved to the App Settings row via
-// PATCH /api/settings; read server-side by src/lib/requisitions/approval.ts.
+// for IPS and SO, the ordered approvers every requisition walks through.
+// A step is either a specific Google account (e.g. the Deputy Head of IPS)
+// or a role looked up from the request's branch (its Regional Manager or
+// Branch Manager). Steps reorder by drag and drop. Also holds the Regional
+// Managers directory (RM name on Branches → Google account) and the Google
+// Chat webhook. Saved to the App Settings row via PATCH /api/settings; read
+// server-side by src/lib/requisitions/approval.ts.
 import * as React from "react";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
-import { AppSettings, RequisitionApprovalStep, RequisitionType, RequisitionWorkflows, Segment, User } from "@/types";
+import { GripVertical, Plus, Trash2 } from "lucide-react";
+import {
+  AppSettings,
+  ApprovalStepApproverType,
+  Branch,
+  RegionalManagerContact,
+  RequisitionApprovalStep,
+  RequisitionType,
+  RequisitionWorkflows,
+  Segment,
+  User,
+} from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { defaultSteps, newStepId } from "@/lib/requisitions/workflow";
+import {
+  APPROVER_TYPE_LABELS,
+  approverTypeOf,
+  defaultSteps,
+  findRegionalManager,
+  newStepId,
+  regionalManagerNames,
+} from "@/lib/requisitions/workflow";
 
 const SEGMENTS: { segment: Segment; title: string; blurb: string }[] = [
   { segment: "IPS", title: "IPS (clinics)", blurb: "IPS Gap requests from branches." },
@@ -27,6 +47,9 @@ const SO_SCOPES: { value: string; label: string; appliesTo?: RequisitionType[] }
   { value: "replacement", label: "Replacements only", appliesTo: ["SO Replacement"] },
 ];
 
+// Branch-based approvers need a branch on the request, which only IPS has.
+const IPS_APPROVER_TYPES: ApprovalStepApproverType[] = ["person", "regional_manager", "branch_manager"];
+
 function scopeValue(step: RequisitionApprovalStep): string {
   if (!step.appliesTo?.length || step.appliesTo.length > 1) return "all";
   return step.appliesTo[0] === "SO New Role" ? "new" : "replacement";
@@ -40,90 +63,277 @@ function validate(workflows: RequisitionWorkflows): string | null {
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       const where = `${segment} step ${i + 1}`;
-      if (!step.label.trim()) return `${where} needs a label (e.g. "HOD").`;
+      if (!step.label.trim()) return `${where} needs a label (e.g. "Deputy Head of IPS").`;
+      if (approverTypeOf(step) !== "person") continue;
       if (!step.approverName.trim()) return `${where} needs the approver's name.`;
       if (!EMAIL_RE.test(step.approverEmail.trim())) return `${where} needs a valid Google account email.`;
     }
   }
+  for (const rm of workflows.regionalManagers ?? []) {
+    if (rm.email.trim() && !EMAIL_RE.test(rm.email.trim())) return `${rm.name}'s Google account isn't a valid email.`;
+  }
   return null;
+}
+
+function roleHint(type: ApprovalStepApproverType): string {
+  return type === "regional_manager"
+    ? "Goes to the Regional Manager of the request's branch. Set each RM's Google account under Regional managers below."
+    : "Goes to the Branch Manager of the request's branch, using the BM email in Settings → Branches.";
 }
 
 function StepRow({
   step,
   index,
-  count,
   segment,
+  isDragging,
   onChange,
-  onMove,
   onRemove,
+  onDragHandle,
+  onKeyMove,
+  rowProps,
 }: {
   step: RequisitionApprovalStep;
   index: number;
-  count: number;
   segment: Segment;
+  isDragging: boolean;
   onChange: (patch: Partial<RequisitionApprovalStep>) => void;
-  onMove: (delta: -1 | 1) => void;
   onRemove: () => void;
+  onDragHandle: (armed: boolean) => void;
+  onKeyMove: (delta: -1 | 1) => void;
+  rowProps: React.HTMLAttributes<HTMLDivElement> & { draggable: boolean };
 }) {
+  const type = approverTypeOf(step);
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b py-2.5 last:border-b-0">
-      <span className="w-5 shrink-0 text-xs text-muted-foreground">{index + 1}.</span>
-      <Input
-        value={step.label}
-        onChange={(e) => onChange({ label: e.target.value })}
-        placeholder="Step (e.g. HOD)"
-        className="w-36"
-        aria-label="Step label"
-      />
-      <Input
-        value={step.approverName}
-        onChange={(e) => onChange({ approverName: e.target.value })}
-        placeholder="Approver name"
-        className="w-40"
-        aria-label="Approver name"
-      />
-      <Input
-        type="email"
-        list="staff-emails"
-        value={step.approverEmail}
-        onChange={(e) => onChange({ approverEmail: e.target.value })}
-        placeholder="name@pendahealth.com"
-        className="min-w-48 flex-1"
-        aria-label="Approver Google account"
-      />
-      {segment === "SO" && (
-        <Select
-          value={scopeValue(step)}
-          onValueChange={(v) => onChange({ appliesTo: SO_SCOPES.find((s) => s.value === v)?.appliesTo })}
+    <div
+      {...rowProps}
+      className={`rounded-md border bg-card p-2.5 transition-opacity ${isDragging ? "opacity-40" : ""}`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="cursor-grab touch-none rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+          aria-label={`Drag to reorder step ${index + 1}. Arrow keys also move it.`}
+          onMouseDown={() => onDragHandle(true)}
+          onMouseUp={() => onDragHandle(false)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+              e.preventDefault();
+              onKeyMove(e.key === "ArrowUp" ? -1 : 1);
+            }
+          }}
         >
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SO_SCOPES.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-      <div className="flex items-center">
-        <Button size="icon" variant="ghost" disabled={index === 0} onClick={() => onMove(-1)} aria-label="Move up">
-          <ArrowUp className="h-4 w-4" />
-        </Button>
-        <Button size="icon" variant="ghost" disabled={index === count - 1} onClick={() => onMove(1)} aria-label="Move down">
-          <ArrowDown className="h-4 w-4" />
-        </Button>
-        <Button size="icon" variant="ghost" onClick={onRemove} aria-label="Remove step">
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <span className="w-4 text-xs text-muted-foreground">{index + 1}.</span>
+        <Input
+          value={step.label}
+          onChange={(e) => onChange({ label: e.target.value })}
+          placeholder="Step (e.g. Deputy Head of IPS)"
+          className="w-52"
+          aria-label="Step label"
+        />
+        {segment === "IPS" ? (
+          <Select
+            value={type}
+            onValueChange={(v) =>
+              onChange(
+                v === "person"
+                  ? { approverType: "person" }
+                  : { approverType: v as ApprovalStepApproverType, approverName: "", approverEmail: "" }
+              )
+            }
+          >
+            <SelectTrigger className="w-52" aria-label="Who approves">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {IPS_APPROVER_TYPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {APPROVER_TYPE_LABELS[t]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Select
+            value={scopeValue(step)}
+            onValueChange={(v) => onChange({ appliesTo: SO_SCOPES.find((s) => s.value === v)?.appliesTo })}
+          >
+            <SelectTrigger className="w-44" aria-label="Applies to">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SO_SCOPES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <Button size="icon" variant="ghost" className="ml-auto" onClick={onRemove} aria-label="Remove step">
           <Trash2 className="h-4 w-4 text-muted-foreground" />
         </Button>
+      </div>
+      <div className="mt-2 pl-12">
+        {type === "person" ? (
+          <div className="flex flex-wrap gap-2">
+            <Input
+              value={step.approverName}
+              onChange={(e) => onChange({ approverName: e.target.value })}
+              placeholder="Approver name"
+              className="w-52"
+              aria-label="Approver name"
+            />
+            <Input
+              type="email"
+              list="staff-emails"
+              value={step.approverEmail}
+              onChange={(e) => onChange({ approverEmail: e.target.value })}
+              placeholder="Google account, e.g. name@pendahealth.com"
+              className="min-w-56 flex-1"
+              aria-label="Approver Google account"
+            />
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">{roleHint(type)}</p>
+        )}
       </div>
     </div>
   );
 }
 
-export function RequisitionApprovalsCard({ profiles }: { profiles: User[] }) {
+/** Drag-and-drop list of one segment's steps. Reorders live as you drag over rows. */
+function StepList({
+  segment,
+  steps,
+  onSteps,
+  onChangeStep,
+}: {
+  segment: Segment;
+  steps: RequisitionApprovalStep[];
+  onSteps: (fn: (steps: RequisitionApprovalStep[]) => RequisitionApprovalStep[]) => void;
+  onChangeStep: (id: string, patch: Partial<RequisitionApprovalStep>) => void;
+}) {
+  // Rows are only draggable while the grip is held, so dragging never
+  // starts from (or breaks text selection in) the inputs.
+  const [armedId, setArmedId] = React.useState<string | null>(null);
+  const [draggingId, setDraggingId] = React.useState<string | null>(null);
+
+  function moveTo(id: string, targetIndex: number) {
+    onSteps((current) => {
+      const from = current.findIndex((s) => s.id === id);
+      if (from === -1 || from === targetIndex || targetIndex < 0 || targetIndex >= current.length) return current;
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+  }
+
+  if (steps.length === 0) return <p className="py-2 text-xs text-muted-foreground">No approvers. Add at least one step.</p>;
+
+  return (
+    <div className="space-y-2">
+      {steps.map((step, i) => (
+        <StepRow
+          key={step.id}
+          step={step}
+          index={i}
+          segment={segment}
+          isDragging={draggingId === step.id}
+          onChange={(patch) => onChangeStep(step.id, patch)}
+          onRemove={() => onSteps((current) => current.filter((s) => s.id !== step.id))}
+          onDragHandle={(armed) => setArmedId(armed ? step.id : null)}
+          onKeyMove={(delta) => moveTo(step.id, i + delta)}
+          rowProps={{
+            draggable: armedId === step.id,
+            onDragStart: (e) => {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", step.id);
+              setDraggingId(step.id);
+            },
+            onDragOver: (e) => {
+              if (!draggingId) return; // a drag from the other segment's list
+              e.preventDefault();
+              if (draggingId !== step.id) moveTo(draggingId, i);
+            },
+            onDrop: (e) => e.preventDefault(),
+            onDragEnd: () => {
+              setDraggingId(null);
+              setArmedId(null);
+            },
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** RM names come from Branches; this pairs each with the Google account that approves for it. */
+function RegionalManagersSection({
+  directory,
+  branches,
+  onChange,
+}: {
+  directory: RegionalManagerContact[];
+  branches: Branch[];
+  onChange: (directory: RegionalManagerContact[]) => void;
+}) {
+  const branchCount = (name: string) =>
+    branches.filter((b) => b.active && findRegionalManager(b.regionalManager, [{ name, email: "" }])).length;
+  const unmatched = branches.filter(
+    (b) => b.active && b.segment !== "SO" && !findRegionalManager(b.regionalManager, directory)
+  );
+
+  return (
+    <div className="space-y-2 border-t pt-4">
+      <p className="text-sm font-medium">Regional managers</p>
+      <p className="text-xs text-muted-foreground">
+        The names come from each branch&apos;s Regional Manager (Settings → Branches). Add the Google account each one
+        approves with. A request is routed using its branch.
+      </p>
+      {directory.map((rm, i) => (
+        <div key={i} className="flex flex-wrap items-center gap-2">
+          <Input
+            value={rm.name}
+            onChange={(e) => onChange(directory.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))}
+            className="w-52"
+            aria-label="Regional manager name"
+          />
+          <Input
+            type="email"
+            list="staff-emails"
+            value={rm.email}
+            onChange={(e) => onChange(directory.map((r, j) => (j === i ? { ...r, email: e.target.value } : r)))}
+            placeholder="Google account"
+            className={`min-w-56 flex-1 ${rm.email.trim() ? "" : "border-amber-400"}`}
+            aria-label={`${rm.name} Google account`}
+          />
+          <span className="w-20 text-xs text-muted-foreground">{branchCount(rm.name)} branches</span>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => onChange(directory.filter((_, j) => j !== i))}
+            aria-label={`Remove ${rm.name}`}
+          >
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </div>
+      ))}
+      <Button size="sm" variant="ghost" onClick={() => onChange([...directory, { name: "", email: "" }])}>
+        <Plus className="mr-1 h-3.5 w-3.5" /> Add regional manager
+      </Button>
+      {unmatched.length > 0 && (
+        <p className="text-xs text-amber-700">
+          No regional manager matched for: {unmatched.map((b) => `${b.name} (${b.regionalManager || "none set"})`).join(", ")}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function RequisitionApprovalsCard({ profiles, branches }: { profiles: User[]; branches: Branch[] }) {
   const [workflows, setWorkflows] = React.useState<RequisitionWorkflows | null>(null);
   const [savedWorkflows, setSavedWorkflows] = React.useState<string>("");
   const [configured, setConfigured] = React.useState(false);
@@ -147,6 +357,21 @@ export function RequisitionApprovalsCard({ profiles }: { profiles: User[] }) {
       .catch(() => setMessage({ tone: "error", text: "Failed to load the current approval settings." }));
   }, []);
 
+  // Every RM named on a branch gets a row, even before it's been saved, so
+  // filling in the directory is just typing emails.
+  const directory = React.useMemo(() => {
+    const saved = workflows?.regionalManagers ?? [];
+    const missing = regionalManagerNames(branches)
+      .filter((name) => !findRegionalManager(name, saved))
+      .map((name) => ({ name, email: "" }));
+    return [...saved, ...missing];
+  }, [workflows?.regionalManagers, branches]);
+
+  function setDirectory(next: RegionalManagerContact[]) {
+    setWorkflows((prev) => (prev ? { ...prev, regionalManagers: next } : prev));
+    setMessage(null);
+  }
+
   function updateSteps(segment: Segment, fn: (steps: RequisitionApprovalStep[]) => RequisitionApprovalStep[]) {
     setWorkflows((prev) => (prev ? { ...prev, [segment]: { steps: fn(prev[segment].steps) } } : prev));
     setMessage(null);
@@ -167,15 +392,6 @@ export function RequisitionApprovalsCard({ profiles }: { profiles: User[] }) {
     );
   }
 
-  function moveStep(segment: Segment, index: number, delta: -1 | 1) {
-    updateSteps(segment, (steps) => {
-      const next = [...steps];
-      const [moved] = next.splice(index, 1);
-      next.splice(index + delta, 0, moved);
-      return next;
-    });
-  }
-
   async function patchSettings(body: Record<string, unknown>): Promise<AppSettings> {
     const res = await fetch("/api/settings", {
       method: "PATCH",
@@ -192,11 +408,19 @@ export function RequisitionApprovalsCard({ profiles }: { profiles: User[] }) {
 
   async function saveWorkflows() {
     if (!workflows) return;
+    const cleanStep = (s: RequisitionApprovalStep): RequisitionApprovalStep =>
+      approverTypeOf(s) === "person"
+        ? { ...s, approverType: "person", approverEmail: s.approverEmail.trim().toLowerCase() }
+        : { ...s, approverName: "", approverEmail: "" };
     const cleaned: RequisitionWorkflows = {
-      IPS: { steps: workflows.IPS.steps.map((s) => ({ ...s, approverEmail: s.approverEmail.trim().toLowerCase(), appliesTo: undefined })) },
-      SO: { steps: workflows.SO.steps.map((s) => ({ ...s, approverEmail: s.approverEmail.trim().toLowerCase() })) },
+      IPS: { steps: workflows.IPS.steps.map((s) => ({ ...cleanStep(s), appliesTo: undefined })) },
+      SO: { steps: workflows.SO.steps.map(cleanStep) },
+      // RMs without an email yet aren't saved — they reappear from Branches.
+      regionalManagers: directory
+        .map((rm) => ({ name: rm.name.trim(), email: rm.email.trim().toLowerCase() }))
+        .filter((rm) => rm.name && rm.email),
     };
-    const problem = validate(cleaned);
+    const problem = validate({ ...cleaned, regionalManagers: directory });
     if (problem) {
       setMessage({ tone: "error", text: problem });
       return;
@@ -209,7 +433,14 @@ export function RequisitionApprovalsCard({ profiles }: { profiles: User[] }) {
       setWorkflows(saved);
       setSavedWorkflows(JSON.stringify(saved));
       setConfigured(true);
-      setMessage({ tone: "ok", text: "Approvers saved. New requests will use them; requests already in progress keep their original approvers." });
+      const usesRm = saved.IPS.steps.some((s) => approverTypeOf(s) === "regional_manager");
+      const missingRm = directory.filter((rm) => rm.name.trim() && !rm.email.trim()).length;
+      setMessage({
+        tone: "ok",
+        text:
+          `Approvers saved. New requests will use them; requests already in progress keep their original approvers.` +
+          (usesRm && missingRm ? ` ${missingRm} regional manager(s) still need a Google account.` : ""),
+      });
     } catch (err) {
       setMessage({ tone: "error", text: err instanceof Error ? err.message : "Failed to save." });
     } finally {
@@ -261,13 +492,14 @@ export function RequisitionApprovalsCard({ profiles }: { profiles: User[] }) {
       <CardContent className="space-y-6">
         <p className="text-xs text-muted-foreground">
           Every requisition, whether from the in-app forms or the public request links, goes through these approvers
-          in order. Each approver gets an email link and must sign in with the Google account below to approve or
-          reject. Once the last one approves, the request becomes an Open Role.
+          in order. Drag the handle to reorder. Each approver gets an email link and must sign in with their Google
+          account to approve or reject. If the requester is one of the approvers, their step is skipped. Once the last
+          approver signs off, the request becomes an Open Role.
         </p>
         {!configured && workflows && (
           <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-800">
-            Not set up yet. The steps below are suggestions; add each approver&apos;s Google account and save. Until
-            then, new requests wait for a Recruitment Manager to approve them in the app.
+            Not set up yet. The steps below are suggestions. Fill in the approvers and save. Until then, new requests
+            wait for a Recruitment Manager to approve them in the app.
           </p>
         )}
 
@@ -282,39 +514,35 @@ export function RequisitionApprovalsCard({ profiles }: { profiles: User[] }) {
         {!workflows ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : (
-          SEGMENTS.map(({ segment, title, blurb }) => (
-            <div key={segment} className="space-y-1">
-              <div className="flex items-baseline justify-between">
-                <p className="text-sm font-medium">{title}</p>
-                <p className="text-xs text-muted-foreground">{blurb}</p>
+          <>
+            {SEGMENTS.map(({ segment, title, blurb }) => (
+              <div key={segment} className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <p className="text-sm font-medium">{title}</p>
+                  <p className="text-xs text-muted-foreground">{blurb}</p>
+                </div>
+                <StepList
+                  segment={segment}
+                  steps={workflows[segment].steps}
+                  onSteps={(fn) => updateSteps(segment, fn)}
+                  onChangeStep={(id, patch) => changeStep(segment, id, patch)}
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    updateSteps(segment, (steps) => [
+                      ...steps,
+                      { id: newStepId(), label: "", approverType: "person", approverName: "", approverEmail: "" },
+                    ])
+                  }
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Add step
+                </Button>
               </div>
-              {workflows[segment].steps.length === 0 ? (
-                <p className="py-2 text-xs text-muted-foreground">No approvers — add at least one step.</p>
-              ) : (
-                workflows[segment].steps.map((step, i) => (
-                  <StepRow
-                    key={step.id}
-                    step={step}
-                    index={i}
-                    count={workflows[segment].steps.length}
-                    segment={segment}
-                    onChange={(patch) => changeStep(segment, step.id, patch)}
-                    onMove={(delta) => moveStep(segment, i, delta)}
-                    onRemove={() => updateSteps(segment, (steps) => steps.filter((s) => s.id !== step.id))}
-                  />
-                ))
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() =>
-                  updateSteps(segment, (steps) => [...steps, { id: newStepId(), label: "", approverName: "", approverEmail: "" }])
-                }
-              >
-                <Plus className="mr-1 h-3.5 w-3.5" /> Add step
-              </Button>
-            </div>
-          ))
+            ))}
+            <RegionalManagersSection directory={directory} branches={branches} onChange={setDirectory} />
+          </>
         )}
 
         <div className="flex items-center gap-2">

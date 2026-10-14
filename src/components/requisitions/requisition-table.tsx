@@ -22,7 +22,8 @@ function approvalSummary(req: Requisition): string {
   if (req.status === "Pending Approval") {
     const step = steps[req.currentApproverIndex];
     if (!step) return steps.length === 0 ? "No workflow set" : "—";
-    return `${req.currentApproverIndex + 1}/${steps.length} · ${step.label} — ${step.approverName}`;
+    const who = step.approverEmail ? step.approverName : `${step.approverName ? `${step.approverName}, ` : ""}no account on file`;
+    return `${req.currentApproverIndex + 1}/${steps.length} · ${step.label} — ${who}`;
   }
   if (req.status === "Rejected") {
     const entry = [...(req.approvalLog ?? [])].reverse().find((e) => e.decision === "Rejected");
@@ -53,7 +54,7 @@ export function RequisitionTable({
 }) {
   const [active, setActive] = React.useState<{ id: string; mode: ApprovalMode } | null>(null);
   const [resending, setResending] = React.useState<string | null>(null);
-  const [resent, setResent] = React.useState<string | null>(null);
+  const [resent, setResent] = React.useState<{ id: string; ok: boolean } | null>(null);
   const activeReq = active ? requisitions.find((r) => r.id === active.id) : undefined;
 
   function modeFor(req: Requisition): ApprovalMode {
@@ -67,7 +68,7 @@ export function RequisitionTable({
     setResending(id);
     const ok = await onResend(id);
     setResending(null);
-    setResent(ok ? id : null);
+    setResent({ id, ok });
   }
 
   return (
@@ -90,7 +91,9 @@ export function RequisitionTable({
         <TableBody>
           {requisitions.map((req) => {
             const mode = modeFor(req);
-            const canResend = canEdit && req.status === "Pending Approval" && !!req.currentApproverEmail;
+            // Also offered when the current RM/BM step has no account on file —
+            // resending re-resolves it, so it works once Settings is fixed.
+            const canResend = canEdit && req.status === "Pending Approval" && !!req.approvalSteps?.length;
             return (
               <TableRow key={req.id}>
                 <TableCell className="font-medium">{req.reqId}</TableCell>
@@ -133,9 +136,19 @@ export function RequisitionTable({
                         variant="ghost"
                         disabled={resending === req.id}
                         onClick={() => resend(req.id)}
-                        title={`Re-send the approval email to ${req.currentApproverEmail}`}
+                        title={
+                          req.currentApproverEmail
+                            ? `Re-send the approval email to ${req.currentApproverEmail}`
+                            : "Look the approver up again and send the email"
+                        }
                       >
-                        {resending === req.id ? "Sending…" : resent === req.id ? "Sent" : "Resend email"}
+                        {resending === req.id
+                          ? "Sending…"
+                          : resent?.id === req.id
+                            ? resent.ok
+                              ? "Sent"
+                              : "No account on file"
+                            : "Resend email"}
                       </Button>
                     )}
                   </div>

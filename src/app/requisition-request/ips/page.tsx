@@ -34,7 +34,7 @@ const IPS_ROLES = ["Nurse", "Clinical Officer", "Pharmacist", "Lab Technician", 
 const EMPLOYMENT_TYPES: EmploymentType[] = ["Full-time", "Part-time", "Contract", "Reliever", "Locum"];
 const URGENCIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 
-type Branch = { id: string; name: string; city: string };
+type Branch = { id: string; name: string; city: string; regionalManager?: string; branchManager?: string };
 
 export default function PublicIpsRequisitionRequestPage() {
   const [branches, setBranches] = React.useState<Branch[]>([]);
@@ -374,7 +374,7 @@ export default function PublicIpsRequisitionRequestPage() {
 
         <div className="space-y-2 rounded-lg border border-border p-4">
           <p className="text-sm font-medium">Who approves this</p>
-          <ApprovalChainPreview steps={approvers} type={"IPS Gap"} />
+          <ApprovalChainPreview steps={approvers} type={"IPS Gap"} branch={branches.find((b) => b.id === branchId)} />
           <p className="text-xs text-muted-foreground">
             Each approver gets an email in turn. It becomes an open role once the last one approves.
           </p>

@@ -60,7 +60,8 @@ function StepList({ view }: { view: ApprovalView }) {
             </span>
             <div className="min-w-0 text-sm">
               <p className="font-medium leading-tight">
-                {step.label} — {step.approverName}
+                {step.label}
+                {step.approverName ? ` — ${step.approverName}` : ""}
               </p>
               {entry ? (
                 <p className="text-xs text-muted-foreground">
@@ -74,6 +75,13 @@ function StepList({ view }: { view: ApprovalView }) {
           </li>
         );
       })}
+      {view.log
+        .filter((e) => e.decision === "Skipped")
+        .map((e, i) => (
+          <li key={`skip-${i}`} className="text-xs text-muted-foreground">
+            {e.label} step skipped — the requester is that approver.
+          </li>
+        ))}
     </ol>
   );
 }

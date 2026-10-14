@@ -196,12 +196,30 @@ export interface Requisition {
   submitterGoogleVerified?: boolean;
 }
 
-/** One approver in a requisition approval workflow — always a specific Google account. */
+/**
+ * Who fills an approval step:
+ * - "person": one fixed Google account (e.g. the Deputy Head of IPS).
+ * - "regional_manager": the Regional Manager of the request's branch, looked
+ *   up in the Settings → Regional managers directory by the branch's
+ *   Regional Manager name.
+ * - "branch_manager": the request's branch's BM (Branches → BM Email).
+ * Branch-based types only make sense for IPS, where requests carry a branch.
+ */
+export type ApprovalStepApproverType = "person" | "regional_manager" | "branch_manager";
+
+/** One approver in a requisition approval workflow. */
 export interface RequisitionApprovalStep {
   /** Stable key so the Settings editor can reorder rows without remounting them. */
   id: string;
-  /** What the step is, e.g. "HOD" or "Director of People". */
+  /** What the step is, e.g. "Regional Manager" or "Deputy Head of IPS". */
   label: string;
+  /** Missing = "person" (workflows saved before role-based steps existed). */
+  approverType?: ApprovalStepApproverType;
+  /**
+   * For "person" steps, set in Settings. For branch-based steps, blank in the
+   * workflow and filled in on each request's snapshot once resolved — still
+   * blank there if the branch has no RM/BM email on file yet.
+   */
   approverName: string;
   /** The Google account that must sign in to approve this step. */
   approverEmail: string;
@@ -213,18 +231,29 @@ export interface RequisitionApprovalWorkflow {
   steps: RequisitionApprovalStep[];
 }
 
-export type RequisitionWorkflows = Record<Segment, RequisitionApprovalWorkflow>;
+/** Settings → Regional managers: the Google account behind each RM name used on Branches. */
+export interface RegionalManagerContact {
+  name: string;
+  email: string;
+}
+
+export interface RequisitionWorkflows {
+  IPS: RequisitionApprovalWorkflow;
+  SO: RequisitionApprovalWorkflow;
+  regionalManagers?: RegionalManagerContact[];
+}
 
 export interface RequisitionApprovalLogEntry {
   stepIndex: number;
   label: string;
   approverEmail: string;
-  decision: "Approved" | "Rejected";
+  /** "Skipped" = the requester was this step's approver, so it was passed over at submission. */
+  decision: "Approved" | "Rejected" | "Skipped";
   /** Verified email of whoever actually acted — differs from approverEmail only on a manager override. */
   decidedBy: string;
   decidedAt: string;
   comment?: string;
-  via: "email-link" | "in-app" | "override";
+  via: "email-link" | "in-app" | "override" | "system";
 }
 
 export interface OpenRole {

@@ -259,7 +259,11 @@ function NewIpsGapRequisitionForm() {
           <CardTitle>Approval chain</CardTitle>
         </CardHeader>
         <CardContent>
-          <ApprovalChainPreview steps={workflowPreview?.IPS ?? null} type="IPS Gap" />
+          <ApprovalChainPreview
+            steps={workflowPreview?.IPS ?? null}
+            type="IPS Gap"
+            branch={ipsBranches.find((b) => b.id === branchId)}
+          />
         </CardContent>
       </Card>
 

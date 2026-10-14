@@ -109,7 +109,9 @@ export function RequisitionApprovalDialog({
                         {isCurrent && <span className="ml-2 text-xs font-normal text-amber-700">Waiting</span>}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {step.approverName} · {step.approverEmail}
+                        {step.approverEmail
+                          ? `${step.approverName} · ${step.approverEmail}`
+                          : `${step.approverName ? `${step.approverName} · ` : ""}no Google account on file yet`}
                       </p>
                       {entry && (
                         <p className="mt-1 text-xs">
@@ -125,9 +127,19 @@ export function RequisitionApprovalDialog({
             </ol>
           )}
 
+          {log
+            .filter((e) => e.decision === "Skipped")
+            .map((entry, i) => (
+              <p key={`skip-${i}`} className="text-xs text-muted-foreground">
+                {entry.label} step skipped — the requester is that approver.
+              </p>
+            ))}
+
           {/* A no-workflow request decided by override has a log entry with no matching step. */}
           {steps.length === 0 &&
-            log.map((entry, i) => (
+            log
+              .filter((e) => e.decision !== "Skipped")
+              .map((entry, i) => (
               <p key={i} className="text-xs">
                 {entry.decision} by {entry.decidedBy} · {formatWhen(entry.decidedAt)}
                 {entry.comment ? ` — “${entry.comment}”` : ""}

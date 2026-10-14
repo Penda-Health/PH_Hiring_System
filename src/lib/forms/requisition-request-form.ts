@@ -9,12 +9,15 @@ import { branchFromAirtable, openRoleFromAirtable } from "@/lib/airtable/mappers
 import { Segment } from "@/types";
 import { createRequisitionWithApproval, NewRequisitionInput } from "@/lib/requisitions/approval";
 
-export async function loadActiveBranches(segment: Segment): Promise<{ id: string; name: string; city: string }[]> {
+export async function loadActiveBranches(
+  segment: Segment
+): Promise<{ id: string; name: string; city: string; regionalManager: string; branchManager: string }[]> {
   const records = await listRecords(TABLE_NAMES.Branches);
   return records
     .map(branchFromAirtable)
     .filter((b) => b.active && b.segment === segment)
-    .map((b) => ({ id: b.id, name: b.name, city: b.city }))
+    // RM/BM names (never emails) so the form can show who'll approve.
+    .map((b) => ({ id: b.id, name: b.name, city: b.city, regionalManager: b.regionalManager, branchManager: b.branchManager }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
