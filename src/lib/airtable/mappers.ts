@@ -299,6 +299,9 @@ export function candidateFromAirtable(r: AirtableRecord): Candidate {
     refCheckStatus: opt(f[F.Candidates.REF_CHECK_STATUS]),
     offerStatus: opt(f[F.Candidates.OFFER_STATUS]),
     joined: opt(f[F.Candidates.JOINED]),
+    expectedJoiningDate: opt<string>(f[F.Candidates.EXPECTED_JOINING_DATE]),
+    joinedOn: opt<string>(f[F.Candidates.JOINED_ON]),
+    dropOffReason: opt<string>(f[F.Candidates.DROP_OFF_REASON]),
     stageEnteredAt: str(f[F.Candidates.STAGE_ENTERED_AT]),
     createdAt: str(f[F.Candidates.CREATED_AT]),
   };
@@ -326,6 +329,10 @@ export function candidateToAirtable(c: Partial<Candidate>) {
     [F.Candidates.REF_CHECK_STATUS]: c.refCheckStatus,
     [F.Candidates.OFFER_STATUS]: c.offerStatus,
     [F.Candidates.JOINED]: c.joined,
+    // null = an explicit clear (cleanFields only drops undefined).
+    [F.Candidates.EXPECTED_JOINING_DATE]: c.expectedJoiningDate,
+    [F.Candidates.JOINED_ON]: c.joinedOn,
+    [F.Candidates.DROP_OFF_REASON]: c.dropOffReason,
     // Candidates table uses date-only fields — strip the time component before
     // writing so Airtable doesn't reject a full ISO datetime string.
     [F.Candidates.STAGE_ENTERED_AT]: c.stageEnteredAt ? c.stageEnteredAt.slice(0, 10) : undefined,

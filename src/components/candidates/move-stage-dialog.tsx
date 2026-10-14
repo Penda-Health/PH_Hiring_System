@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const STAGES: CandidateStage[] = [
@@ -44,19 +45,29 @@ export function MoveStageDialog({
   candidate: Candidate | null;
   openRoles: OpenRole[];
   onOpenChange: (open: boolean) => void;
-  onMove: (id: string, stage: CandidateStage, roleId?: string, employmentType?: EmploymentType) => void;
+  onMove: (
+    id: string,
+    stage: CandidateStage,
+    roleId?: string,
+    employmentType?: EmploymentType,
+    expectedJoiningDate?: string
+  ) => void;
 }) {
   const [stage, setStage] = React.useState<CandidateStage>(candidate?.stage ?? "First Interview");
   const [roleId, setRoleId] = React.useState("");
   const [employmentType, setEmploymentType] = React.useState<EmploymentType>(
     candidate?.employmentType ?? "Full-time"
   );
+  // Required for every hire — it's what the joining tracker (and the
+  // "signed but didn't join" drop-off rate) is measured against.
+  const [expectedJoiningDate, setExpectedJoiningDate] = React.useState("");
 
   React.useEffect(() => {
     if (candidate) {
       setStage(candidate.stage);
       setRoleId(candidate.roleId ?? "");
       setEmploymentType(candidate.employmentType ?? "Full-time");
+      setExpectedJoiningDate(candidate.expectedJoiningDate ?? "");
     }
   }, [candidate]);
 
@@ -82,14 +93,20 @@ export function MoveStageDialog({
   const roleRequired =
     stage === "Hired" && candidate?.segment === "IPS" && !isFloatingType;
 
+  // Only when they're newly being hired — re-saving an existing hire keeps
+  // its date (changed via "Update joining" instead).
+  const joiningDateRequired = stage === "Hired" && candidate?.stage !== "Hired";
+
   function handleSave() {
     if (!candidate) return;
     if (roleRequired && !roleId) return;
+    if (joiningDateRequired && !expectedJoiningDate) return;
     onMove(
       candidate.id,
       stage,
       stage === "Hired" && roleId ? roleId : undefined,
       stage === "Hired" ? employmentType : undefined,
+      stage === "Hired" ? expectedJoiningDate : undefined,
     );
     onOpenChange(false);
   }
@@ -114,6 +131,23 @@ export function MoveStageDialog({
                   </SelectContent>
                 </Select>
               </div>
+
+              {joiningDateRequired && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="expected-joining-date">
+                    Expected joining date <span className="ml-1 text-xs text-destructive">(required)</span>
+                  </Label>
+                  <Input
+                    id="expected-joining-date"
+                    type="date"
+                    value={expectedJoiningDate}
+                    onChange={(e) => setExpectedJoiningDate(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Their joining is tracked as Pending until you mark them Joined or Did Not Join.
+                  </p>
+                </div>
+              )}
 
               {stage === "Hired" && (
                 <>
@@ -174,7 +208,7 @@ export function MoveStageDialog({
             <DialogFooter>
               <Button
                 onClick={handleSave}
-                disabled={roleRequired && !roleId}
+                disabled={(roleRequired && !roleId) || (joiningDateRequired && !expectedJoiningDate)}
                 className="bg-penda-blue hover:bg-penda-blue-dark"
               >
                 Save

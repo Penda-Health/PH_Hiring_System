@@ -234,6 +234,11 @@ export const candidateSchema = z.object({
   refCheckStatus: z.string().max(100).optional(),
   offerStatus: z.enum(["Pending", "Accepted", "Declined", "Negotiating", "Withdrawn"]).optional(),
   joined: z.enum(["Pending", "Joined", "Did Not Join"]).optional(),
+  // Joining tracker (set when moved to Hired / updated from "Update joining").
+  // Nullable so a date can be cleared, not just changed.
+  expectedJoiningDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  joinedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  dropOffReason: z.string().trim().max(1000).nullable().optional(),
   stageEnteredAt: z.string().max(40),
   createdAt: z.string().max(40),
 });

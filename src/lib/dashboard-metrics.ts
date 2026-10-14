@@ -1,3 +1,4 @@
+import { dropOffRate } from "@/lib/joining";
 import { Candidate, CandidateStage, Interview, Locum, NewEmployee, Offer, OpenRole, Reliever, Segment, WorkTrial } from "@/types";
 import { getCoverageRate } from "@/lib/pools-helpers";
 import { DashboardPeriod, PERIOD_LABELS } from "@/lib/dashboard-filters";
@@ -44,7 +45,7 @@ export function getAllMetrics(data: {
   locums: Locum[];
   newEmployees: NewEmployee[];
 }, period: DashboardPeriod = "all"): MetricRow[] {
-  const { candidates, openRoles, offers, workTrials, interviews, relievers, locums, newEmployees } = data;
+  const { candidates, openRoles, workTrials, interviews, relievers, locums, newEmployees } = data;
   const coverageRate = getCoverageRate(relievers, locums);
   const roleById = new Map(openRoles.map((r) => [r.id, r]));
   const candidateById = new Map(candidates.map((c) => [c.id, c]));
@@ -94,11 +95,9 @@ export function getAllMetrics(data: {
   const offerAcceptanceRate = totalResolvedOffers > 0
     ? (hiredCandidates.length / totalResolvedOffers) * 100
     : 0;
-  // Keep offer-table path for post-offer drop rate (needs joined status)
-  const acceptedOffers = offers.filter((o) => o.outcome === "Accepted");
-
-  const postOfferDrops = acceptedOffers.filter((o) => o.joined === "Did Not Join").length;
-  const postOfferDropRate = acceptedOffers.length ? (postOfferDrops / acceptedOffers.length) * 100 : 0;
+  // From the joining tracker on hired candidates (Joined / Did Not Join) —
+  // the Offers table this used to read is barely used, so it sat at 0%.
+  const postOfferDropRate = dropOffRate(candidates).rate ?? 0;
 
   const ipsWorkTrials = workTrials.filter((wt) => {
     const candidate = candidateById.get(wt.candidateId);
@@ -207,7 +206,7 @@ export function getAllMetrics(data: {
       num: 9,
       metric: "Post-Offer Drop Rate",
       category: "Conversion",
-      formula: "COUNT(joined = did_not_join) / COUNT(outcome = accepted) × 100",
+      formula: "COUNT(hired AND joined = did_not_join) / COUNT(hired AND joined in {joined, did_not_join}) × 100",
       target: "<10%",
       updates: "Real-time",
       value: `${postOfferDropRate.toFixed(1)}%`,

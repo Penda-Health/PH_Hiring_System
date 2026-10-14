@@ -9,6 +9,8 @@ import { CandidatesViewToggle, CandidatesViewMode } from "@/components/candidate
 import { CandidatesTable } from "@/components/candidates/candidates-table";
 import { CandidateGroupColumn } from "@/components/candidates/candidate-group-column";
 import { MoveStageDialog } from "@/components/candidates/move-stage-dialog";
+import { JoiningDialog } from "@/components/candidates/joining-dialog";
+import { dropOffRate, JOINING_STYLES, JoiningState, joiningState } from "@/lib/joining";
 import { EditCandidateDialog } from "@/components/candidates/edit-candidate-dialog";
 import { CandidateDetailDialog } from "@/components/pipeline/candidate-detail-dialog";
 import { NewCandidateDialog } from "@/components/pipeline/new-candidate-dialog";
@@ -28,6 +30,7 @@ export default function CandidatesPage() {
     createCandidate,
     updateCandidate,
     updateCandidateStage,
+    updateCandidateJoining,
     deleteCandidate,
     createInterview,
   } = useRecruitmentData();
@@ -45,6 +48,21 @@ export default function CandidatesPage() {
   const [editingCandidate, setEditingCandidate] = React.useState<Candidate | null>(null);
   const [movingCandidate, setMovingCandidate] = React.useState<Candidate | null>(null);
   const [schedulingCandidate, setSchedulingCandidate] = React.useState<Candidate | null>(null);
+  const [joiningCandidate, setJoiningCandidate] = React.useState<Candidate | null>(null);
+  // Joining tracker chip — narrows the list to hires in that joining state.
+  const [joiningFilter, setJoiningFilter] = React.useState<JoiningState | "all">("all");
+
+  const joining = React.useMemo(() => {
+    const hired = candidates.filter((c) => c.stage === "Hired");
+    const count = (state: JoiningState) => hired.filter((c) => joiningState(c) === state).length;
+    return {
+      upcoming: count("upcoming"),
+      overdue: count("overdue"),
+      noDate: count("no-date"),
+      // joined / dropped / rate — same counts the dashboard metric uses.
+      ...dropOffRate(candidates),
+    };
+  }, [candidates]);
 
   const roleById = React.useMemo(() => new Map(openRoles.map((r) => [r.id, r])), [openRoles]);
 
@@ -58,11 +76,12 @@ export default function CandidatesPage() {
       if (filters.department !== "All" && candidateDepartment !== filters.department) return false;
       if (statusGroup !== "all" && getCandidateStageGroupId(c.stage) !== statusGroup) return false;
       if (search && !`${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(search)) return false;
+      if (joiningFilter !== "all" && (c.stage !== "Hired" || joiningState(c) !== joiningFilter)) return false;
       return true;
     });
-  }, [candidates, roleById, filters, statusGroup]);
+  }, [candidates, roleById, filters, statusGroup, joiningFilter]);
 
-  React.useEffect(() => setPage(0), [filters, statusGroup]);
+  React.useEffect(() => setPage(0), [filters, statusGroup, joiningFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -107,6 +126,34 @@ export default function CandidatesPage() {
         </TabsList>
       </Tabs>
 
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs">
+        <span className="font-medium">Joining tracker</span>
+        {(
+          [
+            ["upcoming", `Expected to join · ${joining.upcoming}`],
+            ["overdue", `Past joining date, not confirmed · ${joining.overdue}`],
+            ["joined", `Joined · ${joining.joined}`],
+            ["dropped", `Did not join · ${joining.dropped}`],
+            ["no-date", `No joining date · ${joining.noDate}`],
+          ] as [JoiningState, string][]
+        ).map(([state, label]) => (
+          <button
+            key={state}
+            type="button"
+            onClick={() => setJoiningFilter((f) => (f === state ? "all" : state))}
+            className={`rounded-full border px-2.5 py-1 transition-colors ${
+              joiningFilter === state ? "border-penda-blue bg-penda-blue/5" : "hover:border-penda-blue/50"
+            } ${JOINING_STYLES[state]}`}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="ml-auto text-muted-foreground">
+          Drop-off rate: {joining.rate === null ? "—" : `${joining.rate.toFixed(0)}%`}
+          {joining.rate !== null && ` (${joining.dropped} of ${joining.joined + joining.dropped})`}
+        </span>
+      </div>
+
       {view === "list" ? (
         <>
           <CandidatesTable
@@ -117,6 +164,7 @@ export default function CandidatesPage() {
             onViewProfile={setViewingCandidate}
             onEdit={setEditingCandidate}
             onMoveStage={setMovingCandidate}
+            onUpdateJoining={setJoiningCandidate}
             onScheduleInterview={setSchedulingCandidate}
             onReject={handleReject}
             onDelete={handleDelete}
@@ -173,6 +221,12 @@ export default function CandidatesPage() {
         openRoles={openRoles}
         onOpenChange={(open) => !open && setMovingCandidate(null)}
         onMove={updateCandidateStage}
+      />
+      <JoiningDialog
+        candidate={joiningCandidate}
+        openRoles={openRoles}
+        onOpenChange={(open) => !open && setJoiningCandidate(null)}
+        onSave={updateCandidateJoining}
       />
       <ScheduleInterviewDialog
         candidates={candidates}

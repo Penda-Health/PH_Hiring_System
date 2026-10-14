@@ -91,8 +91,13 @@ async function resolveCurrentStep(req: Requisition, stepIndex: number): Promise<
   return updated;
 }
 
+/** One Google Chat thread per requisition — also used for its Open Role's closing message (role-notifications.ts). */
+export function requisitionThreadKey(requisitionId: string): string {
+  return `requisition-${requisitionId}`;
+}
+
 function threadKey(req: Requisition): string {
-  return `requisition-${req.id}`;
+  return requisitionThreadKey(req.id);
 }
 
 /**

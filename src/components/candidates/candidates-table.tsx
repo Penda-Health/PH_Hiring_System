@@ -3,6 +3,7 @@
 import { MoreHorizontal } from "lucide-react";
 import { Candidate, OpenRole } from "@/types";
 import { Badge } from "@/components/ui/badge";
+import { JOINING_STYLES, joiningLabel, joiningState } from "@/lib/joining";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -35,6 +36,7 @@ export function CandidatesTable({
   onViewProfile,
   onEdit,
   onMoveStage,
+  onUpdateJoining,
   onScheduleInterview,
   onReject,
   onDelete,
@@ -47,6 +49,7 @@ export function CandidatesTable({
   onViewProfile: (candidate: Candidate) => void;
   onEdit: (candidate: Candidate) => void;
   onMoveStage: (candidate: Candidate) => void;
+  onUpdateJoining: (candidate: Candidate) => void;
   onScheduleInterview: (candidate: Candidate) => void;
   onReject: (candidate: Candidate) => void;
   onDelete: (candidate: Candidate) => void;
@@ -90,6 +93,9 @@ export function CandidatesTable({
               </TableCell>
               <TableCell>
                 <Badge variant="secondary">{candidate.stage}</Badge>
+                {candidate.stage === "Hired" && (
+                  <p className={`mt-1 text-xs ${JOINING_STYLES[joiningState(candidate)]}`}>{joiningLabel(candidate)}</p>
+                )}
               </TableCell>
               <TableCell className="text-muted-foreground">{candidate.source || "—"}</TableCell>
               <TableCell className="text-muted-foreground">{safeDate(candidate.createdAt)}</TableCell>
@@ -107,6 +113,9 @@ export function CandidatesTable({
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => onEdit(candidate)}>Edit Candidate</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onMoveStage(candidate)}>Move Stage</DropdownMenuItem>
+                        {candidate.stage === "Hired" && (
+                          <DropdownMenuItem onClick={() => onUpdateJoining(candidate)}>Update Joining</DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => onScheduleInterview(candidate)}>
                           Schedule Interview
                         </DropdownMenuItem>

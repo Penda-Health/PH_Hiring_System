@@ -324,7 +324,14 @@ export interface Candidate {
   workTrialStatus?: WorkTrialStatus;
   refCheckStatus?: string;
   offerStatus?: OfferOutcome;
+  /** Joining tracker: "Pending" from the moment they're moved to Hired until marked Joined / Did Not Join. */
   joined?: JoinStatus;
+  /** YYYY-MM-DD, captured when the candidate is moved to Hired. */
+  expectedJoiningDate?: string | null;
+  /** YYYY-MM-DD they actually started — set when marked Joined. */
+  joinedOn?: string | null;
+  /** Why a hire who'd accepted never started — required when marked Did Not Join. */
+  dropOffReason?: string | null;
   stageEnteredAt: string;
   createdAt: string;
 }

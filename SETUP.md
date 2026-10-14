@@ -1306,7 +1306,13 @@ an Open Role. The logic is all in `src/lib/requisitions/approval.ts`.
   integrations → Webhooks) and use **Send test message** to check it.
   Every new request, each approval, a rejection and the new Open Role are
   posted there, threaded per requisition. These are sent by the app itself,
-  not an Airtable automation.
+  not an Airtable automation. The thread is closed off when the Open Role
+  is **Filled** (with who was hired) or **Cancelled**. That message says how
+  long it took: days since the role opened, and since the request was
+  submitted. If a filled role is reopened (e.g. a hire marked *Did not join*
+  gives the seat back), that's posted too. Roles created directly in the
+  Open Roles Register, not from a requisition, have no thread and post
+  nothing.
 
 Each request copies the workflow into its own `Approval Steps` field when
 it's submitted, so editing the steps later only affects new requests.
@@ -1385,6 +1391,32 @@ C. **Rejected — tell the requester.** Trigger: *When a record matches
 - Requisitions created before this workflow existed keep their old
   label-only approver chain and show "All approved" or the old labels in
   the Approval column.
+
+### 4.5.9 Joining tracker (signed vs. actually joined)
+
+Moving a candidate to **Hired** (Candidates → Move Stage) now requires an
+**expected joining date**, and starts their joining status at *Pending*.
+From then on:
+
+- The Candidates list shows each hire's joining status under their stage:
+  *Joins 20 Oct*, *Due 20 Oct — confirm* (date passed, not yet
+  confirmed), *Joined 21 Oct*, or *Did not join*.
+- **Update Joining** (row menu, Hired candidates) marks them *Joined*
+  (with the date they started) or *Did not join* (reason required). The
+  first time someone is marked *Did not join*, you can give the seat back
+  to their role: headcount filled −1, and a Filled role goes back to Open,
+  which also posts "reopened" to the requisition's Google Chat thread.
+- The **Joining tracker** strip above the list counts hires by state, each
+  a filter chip, plus the drop-off rate (did not join ÷ hires with a
+  known outcome). The dashboard's *Post-Offer Drop Rate* uses the same
+  numbers. It previously read the barely-used Offers table, so it sat
+  at 0%.
+
+New columns on **Candidates** (added by `npm run airtable:schema`):
+`Expected Joining Date`, `Joined On`, `Drop-off Reason`. The existing
+`Joined` field (Pending / Joined / Did Not Join) holds the status. Hires
+from before this change have no joining date. They show *No joining date*
+until someone fills it in via Update Joining.
 
 ## 4.5.3 Public requisition-request links + 6-month employment confirmation
 

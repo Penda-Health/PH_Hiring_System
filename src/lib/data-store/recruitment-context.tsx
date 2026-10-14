@@ -123,7 +123,23 @@ type RecruitmentDataContextValue = {
   // flow — don't have to guess which entry just landed in `candidates`.
   createCandidate: (candidate: Candidate) => Promise<Candidate>;
   updateCandidate: (id: string, patch: Partial<Candidate>) => void;
-  updateCandidateStage: (id: string, stage: Candidate["stage"], roleId?: string, employmentType?: Candidate["employmentType"]) => void;
+  updateCandidateStage: (
+    id: string,
+    stage: Candidate["stage"],
+    roleId?: string,
+    employmentType?: Candidate["employmentType"],
+    expectedJoiningDate?: string
+  ) => void;
+  /**
+   * Joining tracker for a hired candidate. `reopenSeat` (only acted on when
+   * they newly become "Did Not Join") gives the seat back to their role:
+   * headcount filled -1, and a Filled role goes back to Open.
+   */
+  updateCandidateJoining: (
+    id: string,
+    patch: Pick<Candidate, "joined" | "expectedJoiningDate" | "joinedOn" | "dropOffReason">,
+    opts?: { reopenSeat?: boolean }
+  ) => void;
   deleteCandidate: (id: string) => void;
 
   relievers: Reliever[];
@@ -838,7 +854,13 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
   );
 
   const updateCandidateStage = React.useCallback(
-    (id: string, stage: Candidate["stage"], roleId?: string, employmentType?: Candidate["employmentType"]) => {
+    (
+      id: string,
+      stage: Candidate["stage"],
+      roleId?: string,
+      employmentType?: Candidate["employmentType"],
+      expectedJoiningDate?: string
+    ) => {
       if (!guardEdit(canEdit, "updateCandidateStage")) return;
       const now = new Date().toISOString();
       const patch: Partial<Candidate> = {
@@ -847,6 +869,11 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
         ...(roleId ? { roleId } : {}),
         // Update employment type at hire time if the recruiter changed it
         ...(stage === "Hired" && employmentType ? { employmentType } : {}),
+        // Joining tracker starts here: an expected date and "Pending" until
+        // someone marks them Joined / Did Not Join (updateCandidateJoining).
+        ...(stage === "Hired" && expectedJoiningDate
+          ? { expectedJoiningDate, joined: "Pending" as const, joinedOn: null, dropOffReason: null }
+          : {}),
       };
       setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
       persist<Candidate>("candidates", id, patch);
@@ -964,6 +991,37 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
     [canEdit, candidates, openRoles, branches, createWorkTrial, createLocum, createReliever]
   );
 
+  const updateCandidateJoining = React.useCallback(
+    (
+      id: string,
+      patch: Pick<Candidate, "joined" | "expectedJoiningDate" | "joinedOn" | "dropOffReason">,
+      opts?: { reopenSeat?: boolean }
+    ) => {
+      if (!guardEdit(canEdit, "updateCandidateJoining")) return;
+      const candidate = candidates.find((c) => c.id === id);
+      if (!candidate) return;
+      setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+      persist<Candidate>("candidates", id, patch);
+
+      // Only on the transition into "Did Not Join" — re-saving an
+      // already-dropped candidate must not free a second seat.
+      const newlyDropped = patch.joined === "Did Not Join" && candidate.joined !== "Did Not Join";
+      if (!newlyDropped || !opts?.reopenSeat || !candidate.roleId) return;
+      const role = openRoles.find((r) => r.id === candidate.roleId);
+      if (!role) return;
+      const hcFilled = Math.max(0, (role.hcFilled ?? 0) - 1);
+      // Filled → Open goes through PATCH /api/open-roles, which also posts
+      // "reopened" to the requisition's Google Chat thread.
+      const rolePatch: Partial<OpenRole> =
+        role.status === "Filled" && hcFilled < (role.hcApproved ?? 1)
+          ? { hcFilled, status: "Open", dateClosed: null }
+          : { hcFilled };
+      setOpenRoles((prev) => prev.map((r) => (r.id === role.id ? { ...r, ...rolePatch } : r)));
+      persist<OpenRole>("open-roles", role.id, rolePatch);
+    },
+    [canEdit, candidates, openRoles]
+  );
+
   const deleteCandidate = React.useCallback(
     (id: string) => {
       // Manager-only tier — see the comment on deleteWorkTrial above.
@@ -1039,6 +1097,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       createCandidate,
       updateCandidate,
       updateCandidateStage,
+      updateCandidateJoining,
       deleteCandidate,
       relievers,
       createReliever,
@@ -1098,6 +1157,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       createCandidate,
       updateCandidate,
       updateCandidateStage,
+      updateCandidateJoining,
       deleteCandidate,
       relievers,
       createReliever,
