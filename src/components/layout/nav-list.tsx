@@ -9,7 +9,9 @@ import { sidebarNavItems } from "./sidebar-nav-items";
 export function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const visibleItems = sidebarNavItems.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
+  const visibleItems = sidebarNavItems.filter(
+    (item) => !item.hidden && (!item.roles || (user && item.roles.includes(user.role)))
+  );
 
   let lastGroup: string | undefined;
 

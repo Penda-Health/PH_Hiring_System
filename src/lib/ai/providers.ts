@@ -29,8 +29,12 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     id: "gemini",
     label: "Gemini",
     description: "Google's free-tier Gemini Flash.",
+    // Was gemini-2.0-flash — Google retired it (404 "no longer available"),
+    // and 2.5-flash is closed to new users. Pinned to 3.5-flash rather than
+    // `gemini-flash-latest`, which aliases to the newest model and was
+    // returning 503 "high demand" when this was changed (2026-10-16).
     getModel: () =>
-      createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY })("gemini-2.0-flash"),
+      createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY })("gemini-3.5-flash"),
   },
   {
     id: "cloudflare",
@@ -38,11 +42,13 @@ export const AI_PROVIDERS: ProviderDefinition[] = [
     description: "Open-weight models on Cloudflare's free tier.",
     getModel: () => {
       const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+      // Was @cf/meta/llama-3.1-8b-instruct — Cloudflare deprecated it on
+      // 2026-05-30 (HTTP 410).
       return createOpenAICompatible({
         name: "cloudflare-workers-ai",
         baseURL: `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1`,
         apiKey: process.env.CLOUDFLARE_API_TOKEN,
-      })("@cf/meta/llama-3.1-8b-instruct");
+      })("@cf/meta/llama-3.3-70b-instruct-fp8-fast");
     },
   },
 ];
