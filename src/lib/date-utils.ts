@@ -21,6 +21,8 @@ export function daysUntil(iso: string): number {
  * True if `iso` falls within the last `months` × 30 days (rolling, not
  * calendar-month, so a record from yesterday is never dropped just because
  * the calendar month rolled over) — or always, when `months` is "all".
+ * "2w" is the one non-month option, a literal last-14-days window for
+ * narrowing down to only the freshest records.
  * A missing/unparseable date passes through: a record silently vanishing
  * because a date field was never set is worse than an unfiltered one
  * showing up. See pipeline-helpers.ts's isRoleInMonthRange, which this
@@ -29,13 +31,13 @@ export function daysUntil(iso: string): number {
  */
 export function isWithinMonthRange(
   iso: string | null | undefined,
-  months: "1" | "3" | "6" | "9" | "all",
+  months: "2w" | "1" | "3" | "6" | "9" | "all",
   now: Date = new Date()
 ): boolean {
   if (months === "all" || !iso) return true;
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return true;
-  const days = Number(months) * 30;
+  const days = months === "2w" ? 14 : Number(months) * 30;
   const windowStart = now.getTime() - days * DAY_MS;
   return t >= windowStart;
 }
