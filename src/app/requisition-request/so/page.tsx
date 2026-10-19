@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormShell, FormStatusCard, DraftRestoredBanner, type FormShellBrand } from "@/components/forms/form-shell";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
-import { RequesterGoogleIdentity, type RequesterIdentity } from "@/components/requisitions/requester-google-identity";
+import { RequesterGoogleIdentity, RequesterSignInGate, type RequesterIdentity } from "@/components/requisitions/requester-google-identity";
 import { ApprovalChainPreview } from "@/components/requisitions/approval-chain-preview";
 import type { WorkflowPreviewStep } from "@/lib/requisitions/workflow";
 import { SO_DEPARTMENTS } from "@/lib/department-options";
@@ -218,7 +218,7 @@ export default function PublicSoRequisitionRequestPage() {
         if (body.error === "invalid_google_token") {
           // Google ID tokens last an hour — a long form can outlive one.
           setIdentity(null);
-          throw new Error("Your Google sign-in expired. Sign in again above, then resubmit — your answers are kept.");
+          throw new Error("Your Google sign-in expired. Sign in again to resubmit — your answers are kept.");
         }
         if (body.error === "not_penda_account") {
           setIdentity(null);
@@ -250,10 +250,28 @@ export default function PublicSoRequisitionRequestPage() {
     );
   }
 
+  // Sign-in comes first: the form only shows once there's a Penda identity.
+  // On an expired/rejected token handleSubmit clears `identity`, which lands
+  // back here with the reason; the form's state (and draft) is kept.
+  if (!identity) {
+    return (
+      <FormShell brand={BRAND} title="Support Office Requisition Request" subtitle="Sign in to start your request.">
+        <RequesterSignInGate
+          notice={error}
+          onChange={(next) => {
+            setIdentity(next);
+            if (next) setError(null);
+            if (next?.name && !submitterName.trim()) setSubmitterName(next.name);
+          }}
+        />
+      </FormShell>
+    );
+  }
+
   return (
     <FormShell brand={BRAND}
       title="Support Office Requisition Request"
-      subtitle="Sign in with your Penda Google account, describe the role, and it goes for approval."
+      subtitle="Describe the role, and it goes for approval."
     >
       <div className="space-y-6">
         {draftRestored && <DraftRestoredBanner onDiscard={discardDraftAndRestart} />}

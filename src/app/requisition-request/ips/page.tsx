@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormShell, FormStatusCard, DraftRestoredBanner, type FormShellBrand } from "@/components/forms/form-shell";
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
-import { RequesterGoogleIdentity, type RequesterIdentity } from "@/components/requisitions/requester-google-identity";
+import { RequesterGoogleIdentity, RequesterSignInGate, type RequesterIdentity } from "@/components/requisitions/requester-google-identity";
 import { ApprovalChainPreview } from "@/components/requisitions/approval-chain-preview";
 import type { WorkflowPreviewStep } from "@/lib/requisitions/workflow";
 import { IPS_FUNCTIONS } from "@/lib/department-options";
@@ -55,6 +55,9 @@ export default function PublicIpsRequisitionRequestPage() {
   const [branchId, setBranchId] = React.useState("");
   const [employmentType, setEmploymentType] = React.useState<EmploymentType>("Full-time");
   const [headcount, setHeadcount] = React.useState(1);
+  // Staffing context for approvers — both about this role/cadre at the branch.
+  const [currentHeadcount, setCurrentHeadcount] = React.useState<number | "">("");
+  const [labourModelHeadcount, setLabourModelHeadcount] = React.useState<number | "">("");
   const [urgency, setUrgency] = React.useState<Priority>("Medium");
   const [expectedStartDate, setExpectedStartDate] = React.useState("");
   const [context, setContext] = React.useState("");
@@ -82,6 +85,8 @@ export default function PublicIpsRequisitionRequestPage() {
           setBranchId(draft.branchId || body.branches?.[0]?.id || "");
           setEmploymentType(draft.employmentType as EmploymentType);
           setHeadcount(draft.headcount);
+          setCurrentHeadcount(draft.currentHeadcount ?? "");
+          setLabourModelHeadcount(draft.labourModelHeadcount ?? "");
           setUrgency(draft.urgency as Priority);
           setExpectedStartDate(draft.expectedStartDate);
           setContext(draft.context);
@@ -109,6 +114,8 @@ export default function PublicIpsRequisitionRequestPage() {
         branchId,
         employmentType,
         headcount,
+        currentHeadcount,
+        labourModelHeadcount,
         urgency,
         expectedStartDate,
         context,
@@ -126,6 +133,8 @@ export default function PublicIpsRequisitionRequestPage() {
     branchId,
     employmentType,
     headcount,
+    currentHeadcount,
+    labourModelHeadcount,
     urgency,
     expectedStartDate,
     context,
@@ -142,6 +151,8 @@ export default function PublicIpsRequisitionRequestPage() {
     setBranchId(branches[0]?.id ?? "");
     setEmploymentType("Full-time");
     setHeadcount(1);
+    setCurrentHeadcount("");
+    setLabourModelHeadcount("");
     setUrgency("Medium");
     setExpectedStartDate("");
     setContext("");
@@ -154,6 +165,8 @@ export default function PublicIpsRequisitionRequestPage() {
     roleTitle.trim() &&
     department.trim() &&
     branchId &&
+    currentHeadcount !== "" &&
+    labourModelHeadcount !== "" &&
     context.trim().length >= 20;
 
   async function handleSubmit() {
@@ -176,6 +189,8 @@ export default function PublicIpsRequisitionRequestPage() {
           branchId,
           employmentType,
           headcount,
+          currentHeadcount: currentHeadcount === "" ? undefined : currentHeadcount,
+          labourModelHeadcount: labourModelHeadcount === "" ? undefined : labourModelHeadcount,
           justification: context,
           urgency,
           jdAttached: false,
@@ -188,7 +203,7 @@ export default function PublicIpsRequisitionRequestPage() {
         if (body.error === "invalid_google_token") {
           // Google ID tokens last an hour — a long form can outlive one.
           setIdentity(null);
-          throw new Error("Your Google sign-in expired. Sign in again above, then resubmit — your answers are kept.");
+          throw new Error("Your Google sign-in expired. Sign in again to resubmit — your answers are kept.");
         }
         if (body.error === "not_penda_account") {
           setIdentity(null);
@@ -220,10 +235,28 @@ export default function PublicIpsRequisitionRequestPage() {
     );
   }
 
+  // Sign-in comes first: the form only shows once there's a Penda identity.
+  // On an expired/rejected token handleSubmit clears `identity`, which lands
+  // back here with the reason; the form's state (and draft) is kept.
+  if (!identity) {
+    return (
+      <FormShell brand={BRAND} title="IPS Gap Requisition Request" subtitle="Sign in to start your request.">
+        <RequesterSignInGate
+          notice={error}
+          onChange={(next) => {
+            setIdentity(next);
+            if (next) setError(null);
+            if (next?.name && !submitterName.trim()) setSubmitterName(next.name);
+          }}
+        />
+      </FormShell>
+    );
+  }
+
   return (
     <FormShell brand={BRAND}
       title="IPS Gap Requisition Request"
-      subtitle="Sign in with your Penda Google account, describe the gap, and it goes for approval."
+      subtitle="Describe the gap, and it goes for approval."
     >
       <div className="space-y-6">
         {draftRestored && <DraftRestoredBanner onDiscard={discardDraftAndRestart} />}
@@ -338,7 +371,38 @@ export default function PublicIpsRequisitionRequestPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Headcount</Label>
-              <Input type="number" min={1} value={headcount} onChange={(e) => setHeadcount(Number(e.target.value))} required />
+              <Input type="number" min={0.5} step={0.5} value={headcount} onChange={(e) => setHeadcount(Number(e.target.value))} required />
+              <p className="text-xs text-muted-foreground">0.5 for a role shared across a cluster.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>How many {roleTitle.trim() || "of this role/cadre"} do you have currently?</Label>
+              <Input
+                type="number"
+                min={0}
+                step={0.5}
+                value={currentHeadcount}
+                onChange={(e) => setCurrentHeadcount(e.target.value === "" ? "" : Number(e.target.value))}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Exclude anyone with a planned exit (e.g. the person being replaced). Use 0.5 for someone shared with a
+                clustered branch.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Optimum staffing per the labour model (last 3 months)</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.1"
+                value={labourModelHeadcount}
+                onChange={(e) => setLabourModelHeadcount(e.target.value === "" ? "" : Number(e.target.value))}
+                required
+              />
+              <p className="text-xs text-muted-foreground">How many of this role the labour model says the branch needs.</p>
             </div>
           </div>
 

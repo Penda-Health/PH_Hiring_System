@@ -219,7 +219,7 @@ function NewIpsGapRequisitionForm() {
             </div>
             <div className="space-y-1.5">
               <Label>Headcount</Label>
-              <Input type="number" min={1} value={headcount} onChange={(e) => setHeadcount(Number(e.target.value))} required />
+              <Input type="number" min={0.5} step={0.5} value={headcount} onChange={(e) => setHeadcount(Number(e.target.value))} required />
             </div>
           </div>
 

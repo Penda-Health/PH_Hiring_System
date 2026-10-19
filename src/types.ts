@@ -179,6 +179,10 @@ export interface Requisition {
   submittedBy: string;
   submittedAt: string;
   expectedStartDate?: string;
+  /** IPS: how many of this role/cadre the branch has now, excluding planned exits. */
+  currentHeadcount?: number;
+  /** IPS: optimum staffing for this role/cadre per the labour model, over the last three months. */
+  labourModelHeadcount?: number;
   context?: string;
   submitterName?: string;
   submitterEmail?: string;

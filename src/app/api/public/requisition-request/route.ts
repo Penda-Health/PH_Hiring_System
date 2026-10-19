@@ -55,6 +55,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (
+    result.data.segment === "IPS" &&
+    (result.data.currentHeadcount === undefined || result.data.labourModelHeadcount === undefined)
+  ) {
+    return NextResponse.json(
+      {
+        error: "invalid_request",
+        issues: [{ message: "Current headcount and labour model optimum are required for IPS requests" }],
+      },
+      { status: 422 }
+    );
+  }
+
   const identity = await verifyGoogleIdToken(result.data.credential);
   if (!identity) {
     return NextResponse.json({ error: "invalid_google_token" }, { status: 401 });

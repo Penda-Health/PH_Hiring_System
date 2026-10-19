@@ -62,6 +62,8 @@ export const F = {
     SUBMITTED_BY: "Submitted By",
     SUBMITTED_AT: "Submitted At",
     EXPECTED_START_DATE: "Expected Start Date",
+    CURRENT_HEADCOUNT: "Current Headcount",
+    LABOUR_MODEL_HEADCOUNT: "Labour Model Headcount",
     CONTEXT: "Context",
     SUBMITTER_NAME: "Submitter Name",
     SUBMITTER_EMAIL: "Submitter Email",

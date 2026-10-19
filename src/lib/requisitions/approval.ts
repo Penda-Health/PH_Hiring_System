@@ -183,6 +183,11 @@ export async function createRequisitionWithApproval(input: NewRequisitionInput):
     `Type: ${requisition.type} · Urgency: ${requisition.urgency}`,
     `Requested by: ${requisition.submitterName || requisition.submittedBy}${requisition.submitterEmail ? ` (${requisition.submitterEmail})` : ""}`,
   ];
+  if (requisition.currentHeadcount !== undefined || requisition.labourModelHeadcount !== undefined) {
+    lines.push(
+      `Staffing: ${requisition.currentHeadcount ?? "?"} in post (excl. planned exits) · labour model ${requisition.labourModelHeadcount ?? "?"}`
+    );
+  }
   const reason = truncate(requisition.context || requisition.justification, 300);
   if (reason) lines.push(`Reason: ${reason}`);
   for (const s of skipped) lines.push(`⏭️ ${s.label} step skipped — ${s.approverName} raised this request.`);
@@ -364,6 +369,8 @@ export async function loadApprovalView(requisitionId: string) {
     level: req.level ?? null,
     urgency: req.urgency,
     expectedStartDate: req.expectedStartDate ?? null,
+    currentHeadcount: req.currentHeadcount ?? null,
+    labourModelHeadcount: req.labourModelHeadcount ?? null,
     reason: req.gapReason ?? req.reasonType ?? null,
     justification: req.justification,
     context: req.context ?? null,

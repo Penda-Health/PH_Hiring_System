@@ -80,6 +80,8 @@ export function RequisitionApprovalDialog({
             Requested by {requisition.submitterName || requisition.submittedBy}
             {requisition.submitterEmail ? ` (${requisition.submitterEmail})` : ""} · {requisition.type} ·{" "}
             {requisition.headcount} headcount
+            {requisition.currentHeadcount !== undefined && ` · ${requisition.currentHeadcount} in post`}
+            {requisition.labourModelHeadcount !== undefined && ` · labour model ${requisition.labourModelHeadcount}`}
           </p>
 
           {steps.length === 0 ? (

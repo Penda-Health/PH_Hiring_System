@@ -29,9 +29,12 @@ declare global {
 export function GoogleSignInButton({
   onCredential,
   disabled,
+  text = "signin_with",
 }: {
   onCredential: (credential: string) => void;
   disabled?: boolean;
+  /** GIS button label: "signin_with" → "Sign in with Google", "continue_with" → "Continue with Google". */
+  text?: "signin_with" | "continue_with" | "signup_with";
 }) {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID;
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -51,10 +54,10 @@ export function GoogleSignInButton({
       type: "standard",
       theme: "outline",
       size: "large",
-      text: "signin_with",
+      text,
       width: 320,
     });
-  }, [scriptReady, clientId]);
+  }, [scriptReady, clientId, text]);
 
   if (!clientId) {
     return (

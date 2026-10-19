@@ -45,7 +45,9 @@ export const requisitionSchema = z.object({
   branchId: z.string().max(100).optional(),
   employmentType: z.enum(["Full-time", "Part-time", "Contract", "Reliever", "Locum"]).optional(),
   level: z.enum(["Entry", "Junior", "Mid", "Senior", "Lead", "Manager", "Senior Manager", "Head/Director"]).optional(),
-  headcount: z.number().int().min(1).max(500),
+  // 0.5 steps, like OpenRole.hcApproved — an IPS role shared across two
+  // clustered branches is requested as a 0.5 slice per branch.
+  headcount: z.number().multipleOf(0.5).min(0.5).max(500),
   justification: z.string().trim().min(1).max(3000),
   salaryRangeMin: z.number().min(0).max(100_000_000).optional(),
   salaryRangeMax: z.number().min(0).max(100_000_000).optional(),
@@ -58,6 +60,8 @@ export const requisitionSchema = z.object({
   submittedBy: z.string().trim().min(1).max(150),
   submittedAt: z.string().max(40),
   expectedStartDate: z.string().max(40).optional(),
+  currentHeadcount: z.number().multipleOf(0.5).min(0).max(1000).optional(),
+  labourModelHeadcount: z.number().min(0).max(1000).optional(),
   context: z.string().trim().max(3000).optional(),
   submitterName: z.string().trim().max(150).optional(),
   submitterEmail: z.string().trim().max(255).optional(),

@@ -23,13 +23,9 @@ function readClaims(credential: string): Claims {
 
 export type RequesterIdentity = { credential: string; email: string; name?: string };
 
-export function RequesterGoogleIdentity({
-  identity,
-  onChange,
-}: {
-  identity: RequesterIdentity | null;
-  onChange: (identity: RequesterIdentity | null) => void;
-}) {
+// Shared by the inline block and the sign-in gate: reads the GIS credential
+// and only accepts Penda accounts.
+function usePendaCredential(onChange: (identity: RequesterIdentity | null) => void) {
   const [error, setError] = React.useState<string | null>(null);
 
   function handleCredential(credential: string) {
@@ -43,6 +39,47 @@ export function RequesterGoogleIdentity({
     setError(null);
     onChange({ credential, email, name: claims.name });
   }
+
+  return { error, handleCredential };
+}
+
+/**
+ * First screen of the public requisition-request links: the form stays
+ * hidden until the requester continues with their Penda Google account.
+ * `notice` surfaces why they're back here (e.g. the token expired on submit).
+ */
+export function RequesterSignInGate({
+  onChange,
+  notice,
+}: {
+  onChange: (identity: RequesterIdentity | null) => void;
+  notice?: string | null;
+}) {
+  const { error, handleCredential } = usePendaCredential(onChange);
+
+  return (
+    <div className="space-y-4 rounded-lg border border-border p-6">
+      <div className="space-y-1">
+        <p className="font-medium">Continue with your Penda Google account</p>
+        <p className="text-sm text-muted-foreground">
+          Your request is linked to your @pendahealth.com account, and approval updates go to that address.
+        </p>
+      </div>
+      {notice && <p className="text-sm text-destructive">{notice}</p>}
+      <GoogleSignInButton onCredential={handleCredential} text="continue_with" />
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+export function RequesterGoogleIdentity({
+  identity,
+  onChange,
+}: {
+  identity: RequesterIdentity | null;
+  onChange: (identity: RequesterIdentity | null) => void;
+}) {
+  const { error, handleCredential } = usePendaCredential(onChange);
 
   if (identity) {
     return (

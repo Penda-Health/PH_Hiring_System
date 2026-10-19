@@ -29,6 +29,8 @@ export interface IpsRequisitionDraft extends DraftBase {
   branchId: string;
   employmentType: string;
   headcount: number;
+  currentHeadcount?: number | "";
+  labourModelHeadcount?: number | "";
   urgency: string;
   expectedStartDate: string;
   context: string;

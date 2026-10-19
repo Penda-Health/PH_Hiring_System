@@ -243,6 +243,8 @@ function RequisitionApprovalInner() {
             <Detail label="Department" value={view.department} />
             <Detail label="Branch" value={view.branch} />
             <Detail label="Headcount" value={view.headcount} />
+            <Detail label="Currently in post (excl. planned exits)" value={view.currentHeadcount} />
+            <Detail label="Labour model optimum (last 3 months)" value={view.labourModelHeadcount} />
             <Detail label="Employment type" value={view.employmentType} />
             <Detail label="Level" value={view.level} />
             <Detail label="Urgency" value={view.urgency} />
