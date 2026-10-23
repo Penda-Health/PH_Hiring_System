@@ -242,7 +242,7 @@ export function RoleCandidatesDialog({
                     />
                   </div>
                   <ReplacementRequisitionPicker
-                    role={role}
+                    role={openRoles.find((r) => r.id === role.id) ?? role}
                     requisitions={requisitions}
                     openRoles={openRoles}
                     canEdit={canEdit}

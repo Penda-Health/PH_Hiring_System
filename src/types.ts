@@ -314,7 +314,8 @@ export interface OpenRole {
    * is what the Expansion Tracker's "pending replacement" badge derives
    * from — see resolveReplacementStatus() in expansion-helpers.ts.
    */
-  replacementRequisitionId?: string;
+  /** null clears the link (sent as-is, since the API drops empty strings). */
+  replacementRequisitionId?: string | null;
   /**
    * Set on an internal fill when the seat it vacated doesn't need backfilling
    * (e.g. the post is being dropped) — resolves to "Not Needed" instead of

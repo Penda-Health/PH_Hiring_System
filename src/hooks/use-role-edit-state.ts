@@ -183,14 +183,14 @@ export function useRoleEditState(role: OpenRole | null) {
   // the seat it vacated elsewhere — saves immediately (a select, not a
   // text field, so no blur-to-save debounce needed like the fields above).
   // `choice` is a requisition id, REPLACEMENT_NOT_NEEDED, or undefined for
-  // "Not yet raised". "" clears the link (undefined would be dropped as
-  // "unchanged" on the way to Airtable).
+  // "Not yet raised". null clears the link (undefined is dropped from the
+  // JSON body and "" is stripped by the API, so neither would unlink).
   function linkReplacementRequisition(choice: string | undefined) {
     if (!role || !canEdit) return;
     if (choice === REPLACEMENT_NOT_NEEDED) {
-      updateOpenRole(role.id, { replacementNotNeeded: true, replacementRequisitionId: "" });
+      updateOpenRole(role.id, { replacementNotNeeded: true, replacementRequisitionId: null });
     } else {
-      updateOpenRole(role.id, { replacementNotNeeded: false, replacementRequisitionId: choice ?? "" });
+      updateOpenRole(role.id, { replacementNotNeeded: false, replacementRequisitionId: choice ?? null });
     }
   }
 

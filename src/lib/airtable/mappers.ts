@@ -260,7 +260,7 @@ export function openRoleToAirtable(r: Partial<OpenRole>) {
     [F.OpenRoles.NOTES]: r.notes,
     [F.OpenRoles.INTERNAL_FILL]: r.internalFill,
     [F.OpenRoles.INTERNAL_FILL_NAME]: r.internalFillName,
-    // "" is a deliberate unlink (back to "Not yet raised" / "Not needed"),
+    // null is a deliberate unlink (back to "Not yet raised" / "Not needed"),
     // which link() alone would drop as "leave unchanged".
     [F.OpenRoles.REPLACEMENT_REQUISITION]:
       r.replacementRequisitionId === undefined ? undefined : r.replacementRequisitionId ? link(r.replacementRequisitionId) : [],
