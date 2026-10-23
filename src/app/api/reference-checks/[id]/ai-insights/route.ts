@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadReferenceCheckReportData } from "@/lib/reports/reference-check-report";
-import { generateReferenceCheckInsights } from "@/lib/ai/reference-check-summary";
+import { generateReferenceCheckInsights, outcomeAfterInsights } from "@/lib/ai/reference-check-summary";
 import { updateRecord, getRecord } from "@/lib/airtable/client";
 import { TABLE_NAMES } from "@/lib/airtable/field-names";
 import { referenceCheckFromAirtable, referenceCheckToAirtable } from "@/lib/airtable/mappers";
@@ -35,7 +35,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: "generation_failed" }, { status: 502 });
     }
 
-    await updateRecord(TABLE_NAMES.ReferenceChecks, params.id, referenceCheckToAirtable({ aiInsights }));
+    const outcome = outcomeAfterInsights(data.outcome, data.aiInsights, aiInsights);
+    await updateRecord(TABLE_NAMES.ReferenceChecks, params.id, referenceCheckToAirtable({ aiInsights, outcome }));
 
     // Re-fetch rather than hand-assembling the response — keeps this route
     // honest about what's actually now in Airtable (e.g. if a concurrent

@@ -11,7 +11,7 @@ import {
 import { RecommendHireAnswer, ReferenceCheckStatus, Segment } from "@/types";
 import { loadReferenceCheckReportData } from "@/lib/reports/reference-check-report";
 import { generateReferenceCheckReportPdf } from "@/lib/reports/reference-check-report-pdf";
-import { generateReferenceCheckInsights } from "@/lib/ai/reference-check-summary";
+import { generateReferenceCheckInsights, outcomeAfterInsights } from "@/lib/ai/reference-check-summary";
 import { tryAdvanceToOffer } from "@/lib/forms/candidate-offer-readiness";
 import { resolveVerificationMethod, VerificationMethod } from "@/lib/forms/verification-method";
 
@@ -281,12 +281,16 @@ async function attachReportPdf(refCheckId: string): Promise<void> {
   try {
     const data = await loadReferenceCheckReportData(refCheckId);
     if (!data) return;
-    let aiInsights = data.aiInsights;
-    if (!aiInsights) {
-      aiInsights = await generateReferenceCheckInsights(data);
-      if (aiInsights) {
-        await updateRecord(TABLE_NAMES.ReferenceChecks, refCheckId, referenceCheckToAirtable({ aiInsights }));
-      }
+    // Always regenerate here: this runs because a new referee just responded,
+    // so any insights saved after an earlier response are now stale (e.g.
+    // still capped for a missing referee who has since answered).
+    let aiInsights = await generateReferenceCheckInsights(data);
+    if (aiInsights) {
+      const outcome = outcomeAfterInsights(data.outcome, data.aiInsights, aiInsights);
+      await updateRecord(TABLE_NAMES.ReferenceChecks, refCheckId, referenceCheckToAirtable({ aiInsights, outcome }));
+      data.outcome = outcome;
+    } else {
+      aiInsights = data.aiInsights;
     }
     const pdfBytes = await generateReferenceCheckReportPdf(data, aiInsights);
     const filename = `Reference Check Report - ${data.candidateName} (${data.refId}).pdf`.replace(/[/\\]/g, "-");

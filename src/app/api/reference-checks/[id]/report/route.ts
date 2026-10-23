@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadReferenceCheckReportData } from "@/lib/reports/reference-check-report";
 import { generateReferenceCheckReportPdf } from "@/lib/reports/reference-check-report-pdf";
-import { generateReferenceCheckInsights } from "@/lib/ai/reference-check-summary";
+import { generateReferenceCheckInsights, outcomeAfterInsights } from "@/lib/ai/reference-check-summary";
 import { updateRecord } from "@/lib/airtable/client";
 import { TABLE_NAMES } from "@/lib/airtable/field-names";
 import { referenceCheckToAirtable } from "@/lib/airtable/mappers";
@@ -38,8 +38,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // result, only once the check has reached Ready for Offer — generating
     // it off an early download (only 1 of 2+ referees in) would bake in an
     // analysis that's blind to the referees who haven't responded yet, and
-    // then never get regenerated once they do (attachReportPdf in
-    // referee-form.ts only fills this in when it's still null). Before that
+    // that a later response would have to replace. Before that
     // point the PDF just omits the AI section, unless a TA explicitly
     // generated one early via the card's "Generate AI insights" button —
     // that's an on-request case we always honor once it exists.
@@ -50,7 +49,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       aiInsights = await generateReferenceCheckInsights(data);
       if (aiInsights) {
         try {
-          await updateRecord(TABLE_NAMES.ReferenceChecks, params.id, referenceCheckToAirtable({ aiInsights }));
+          const outcome = outcomeAfterInsights(data.outcome, null, aiInsights);
+          await updateRecord(TABLE_NAMES.ReferenceChecks, params.id, referenceCheckToAirtable({ aiInsights, outcome }));
+          data.outcome = outcome;
         } catch (err) {
           // Persistence failing shouldn't block the report the TA is
           // actively trying to download — it'll just regenerate next time.

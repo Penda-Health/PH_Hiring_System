@@ -198,12 +198,16 @@ export async function generateReferenceCheckInsights(
 }
 
 function finalizeInsights(object: GeneratedInsights, data: ReferenceCheckReportData): ReferenceCheckAiInsights {
-  // Guardrail independent of the model's own judgment: until every contacted
-  // referee has responded, cap how confident this report is allowed to claim
-  // to be, regardless of what the model itself returned.
+  // Guardrail independent of the model's own judgment: until the required
+  // two referees have responded (the same bar that makes a check "Ready for
+  // Offer"), cap how confident this report is allowed to claim to be. Extra
+  // referees beyond two are a bonus, so one of four still outstanding no
+  // longer pins an otherwise complete check at 60%.
   const respondedCount = data.referees.filter((r) => r.responded).length;
   const confidenceScore =
-    respondedCount === data.referees.length ? object.confidenceScore : Math.min(object.confidenceScore, 60);
+    respondedCount >= Math.min(2, data.referees.length)
+      ? object.confidenceScore
+      : Math.min(object.confidenceScore, 60);
 
   return {
     ...object,
@@ -211,4 +215,34 @@ function finalizeInsights(object: GeneratedInsights, data: ReferenceCheckReportD
     refereeTakeaways: data.referees.map((r, i) => (r.responded ? object.refereeTakeaways[i] ?? "" : "")),
     generatedAt: new Date().toISOString(),
   };
+}
+
+type ReferenceCheckOutcome = ReferenceCheckReportData["outcome"];
+
+function outcomeFromStatus(status: ReferenceCheckAiInsights["overallStatus"]): ReferenceCheckOutcome {
+  switch (status) {
+    case "Strong Recommend":
+    case "Recommend":
+      return "Positive";
+    case "Recommend with Reservations":
+      return "Mixed";
+    case "Do Not Recommend":
+      return "Negative";
+    default:
+      return "Pending";
+  }
+}
+
+// The Outcome field used to stay "Pending" forever unless a TA set it by
+// hand, so a check could read "Ready for Offer" next to "Pending". Fresh AI
+// insights now set it — but only while it's still Pending or still matches
+// what the previous insights implied, so a TA's manual call is never
+// overwritten.
+export function outcomeAfterInsights(
+  current: ReferenceCheckOutcome,
+  previous: ReferenceCheckAiInsights | null,
+  next: ReferenceCheckAiInsights
+): ReferenceCheckOutcome {
+  const untouched = current === "Pending" || (previous !== null && current === outcomeFromStatus(previous.overallStatus));
+  return untouched ? outcomeFromStatus(next.overallStatus) : current;
 }
