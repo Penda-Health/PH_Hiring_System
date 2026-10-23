@@ -19,6 +19,14 @@ const PAGE_H = 841.89;
 const MARGIN = 50;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
+// Body text metrics, shared by paragraphs, bullets and table cells.
+const BODY_SIZE = 10;
+const LINE_H = 15; // ~1.5x the 10pt body size
+const TABLE_BORDER = rgb(0.86, 0.87, 0.89);
+const TABLE_LABEL_BG = rgb(0.96, 0.965, 0.975);
+const CELL_PAD_X = 8;
+const CELL_PAD_Y = 6;
+
 // Same palette as work-trial-report-pdf.ts, pulled from tailwind.config.ts's
 // `penda` palette so every generated report matches the app's own look.
 const BLUE = rgb(0x1e / 255, 0x55 / 255, 0xff / 255);
@@ -105,27 +113,80 @@ function sanitizeForPdf(text: string): string {
   return out;
 }
 
-function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
-  const lines: string[] = [];
+type WrappedLine = { text: string; /** Last line of its paragraph — never justified. */ last: boolean };
+
+function wrapLines(text: string, font: PDFFont, size: number, maxWidth: number): WrappedLine[] {
+  const lines: WrappedLine[] = [];
   for (const paragraphLine of sanitizeForPdf(text).split("\n")) {
     const words = paragraphLine.split(/\s+/).filter(Boolean);
     if (words.length === 0) {
-      lines.push("");
+      lines.push({ text: "", last: true });
       continue;
     }
     let current = "";
     for (const word of words) {
       const candidate = current ? `${current} ${word}` : word;
       if (font.widthOfTextAtSize(candidate, size) > maxWidth && current) {
-        lines.push(current);
+        lines.push({ text: current, last: false });
         current = word;
       } else {
         current = candidate;
       }
     }
-    if (current) lines.push(current);
+    if (current) lines.push({ text: current, last: true });
   }
   return lines;
+}
+
+function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+  return wrapLines(text, font, size, maxWidth).map((l) => l.text);
+}
+
+// Draws one line at baseline `y`. Justified lines spread the leftover width
+// across the word gaps so paragraphs read as a clean block; a paragraph's last
+// line stays left-aligned, as in print.
+function drawLine(
+  page: PDFPage,
+  line: WrappedLine,
+  opts: { x: number; y: number; width: number; font: PDFFont; size: number; color: ReturnType<typeof rgb>; justify: boolean }
+) {
+  const words = line.text.split(" ");
+  if (!opts.justify || line.last || words.length < 2) {
+    page.drawText(line.text, { x: opts.x, y: opts.y, size: opts.size, font: opts.font, color: opts.color });
+    return;
+  }
+  const wordsW = words.reduce((sum, w) => sum + opts.font.widthOfTextAtSize(w, opts.size), 0);
+  const gap = (opts.width - wordsW) / (words.length - 1);
+  let x = opts.x;
+  for (const w of words) {
+    page.drawText(w, { x, y: opts.y, size: opts.size, font: opts.font, color: opts.color });
+    x += opts.font.widthOfTextAtSize(w, opts.size) + gap;
+  }
+}
+
+// Wrapped, justified body text that breaks across pages as needed.
+function drawTextBlock(
+  ctx: Ctx,
+  text: string,
+  opts: { x?: number; width?: number; color?: ReturnType<typeof rgb>; justify?: boolean; onFirstLine?: () => void } = {}
+) {
+  const x = opts.x ?? MARGIN;
+  const width = opts.width ?? CONTENT_W;
+  const lines = wrapLines(text, ctx.regular, BODY_SIZE, width);
+  for (const [i, line] of Array.from(lines.entries())) {
+    ensureSpace(ctx, LINE_H);
+    if (i === 0) opts.onFirstLine?.();
+    drawLine(ctx.page, line, {
+      x,
+      y: ctx.y - 11,
+      width,
+      font: ctx.regular,
+      size: BODY_SIZE,
+      color: opts.color ?? CHARCOAL,
+      justify: opts.justify ?? true,
+    });
+    ctx.y -= LINE_H;
+  }
 }
 
 function drawFooter(ctx: Ctx) {
@@ -210,47 +271,83 @@ function drawSectionHeading(ctx: Ctx, text: string) {
   ctx.y -= 26;
 }
 
-// Two-column label/value grid, e.g. candidate metadata or a referee's scores.
-function drawFactGrid(ctx: Ctx, facts: { label: string; value: string }[]) {
-  const colW = CONTENT_W / 2;
-  const rowH = 30;
-  let col = 0;
-  let rowY = ctx.y;
-  for (const fact of facts) {
-    if (col === 0) {
-      ensureSpace(ctx, rowH);
-      rowY = ctx.y;
+// Bordered label/value table. `perRow: 2` puts two pairs side by side
+// (label | value | label | value) for short facts; `perRow: 1` gives each
+// fact a full-width row so long answers wrap in full instead of being cut
+// off. Rows grow with their content and never split across pages.
+function drawFactTable(ctx: Ctx, facts: { label: string; value: string }[], perRow: 1 | 2 = 1) {
+  if (facts.length === 0) return;
+  const labelSize = 8.5;
+  const pairW = CONTENT_W / perRow;
+  const labelW = perRow === 1 ? 170 : 92;
+  const valueW = pairW - labelW;
+
+  for (let i = 0; i < facts.length; i += perRow) {
+    const row = facts.slice(i, i + perRow).map((fact) => ({
+      label: wrapText(fact.label, ctx.bold, labelSize, labelW - CELL_PAD_X * 2),
+      value: wrapLines(fact.value || "—", ctx.regular, BODY_SIZE, valueW - CELL_PAD_X * 2),
+    }));
+    const lineCount = Math.max(...row.map((c) => Math.max(c.label.length, c.value.length)));
+    const rowH = lineCount * LINE_H + CELL_PAD_Y * 2 - 3;
+    ensureSpace(ctx, rowH);
+    const top = ctx.y;
+
+    for (const [col, cell] of Array.from(row.entries())) {
+      const x = MARGIN + col * pairW;
+      ctx.page.drawRectangle({
+        x,
+        y: top - rowH,
+        width: labelW,
+        height: rowH,
+        color: TABLE_LABEL_BG,
+        borderColor: TABLE_BORDER,
+        borderWidth: 0.6,
+      });
+      ctx.page.drawRectangle({
+        x: x + labelW,
+        y: top - rowH,
+        width: valueW,
+        height: rowH,
+        borderColor: TABLE_BORDER,
+        borderWidth: 0.6,
+      });
+      for (const [j, text] of Array.from(cell.label.entries())) {
+        ctx.page.drawText(text, {
+          x: x + CELL_PAD_X,
+          y: top - CELL_PAD_Y - 9.5 - j * LINE_H,
+          size: labelSize,
+          font: ctx.bold,
+          color: GREY,
+        });
+      }
+      for (const [j, line] of Array.from(cell.value.entries())) {
+        drawLine(ctx.page, line, {
+          x: x + labelW + CELL_PAD_X,
+          y: top - CELL_PAD_Y - 10 - j * LINE_H,
+          width: valueW - CELL_PAD_X * 2,
+          font: ctx.regular,
+          size: BODY_SIZE,
+          color: line.text === "—" ? GREY : CHARCOAL,
+          justify: false,
+        });
+      }
     }
-    const x = MARGIN + col * colW;
-    ctx.page.drawText(fact.label.toUpperCase(), { x, y: rowY - 10, size: 7.5, font: ctx.bold, color: GREY });
-    const lines = wrapText(fact.value || "—", ctx.regular, 10.5, colW - 12);
-    ctx.page.drawText(lines[0] ?? "—", { x, y: rowY - 24, size: 10.5, font: ctx.regular, color: CHARCOAL });
-    if (col === 1) {
-      ctx.y = rowY - rowH;
+    // An odd fact count in a 2-up table leaves the last slot empty — still
+    // draw its cells so the table edge stays square.
+    if (row.length < perRow) {
+      const x = MARGIN + row.length * pairW;
+      ctx.page.drawRectangle({ x, y: top - rowH, width: pairW, height: rowH, borderColor: TABLE_BORDER, borderWidth: 0.6 });
     }
-    col = col === 0 ? 1 : 0;
+    ctx.y -= rowH;
   }
-  if (col === 1) ctx.y = rowY - rowH; // odd number of facts — close the row
-  ctx.y -= 6;
+  ctx.y -= 16;
 }
 
 function drawParagraphSection(ctx: Ctx, heading: string, text: string | undefined, placeholder = "Not provided.") {
   drawSectionHeading(ctx, heading);
   const body = text && text.trim() ? text.trim() : placeholder;
   const isPlaceholder = body === placeholder;
-  const lines = wrapText(body, ctx.regular, 10, CONTENT_W);
-  const lineH = 14;
-  for (const line of lines) {
-    ensureSpace(ctx, lineH);
-    ctx.page.drawText(line, {
-      x: MARGIN,
-      y: ctx.y - 10,
-      size: 10,
-      font: ctx.regular,
-      color: isPlaceholder ? GREY : CHARCOAL,
-    });
-    ctx.y -= lineH;
-  }
+  drawTextBlock(ctx, body, { color: isPlaceholder ? GREY : CHARCOAL, justify: !isPlaceholder });
   ctx.y -= 12;
 }
 
@@ -265,19 +362,16 @@ function drawBulletListSection(ctx: Ctx, heading: string, items: string[]) {
   if (items.length === 0) return;
   drawSectionHeading(ctx, heading);
   const bulletIndent = 14;
-  const lineH = 14;
   for (const item of items) {
-    const lines = wrapText(item, ctx.regular, 10, CONTENT_W - bulletIndent);
-    for (const [i, line] of Array.from(lines.entries())) {
-      ensureSpace(ctx, lineH);
-      if (i === 0) {
-        ctx.page.drawText("•", { x: MARGIN, y: ctx.y - 10, size: 10, font: ctx.bold, color: BLUE });
-      }
-      ctx.page.drawText(line, { x: MARGIN + bulletIndent, y: ctx.y - 10, size: 10, font: ctx.regular, color: CHARCOAL });
-      ctx.y -= lineH;
-    }
+    drawTextBlock(ctx, item, {
+      x: MARGIN + bulletIndent,
+      width: CONTENT_W - bulletIndent,
+      onFirstLine: () =>
+        ctx.page.drawText("•", { x: MARGIN + 2, y: ctx.y - 11, size: BODY_SIZE, font: ctx.bold, color: BLUE }),
+    });
+    ctx.y -= 3;
   }
-  ctx.y -= 12;
+  ctx.y -= 9;
 }
 
 // Reference check "created" / referee "responded" timestamps are written to
@@ -368,12 +462,16 @@ function drawAiSummarySection(ctx: Ctx, insights: ReferenceCheckAiInsights) {
   );
   ctx.y -= 22;
 
-  drawFactGrid(ctx, [
-    { label: "Overall status", value: insights.overallStatus },
-    { label: "Confidence", value: `${Math.round(insights.confidenceScore)}%` },
-    { label: "Recommendation score", value: `${insights.recommendationScore}/5` },
-    { label: "Overall score", value: `${insights.overallScore}/5` },
-  ]);
+  drawFactTable(
+    ctx,
+    [
+      { label: "Overall status", value: insights.overallStatus },
+      { label: "Confidence", value: `${Math.round(insights.confidenceScore)}%` },
+      { label: "Recommendation", value: `${insights.recommendationScore}/5` },
+      { label: "Overall score", value: `${insights.overallScore}/5` },
+    ],
+    2
+  );
 
   drawParagraphSection(ctx, "Summary", insights.summary);
   drawBulletListSection(ctx, "Key strengths", insights.keyStrengths);
@@ -384,19 +482,11 @@ function drawAiSummarySection(ctx: Ctx, insights: ReferenceCheckAiInsights) {
   drawBulletListSection(ctx, "Suggested follow-up questions", insights.suggestedFollowUps);
 
   const takeaways = insights.refereeTakeaways
-    .map((t, i) => (t.trim() ? `Referee ${i + 1}: ${t.trim()}` : null))
-    .filter((t): t is string => t !== null);
+    .map((t, i) => ({ label: `Referee ${i + 1}`, value: t.trim() }))
+    .filter((t) => t.value);
   if (takeaways.length > 0) {
     drawSectionHeading(ctx, "Referee takeaways");
-    for (const t of takeaways) {
-      const lines = wrapText(t, ctx.regular, 10, CONTENT_W);
-      for (const line of lines) {
-        ensureSpace(ctx, 14);
-        ctx.page.drawText(line, { x: MARGIN, y: ctx.y - 10, size: 10, font: ctx.regular, color: CHARCOAL });
-        ctx.y -= 14;
-      }
-    }
-    ctx.y -= 12;
+    drawFactTable(ctx, takeaways);
   }
 }
 
@@ -486,14 +576,14 @@ async function drawRefereeSection(ctx: Ctx, num: number, referee: RefereeStatus)
   const reportingRelationship =
     referee.reportingRelationship ?? (referee.directlySupervised ? "Reported directly to me" : undefined);
 
-  drawFactGrid(ctx, [
+  drawFactTable(ctx, [
     { label: "Email", value: referee.email },
     { label: "Phone", value: referee.phone },
     { label: "Responded", value: fmtDate(referee.respondedAt) },
     { label: "Identity verification", value: verificationLabel },
   ]);
 
-  drawFactGrid(ctx, [
+  drawFactTable(ctx, [
     {
       label: "Relationship to candidate",
       value: referee.relationship
@@ -520,10 +610,14 @@ async function drawRefereeSection(ctx: Ctx, num: number, referee: RefereeStatus)
   drawParagraphSection(ctx, `Teamwork & collaboration — ${scoreLabel(referee.teamworkScore)}`, referee.teamworkExample);
   drawParagraphSection(ctx, `Communication — ${scoreLabel(referee.communicationScore)}`, referee.communicationExample);
   if (referee.problemSolvingScore !== undefined || referee.adaptabilityScore !== undefined) {
-    drawFactGrid(ctx, [
-      { label: "Problem solving score (legacy field)", value: scoreLabel(referee.problemSolvingScore) },
-      { label: "Adaptability score (legacy field)", value: scoreLabel(referee.adaptabilityScore) },
-    ]);
+    drawFactTable(
+      ctx,
+      [
+        { label: "Problem solving (legacy)", value: scoreLabel(referee.problemSolvingScore) },
+        { label: "Adaptability (legacy)", value: scoreLabel(referee.adaptabilityScore) },
+      ],
+      2
+    );
   }
 
   // Historical records only have the old two-field strengthExample/
@@ -537,7 +631,7 @@ async function drawRefereeSection(ctx: Ctx, num: number, referee: RefereeStatus)
   drawParagraphSection(ctx, "Three greatest strengths", topStrengths);
   drawParagraphSection(ctx, "One area for coaching", coachingArea);
 
-  drawFactGrid(ctx, [
+  drawFactTable(ctx, [
     {
       label: "Would rehire",
       value: referee.wouldRehire
@@ -575,11 +669,16 @@ export async function generateReferenceCheckReportPdf(
 
   drawHeader(ctx, data.refId);
   drawSectionHeading(ctx, "Candidate");
-  drawFactGrid(ctx, [
-    { label: "Candidate", value: data.candidateName },
-    { label: "Role", value: data.roleTitle || "—" },
-    { label: "Reference check started", value: fmtDate(data.createdAt) },
-  ]);
+  drawFactTable(
+    ctx,
+    [
+      { label: "Candidate", value: data.candidateName },
+      { label: "Role", value: data.roleTitle || "—" },
+      { label: "Check started", value: fmtDate(data.createdAt) },
+      { label: "Reference ID", value: data.refId },
+    ],
+    2
+  );
   drawStatusBanner(ctx, data);
 
   // Only drawn when AI generation succeeded (see
