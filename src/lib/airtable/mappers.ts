@@ -22,6 +22,7 @@ import {
   WorkTrialRoleCategory,
   StaffingProjection,
   AppSettings,
+  RoleUpdate,
   RequisitionApprovalStep,
   RequisitionApprovalLogEntry,
   RequisitionWorkflows,
@@ -553,6 +554,7 @@ export function appSettingsFromAirtable(r: AirtableRecord): AppSettings {
     workTrialBookingCutoffDate: opt<string>(f[F.AppSettings.WORK_TRIAL_BOOKING_CUTOFF_DATE]) ?? null,
     requisitionWorkflows: json<RequisitionWorkflows>(f[F.AppSettings.REQUISITION_WORKFLOWS]) ?? null,
     requisitionsChatWebhookUrl: opt<string>(f[F.AppSettings.REQUISITIONS_CHAT_WEBHOOK_URL]) ?? null,
+    ipsSummaryChatWebhookUrl: opt<string>(f[F.AppSettings.IPS_SUMMARY_CHAT_WEBHOOK_URL]) ?? null,
     updatedBy: opt<string>(f[F.AppSettings.UPDATED_BY]) ?? null,
     updatedAt: opt<string>(f[F.AppSettings.UPDATED_AT]) ?? null,
   };
@@ -568,8 +570,32 @@ export function appSettingsToAirtable(s: Partial<AppSettings> & { updatedBy?: st
     [F.AppSettings.REQUISITION_WORKFLOWS]:
       s.requisitionWorkflows === undefined ? undefined : s.requisitionWorkflows === null ? null : JSON.stringify(s.requisitionWorkflows),
     [F.AppSettings.REQUISITIONS_CHAT_WEBHOOK_URL]: s.requisitionsChatWebhookUrl,
+    [F.AppSettings.IPS_SUMMARY_CHAT_WEBHOOK_URL]: s.ipsSummaryChatWebhookUrl,
     [F.AppSettings.UPDATED_BY]: s.updatedBy,
     [F.AppSettings.UPDATED_AT]: s.updatedBy ? new Date().toISOString() : undefined,
+  });
+}
+
+// ---------- Role Updates ----------
+export function roleUpdateFromAirtable(r: AirtableRecord): RoleUpdate {
+  const f = r.fields;
+  return {
+    id: r.id,
+    roleId: firstLink(f[F.RoleUpdates.ROLE]) ?? "",
+    comment: str(f[F.RoleUpdates.COMMENT]),
+    authorName: str(f[F.RoleUpdates.AUTHOR_NAME]),
+    authorEmail: opt(f[F.RoleUpdates.AUTHOR_EMAIL]),
+    createdAt: str(f[F.RoleUpdates.CREATED_AT]) || r.createdTime || "",
+  };
+}
+
+export function roleUpdateToAirtable(u: Omit<RoleUpdate, "id">) {
+  return cleanFields({
+    [F.RoleUpdates.ROLE]: link(u.roleId),
+    [F.RoleUpdates.COMMENT]: u.comment,
+    [F.RoleUpdates.AUTHOR_NAME]: u.authorName,
+    [F.RoleUpdates.AUTHOR_EMAIL]: u.authorEmail,
+    [F.RoleUpdates.CREATED_AT]: u.createdAt,
   });
 }
 

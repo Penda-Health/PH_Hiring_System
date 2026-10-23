@@ -91,7 +91,7 @@ const WIN_ANSI_EXTRA = new Set([
   0x201d, 0x201e, 0x2020, 0x2021, 0x2022, 0x2026, 0x2030, 0x2039, 0x203a, 0x20ac, 0x2122,
 ]);
 
-function sanitizeForPdf(text: string): string {
+export function sanitizeForPdf(text: string): string {
   let out = "";
   for (const ch of text) {
     if (ch === "\n") {

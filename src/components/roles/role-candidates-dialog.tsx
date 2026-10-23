@@ -20,6 +20,7 @@ import { useRoleEditState, HC_STEP, formatHc } from "@/hooks/use-role-edit-state
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { ReplacementRequisitionPicker } from "@/components/roles/replacement-requisition-picker";
 import { CloseGroupGapDialog } from "@/components/roles/close-group-gap-dialog";
+import { RoleUpdatesPanel } from "@/components/roles/role-updates-panel";
 
 const ALL_STAGES: CandidateStage[] = [
   "First Interview",
@@ -250,6 +251,8 @@ export function RoleCandidatesDialog({
                 </>
               )}
             </div>
+
+            <RoleUpdatesPanel roleId={role.id} canEdit={canEdit} />
 
             {/* Candidates linked to this role, grouped by stage */}
             <div className="space-y-4">

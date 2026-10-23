@@ -19,7 +19,7 @@ import { AI_PROVIDERS, type ProviderId } from "@/lib/ai/providers";
 import { buildAiContext } from "@/lib/ai/build-context";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { cn } from "@/lib/utils";
-import type { Candidate, Interview, OpenRole } from "@/types";
+import type { Candidate, Interview, OpenRole, RoleUpdate } from "@/types";
 
 type ChatMessage = UIMessage<unknown, UIDataTypes, InferUITools<typeof aiTools>>;
 type Preset = { label: string; prompt?: string; getPrompt?: () => string };
@@ -266,6 +266,18 @@ export function AiAssistantLauncher() {
   const [providerId, setProviderId] = React.useState<ProviderId>("gemini");
   const [input, setInput] = React.useState("");
   const bottomRef = React.useRef<HTMLDivElement>(null);
+  // Recruiters' weekly role comments aren't part of the shared data store,
+  // so Penny loads them herself. Refreshed on each send (cheap, and a comment
+  // posted a minute ago should already be visible to her).
+  const roleUpdatesRef = React.useRef<RoleUpdate[]>([]);
+  const loadRoleUpdates = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/role-updates");
+      if (res.ok) roleUpdatesRef.current = (await res.json()) as RoleUpdate[];
+    } catch {
+      // Keep the last good list — Penny still answers without fresh comments.
+    }
+  }, []);
 
   // Presets live inside the component so Weekly Summary can access live data
   const PRESETS = React.useMemo((): Preset[] => [
@@ -273,6 +285,13 @@ export function AiAssistantLauncher() {
     { label: "Stalled roles", prompt: "Which open roles have no candidates in pipeline and are high priority?" },
     { label: "By department", prompt: "Break down open roles by department for both IPS and SO." },
     { label: "By branch", prompt: "Which branches have the most open headcount gaps? List each branch and its gap." },
+    {
+      label: "IPS weekly update",
+      prompt:
+        "Draft this week's IPS open-roles update for the IPS collaboration group (BMs, RMs, Deputy Head of IPS, HRBP). " +
+        "Cover only IPS roles with status Open: totals (open roles, headcount gap, candidates in pipeline), then each role with its location, headcount open, days open, pipeline by stage and the recruiter's latest update. " +
+        "Flag roles with no recruiter update in the last 7 days and roles open longest. Keep it concise and ready to paste into Google Chat.",
+    },
     {
       label: "Weekly Summary",
       getPrompt: () => buildWeeklySummaryPrompt(openRoles, candidates, interviews),
@@ -290,14 +309,16 @@ export function AiAssistantLauncher() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, error]);
 
-  function send(prompt: string) {
+  async function send(prompt: string) {
     const text = prompt.trim();
     if (!text || status === "streaming" || status === "submitted") return;
+    setInput("");
+    await loadRoleUpdates();
     const context = buildAiContext({
       openRoles, candidates, offers, branches, interviews, workTrials, referenceChecks, canSeeSalary,
+      roleUpdates: roleUpdatesRef.current,
     });
     sendMessage({ text }, { body: { providerId, context, canEdit } });
-    setInput("");
   }
 
   async function resolveToolCall(

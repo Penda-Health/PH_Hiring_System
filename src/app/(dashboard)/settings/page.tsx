@@ -17,6 +17,7 @@ import { EditBranchDialog } from "@/components/branches/edit-branch-dialog";
 import { AppSettings } from "@/types";
 import { DEFAULT_BOOKING_WINDOW_DAYS } from "@/lib/work-trial-timing";
 import { RequisitionApprovalsCard } from "@/components/settings/requisition-approvals-card";
+import { IpsWeeklySummaryCard } from "@/components/settings/ips-weekly-summary-card";
 
 const ROLES: UserRoleName[] = ["recruitment_manager", "recruitment_user", "contributor", "branch_manager"];
 const DELETED_ITEMS_WINDOW_DAYS = 7;
@@ -342,6 +343,7 @@ export default function SettingsPage() {
       </Card>
       <WorkTrialBookingWindowCard />
       <RequisitionApprovalsCard profiles={profiles} branches={branches} />
+      <IpsWeeklySummaryCard />
       <Card>
         <CardHeader>
           <CardTitle>Deleted items</CardTitle>

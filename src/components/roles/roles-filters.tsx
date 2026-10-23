@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ChevronDown } from "lucide-react";
-import { Branch, OpenRole, RoleStatus, Priority } from "@/types";
+import { Branch, OpenRole, Priority } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -17,12 +17,10 @@ import {
 export interface RolesFilterState {
   segment: "All" | "IPS" | "SO";
   department: "All" | string;
-  status: "All" | RoleStatus;
   priority: "All" | Priority;
   branches: string[]; // selected branch names — only active when segment === "IPS"
 }
 
-const STATUSES: RoleStatus[] = ["Open", "Allocated", "Filled", "On Hold", "Cancelled"];
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 
 function groupByRegion(branches: Branch[]): { region: string; branches: Branch[] }[] {
@@ -143,20 +141,6 @@ export function RolesFilters({
           <SelectItem value="All">All Departments</SelectItem>
           {departments.map((dept) => (
             <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select value={filters.status} onValueChange={(v) => onChange({ ...filters, status: v as RolesFilterState["status"] })}>
-        <SelectTrigger className="w-36">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="All">All Statuses</SelectItem>
-          {STATUSES.map((status) => (
-            <SelectItem key={status} value={status}>
-              {status}
-            </SelectItem>
           ))}
         </SelectContent>
       </Select>

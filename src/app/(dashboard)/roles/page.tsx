@@ -7,24 +7,30 @@ import { RolesFilters, RolesFilterState } from "@/components/roles/roles-filters
 import { RolesTable } from "@/components/roles/roles-table";
 import { RoleCandidatesDialog } from "@/components/roles/role-candidates-dialog";
 import { CandidateDetailDialog } from "@/components/pipeline/candidate-detail-dialog";
+import { RolesReportDialog } from "@/components/roles/roles-report-dialog";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 
 export default function RolesPage() {
   const { candidates, openRoles, branches } = useRecruitmentData();
   const [filters, setFilters] = React.useState<RolesFilterState>({
     segment: "All",
     department: "All",
-    status: "All",
     priority: "All",
     branches: [],
   });
   const [selectedRole, setSelectedRole] = React.useState<OpenRole | null>(null);
   const [selectedCandidate, setSelectedCandidate] = React.useState<Candidate | null>(null);
+  const [reportOpen, setReportOpen] = React.useState(false);
 
+  // The register is the live list of vacancies only — filled, allocated,
+  // on-hold and cancelled roles stay out of it (they're still in the
+  // downloadable report, which has its own status filter).
   const filtered = openRoles.filter((role) => {
+    if (role.status !== "Open") return false;
     if (filters.segment !== "All" && role.segment !== filters.segment) return false;
     if (filters.department !== "All" && role.department !== filters.department) return false;
-    if (filters.status !== "All" && role.status !== filters.status) return false;
     if (filters.priority !== "All" && role.priority !== filters.priority) return false;
     if (filters.segment === "IPS" && filters.branches.length > 0 && !filters.branches.includes(role.location)) return false;
     return true;
@@ -32,7 +38,13 @@ export default function RolesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Open Roles Register</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Open Roles Register</h1>
+        <Button variant="outline" size="sm" onClick={() => setReportOpen(true)}>
+          <Download />
+          Download report
+        </Button>
+      </div>
       <RolesFilters filters={filters} branches={branches} roles={openRoles} onChange={setFilters} />
       <Card>
         <CardContent className="p-0">
@@ -45,6 +57,7 @@ export default function RolesPage() {
         onOpenChange={(open) => !open && setSelectedRole(null)}
         onSelectCandidate={setSelectedCandidate}
       />
+      <RolesReportDialog open={reportOpen} onOpenChange={setReportOpen} roles={openRoles} filters={filters} />
       <CandidateDetailDialog
         candidate={selectedCandidate}
         onOpenChange={(open) => !open && setSelectedCandidate(null)}

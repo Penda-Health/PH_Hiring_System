@@ -28,11 +28,11 @@ export const sidebarNavItems: {
   hidden?: boolean;
 }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
+  { href: "/roles", label: "Open Roles Register", icon: Briefcase },
   // Candidate details (contacts, notes) are for the recruitment team only —
   // enforced server-side too via ROLE_ROUTES in src/lib/permissions.ts.
   { href: "/candidates", label: "Candidates", icon: Users, roles: ["recruitment_user", "recruitment_manager"] },
-  { href: "/roles", label: "Open Roles Register", icon: Briefcase },
+  { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
   { href: "/requisitions", label: "Requisition Intake", icon: FileText },
   { href: "/work-trials", label: "Work Trials", icon: ClipboardCheck },
   { href: "/reference-checks", label: "Reference Checks", icon: PhoneCall },

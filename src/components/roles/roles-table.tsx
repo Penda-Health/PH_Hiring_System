@@ -89,7 +89,10 @@ export function RolesTable({
             <TableCell className="text-muted-foreground">{role.location}</TableCell>
             <TableCell className="text-muted-foreground">{role.recruiter}</TableCell>
             <TableCell className="text-muted-foreground">
-              {new Date(role.datePosted).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+              {/* Older roles imported without a posted date rendered "Invalid Date". */}
+              {role.datePosted && !isNaN(new Date(role.datePosted).getTime())
+                ? new Date(role.datePosted).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+                : "—"}
             </TableCell>
           </TableRow>
         ))}

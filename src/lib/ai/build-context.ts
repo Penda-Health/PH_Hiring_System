@@ -1,4 +1,4 @@
-import { Branch, Candidate, Interview, Offer, OpenRole, ReferenceCheck, WorkTrial } from "@/types";
+import { Branch, Candidate, Interview, Offer, OpenRole, ReferenceCheck, RoleUpdate, WorkTrial } from "@/types";
 import { getKpis, getSegmentSplit, getStageCounts } from "@/lib/dashboard-metrics";
 
 export type AiContext = ReturnType<typeof buildAiContext>;
@@ -14,6 +14,7 @@ export function buildAiContext(data: {
   interviews?: Interview[];
   workTrials?: WorkTrial[];
   referenceChecks?: ReferenceCheck[];
+  roleUpdates?: RoleUpdate[];
   // Contributor/Branch Manager don't see real salary figures. This mirrors
   // the server-side mask already applied to /api/offers (route-handlers.ts
   // maskFields) — this is a second, independent layer so a masked value
@@ -28,6 +29,7 @@ export function buildAiContext(data: {
     interviews = [],
     workTrials = [],
     referenceChecks = [],
+    roleUpdates = [],
     canSeeSalary = true,
   } = data;
 
@@ -38,6 +40,18 @@ export function buildAiContext(data: {
 
   // ── Open role roster ───────────────────────────────────────────────────────
   const branchMap = new Map(branches.map((b) => [b.id, b.name]));
+
+  // Recruiters' dated weekly comments, newest first. Open roles carry their
+  // last few (trimmed) so Penny can say where each role is at; closed roles
+  // carry none, to keep the context small.
+  const updatesByRole = new Map<string, RoleUpdate[]>();
+  for (const u of [...roleUpdates].sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
+    updatesByRole.set(u.roleId, [...(updatesByRole.get(u.roleId) ?? []), u]);
+  }
+  const daysSince = (iso: string | null | undefined) => {
+    const t = iso ? new Date(iso).getTime() : NaN;
+    return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000);
+  };
 
   const roster = openRoles.map((r) => ({
     id: r.id,
@@ -51,7 +65,19 @@ export function buildAiContext(data: {
     hcApproved: r.hcApproved,
     hcFilled: r.hcFilled,
     hcGap: Math.max(r.hcApproved - r.hcFilled, 0),
+    datePosted: r.datePosted || null,
+    daysOpen: r.status === "Open" ? daysSince(r.datePosted) : null,
     ...(r.notes ? { notes: r.notes } : {}),
+    ...(r.status === "Open"
+      ? {
+          recruiterUpdates: (updatesByRole.get(r.id) ?? []).slice(0, 3).map((u) => ({
+            date: u.createdAt.slice(0, 10),
+            daysAgo: daysSince(u.createdAt),
+            author: u.authorName,
+            comment: u.comment.length > 400 ? `${u.comment.slice(0, 399)}…` : u.comment,
+          })),
+        }
+      : {}),
     ...(r.internalFill ? { internalFill: true, ...(r.internalFillName ? { internalFillName: r.internalFillName } : {}) } : {}),
     ...(() => {
       const active = candidates.filter(
@@ -258,7 +284,7 @@ export function buildSystemPrompt(context: AiContext, canEdit: boolean) {
   return [
     "You are Penny, an AI recruitment assistant inside Penda Health's hiring dashboard.",
     "You have full access to the current state of all open roles, candidates (including names and stages), interviews, work trials, reference checks, and offers. Use this data to answer questions precisely — no guessing or hallucinating records that aren't in the context.",
-    "Context structure: `roster` = all open roles with location, recruiter, HC gaps, and candidate counts. `candidateProfiles` = every candidate with name, current stage, role, and days in stage. `interviewDetails` = all scheduled interviews with candidate names, dates, stages, and attendance. `workTrialDetails` = all work trials with outcomes. `refCheckDetails` = reference check statuses; when a check's referees have responded and AI insights have been generated, each entry also carries an `aiInsights` object — treat this as the analyzed read on that reference check, not just raw status, and lean on it when asked things like which candidates are safe to extend an offer to or where a reference raised concerns. For a check created in the last 90 days this includes the full analysis (summary, key strengths, areas of concern, consistency notes, suggested follow-ups); older checks are trimmed to just `overallStatus` and the three scores to keep the context small, so if those text fields are absent, give the verdict/scores you have and say the full write-up isn't available for that older check rather than inventing one. `offerDetails` = all offers with outcomes and salaries. `departmentBreakdown` and `branchBreakdown` are pre-aggregated for breakdown questions.",
+    "Context structure: `roster` = all roles (any status) with location, recruiter, HC gaps, date posted, `daysOpen`, and candidate counts; each role with status Open also carries `recruiterUpdates` — the recruiters' latest dated weekly comments on that role (newest first, up to 3). When asked for progress, a weekly update or why a role is stuck, quote these comments with their author and date; an empty `recruiterUpdates` or one whose newest entry is over 7 days old means the role has no update this week — say so rather than guessing. Only treat roles with status \"Open\" as open vacancies. `candidateProfiles` = every candidate with name, current stage, role, and days in stage. `interviewDetails` = all scheduled interviews with candidate names, dates, stages, and attendance. `workTrialDetails` = all work trials with outcomes. `refCheckDetails` = reference check statuses; when a check's referees have responded and AI insights have been generated, each entry also carries an `aiInsights` object — treat this as the analyzed read on that reference check, not just raw status, and lean on it when asked things like which candidates are safe to extend an offer to or where a reference raised concerns. For a check created in the last 90 days this includes the full analysis (summary, key strengths, areas of concern, consistency notes, suggested follow-ups); older checks are trimmed to just `overallStatus` and the three scores to keep the context small, so if those text fields are absent, give the verdict/scores you have and say the full write-up isn't available for that older check rather than inventing one. `offerDetails` = all offers with outcomes and salaries. `departmentBreakdown` and `branchBreakdown` are pre-aggregated for breakdown questions.",
     "Formatting rules: write for a human reading a chat window. Use names and role titles from the data — never invent details not present. NEVER show internal `id` field values starting with \"rec\" in visible text. For breakdown/grouping questions prefer the pre-aggregated arrays. For candidate-specific questions, scan `candidateProfiles`. Keep answers concise — bullet lists or short paragraphs.",
     "If asked to change a role's status, call the setRoleStatus tool with the role's `id` and `title` from the roster. Always confirm with the user first.",
     canEdit

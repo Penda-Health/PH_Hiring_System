@@ -130,8 +130,20 @@ export interface AppSettings {
   requisitionWorkflows: RequisitionWorkflows | null;
   /** Google Chat space incoming-webhook URL that every requisition event posts to. */
   requisitionsChatWebhookUrl: string | null;
+  /** IPS collaboration space webhook — the weekly open-roles summary posts here. */
+  ipsSummaryChatWebhookUrl: string | null;
   updatedBy: string | null;
   updatedAt: string | null;
+}
+
+/** One dated recruiter comment on an open role (the weekly progress log). */
+export interface RoleUpdate {
+  id: string;
+  roleId: string;
+  comment: string;
+  authorName: string;
+  authorEmail?: string;
+  createdAt: string;
 }
 
 export type WorkTrialRoleCategory = "General" | "Specialist";

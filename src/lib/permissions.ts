@@ -72,6 +72,7 @@ export const RECRUITMENT_DATA_API_PREFIXES = [
   "/api/branches",
   "/api/requisitions",
   "/api/open-roles",
+  "/api/role-updates",
   "/api/candidates",
   "/api/interviews",
   "/api/work-trials",

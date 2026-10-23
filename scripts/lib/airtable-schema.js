@@ -573,8 +573,19 @@ const F = {
     WORK_TRIAL_BOOKING_CUTOFF_DATE: "Work Trial Booking Cutoff Date",
     REQUISITION_WORKFLOWS: "Requisition Workflows",
     REQUISITIONS_CHAT_WEBHOOK_URL: "Requisitions Chat Webhook URL",
+    IPS_SUMMARY_CHAT_WEBHOOK_URL: "IPS Summary Chat Webhook URL",
     UPDATED_BY: "Updated By",
     UPDATED_AT: "Updated At",
+  },
+  // Dated recruiter comments on a role — the weekly "where is this role at"
+  // log that the IPS weekly summary and Penny read. Append-only history,
+  // unlike Open Roles' single free-text Notes field.
+  RoleUpdates: {
+    ROLE: "Role",
+    COMMENT: "Comment",
+    AUTHOR_NAME: "Author Name",
+    AUTHOR_EMAIL: "Author Email",
+    CREATED_AT: "Created At",
   },
 };
 
@@ -1355,8 +1366,22 @@ const TABLES = [
       // RequisitionWorkflows in src/types.ts. Edited from /settings.
       { name: F.AppSettings.REQUISITION_WORKFLOWS, type: "multilineText" },
       { name: F.AppSettings.REQUISITIONS_CHAT_WEBHOOK_URL, type: "url" },
+      // IPS collaboration space — the weekly open-roles summary posts here.
+      { name: F.AppSettings.IPS_SUMMARY_CHAT_WEBHOOK_URL, type: "url" },
       { name: F.AppSettings.UPDATED_BY, type: "singleLineText" },
       { name: F.AppSettings.UPDATED_AT, type: "date", options: dateOpts },
+    ],
+  },
+  {
+    name: "Role Updates",
+    fields: [
+      // Primary field — Airtable needs a text-ish first field, and the
+      // comment itself is the most useful thing to see in the grid.
+      { name: F.RoleUpdates.COMMENT, type: "multilineText" },
+      { name: F.RoleUpdates.ROLE, type: "multipleRecordLinks", linkedTable: "Open Roles" },
+      { name: F.RoleUpdates.AUTHOR_NAME, type: "singleLineText" },
+      { name: F.RoleUpdates.AUTHOR_EMAIL, type: "email" },
+      { name: F.RoleUpdates.CREATED_AT, type: "dateTime", options: dateTimeOpts },
     ],
   },
 ];

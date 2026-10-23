@@ -29,6 +29,7 @@ export async function GET() {
             workTrialBookingCutoffDate: null,
             requisitionWorkflows: null,
             requisitionsChatWebhookUrl: null,
+            ipsSummaryChatWebhookUrl: null,
             updatedBy: null,
             updatedAt: null,
           }
@@ -59,6 +60,14 @@ const patchSchema = z.object({
       message: "Must be a Google Chat webhook URL (https://chat.googleapis.com/...)",
     })
     .optional(),
+  ipsSummaryChatWebhookUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine((url) => url === "" || isGoogleChatWebhookUrl(url), {
+      message: "Must be a Google Chat webhook URL (https://chat.googleapis.com/...)",
+    })
+    .optional(),
 });
 
 export async function PATCH(request: NextRequest) {
@@ -82,6 +91,8 @@ export async function PATCH(request: NextRequest) {
       // "" = clear it; Airtable takes null for a blank URL field.
       requisitionsChatWebhookUrl:
         result.data.requisitionsChatWebhookUrl === undefined ? undefined : result.data.requisitionsChatWebhookUrl || null,
+      ipsSummaryChatWebhookUrl:
+        result.data.ipsSummaryChatWebhookUrl === undefined ? undefined : result.data.ipsSummaryChatWebhookUrl || null,
       updatedBy,
     });
 

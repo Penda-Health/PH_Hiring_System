@@ -18,6 +18,7 @@ export const TABLE_NAMES = {
   WorkTrialSpecialtyConfig: "Work Trial Specialty Config",
   StaffingProjections: "Staffing Projections",
   AppSettings: "App Settings",
+  RoleUpdates: "Role Updates",
 } as const;
 
 export const F = {
@@ -533,7 +534,18 @@ export const F = {
     WORK_TRIAL_BOOKING_CUTOFF_DATE: "Work Trial Booking Cutoff Date",
     REQUISITION_WORKFLOWS: "Requisition Workflows",
     REQUISITIONS_CHAT_WEBHOOK_URL: "Requisitions Chat Webhook URL",
+    IPS_SUMMARY_CHAT_WEBHOOK_URL: "IPS Summary Chat Webhook URL",
     UPDATED_BY: "Updated By",
     UPDATED_AT: "Updated At",
+  },
+  // Dated recruiter comments on a role — the weekly "where is this role at"
+  // log that the IPS weekly summary and Penny read. Append-only history,
+  // unlike Open Roles' single free-text Notes field.
+  RoleUpdates: {
+    ROLE: "Role",
+    COMMENT: "Comment",
+    AUTHOR_NAME: "Author Name",
+    AUTHOR_EMAIL: "Author Email",
+    CREATED_AT: "Created At",
   },
 } as const;
