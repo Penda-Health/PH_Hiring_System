@@ -561,7 +561,7 @@ async function drawRefereeSection(ctx: Ctx, num: number, referee: RefereeStatus)
   const verificationLabel = referee.googleVerified
     ? `Verified via ${detectEmailProvider(referee.googleVerifiedEmail || referee.email) === "yahoo" ? "Yahoo" : "Google"} (${referee.googleVerifiedEmail || referee.email})`
     : referee.googleVerifiedOverrideBy
-      ? `Manually verified by ${referee.googleVerifiedOverrideBy}`
+      ? "Manually verified"
       : (await resolveVerificationMethod(referee.email)) === "bypassed"
         ? `Company domain email — no verification needed (${referee.email})`
         : "Not verified";
