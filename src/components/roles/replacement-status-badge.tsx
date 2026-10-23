@@ -4,6 +4,7 @@ import { resolveReplacementStatus } from "@/lib/expansion-helpers";
 
 const STYLES: Record<NonNullable<ReturnType<typeof resolveReplacementStatus>>, "critical" | "high" | "success" | "outline"> = {
   "Needs Replacement": "critical",
+  "Not Needed": "outline",
   "Pending Approval": "high",
   Approved: "high",
   Rejected: "critical",

@@ -43,8 +43,12 @@ export function fillType(role: OpenRole): FillType {
   return "Unfilled";
 }
 
+/** Replacement picker value for "this vacated seat doesn't need backfilling". */
+export const REPLACEMENT_NOT_NEEDED = "__not_needed";
+
 export type ReplacementStatus =
   | "Needs Replacement" // internally filled, nothing raised to backfill the vacated seat yet
+  | "Not Needed" // internally filled, and the vacated seat was marked as not needing a backfill
   | "Pending Approval" // backfill requisition raised, still working through approvers
   | "Approved" // approved, not yet converted into an open role
   | "Rejected" // backfill requisition was rejected — needs a new one
@@ -66,6 +70,7 @@ export function resolveReplacementStatus(
   openRoles: OpenRole[]
 ): ReplacementStatus | null {
   if (!role.internalFill) return null;
+  if (role.replacementNotNeeded) return "Not Needed";
   if (!role.replacementRequisitionId) return "Needs Replacement";
 
   const req = requisitions.find((r) => r.id === role.replacementRequisitionId);
@@ -99,7 +104,7 @@ export function summarizeExpansion(roles: OpenRole[], requisitions: Requisition[
     else summary.unfilled += 1;
 
     const status = resolveReplacementStatus(role, requisitions, openRoles);
-    if (status && status !== "Backfilled") summary.pendingReplacements += 1;
+    if (status && status !== "Backfilled" && status !== "Not Needed") summary.pendingReplacements += 1;
   }
   return summary;
 }

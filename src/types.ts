@@ -315,6 +315,12 @@ export interface OpenRole {
    * from — see resolveReplacementStatus() in expansion-helpers.ts.
    */
   replacementRequisitionId?: string;
+  /**
+   * Set on an internal fill when the seat it vacated doesn't need backfilling
+   * (e.g. the post is being dropped) — resolves to "Not Needed" instead of
+   * "Needs Replacement" and stops counting as a pending replacement.
+   */
+  replacementNotNeeded?: boolean;
   requisitionId?: string;
   requisitionSubmitterName?: string;
   requisitionSubmitterEmail?: string;

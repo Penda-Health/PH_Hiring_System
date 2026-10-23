@@ -4,6 +4,7 @@ import Link from "next/link";
 import { OpenRole, Requisition } from "@/types";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { REPLACEMENT_NOT_NEEDED } from "@/lib/expansion-helpers";
 import { ReplacementStatusBadge } from "./replacement-status-badge";
 
 // A requisition is "eligible" to link as this role's backfill if it's the
@@ -53,7 +54,7 @@ export function ReplacementRequisitionPicker({
         <ReplacementStatusBadge role={role} requisitions={requisitions} openRoles={openRoles} />
       </div>
       <Select
-        value={role.replacementRequisitionId ?? "__none"}
+        value={role.replacementNotNeeded ? REPLACEMENT_NOT_NEEDED : role.replacementRequisitionId || "__none"}
         onValueChange={(v) => onLink(v === "__none" ? undefined : v)}
         disabled={!canEdit}
       >
@@ -62,6 +63,7 @@ export function ReplacementRequisitionPicker({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="__none">Not yet raised</SelectItem>
+          <SelectItem value={REPLACEMENT_NOT_NEEDED}>Doesn&apos;t need a replacement</SelectItem>
           {eligible.map((req) => (
             <SelectItem key={req.id} value={req.id}>
               {req.roleTitle} · {req.department} ({req.status})
@@ -69,7 +71,7 @@ export function ReplacementRequisitionPicker({
           ))}
         </SelectContent>
       </Select>
-      {canEdit && !role.replacementRequisitionId && (
+      {canEdit && !role.replacementRequisitionId && !role.replacementNotNeeded && (
         <Link href={newReqHref} className="text-xs text-penda-blue hover:underline">
           + Raise the replacement requisition
         </Link>

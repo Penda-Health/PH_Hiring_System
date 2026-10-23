@@ -174,6 +174,7 @@ const F = {
     REQ_SUBMITTER_NAME: "Requisition Submitter Name",
     REQ_SUBMITTER_EMAIL: "Requisition Submitter Email",
     REPLACEMENT_REQUISITION: "Replacement Requisition",
+    REPLACEMENT_NOT_NEEDED: "Replacement Not Needed",
     // Which of the 5 tracked cadres this role belongs to — blank for roles
     // outside those 5 (Dentist, IT, admin, etc). Feeds the Staffing
     // Projections page's Required HC (= sum of hcApproved per branch+cadre).
@@ -708,6 +709,7 @@ const TABLES = [
       { name: F.OpenRoles.REQ_SUBMITTER_NAME, type: "singleLineText" },
       { name: F.OpenRoles.REQ_SUBMITTER_EMAIL, type: "email" },
       { name: F.OpenRoles.REPLACEMENT_REQUISITION, type: "multipleRecordLinks", linkedTable: "Requisitions" },
+      { name: F.OpenRoles.REPLACEMENT_NOT_NEEDED, type: "checkbox", options: checkboxOpts },
       { name: F.OpenRoles.CADRE, type: "singleSelect", options: choices(CADRES) },
     ],
   },

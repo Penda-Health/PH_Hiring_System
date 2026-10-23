@@ -111,6 +111,7 @@ export const F = {
     REQ_SUBMITTER_NAME: "Requisition Submitter Name",
     REQ_SUBMITTER_EMAIL: "Requisition Submitter Email",
     REPLACEMENT_REQUISITION: "Replacement Requisition",
+    REPLACEMENT_NOT_NEEDED: "Replacement Not Needed",
     CADRE: "Cadre",
   },
   Candidates: {

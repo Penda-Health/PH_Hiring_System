@@ -228,6 +228,7 @@ export function openRoleFromAirtable(r: AirtableRecord): OpenRole {
     internalFill: f[F.OpenRoles.INTERNAL_FILL] === true,
     internalFillName: opt(f[F.OpenRoles.INTERNAL_FILL_NAME]),
     replacementRequisitionId: firstLink(f[F.OpenRoles.REPLACEMENT_REQUISITION]),
+    replacementNotNeeded: f[F.OpenRoles.REPLACEMENT_NOT_NEEDED] === true,
     requisitionId: firstLink(f[F.OpenRoles.REQUISITION]),
     requisitionSubmitterName: opt(f[F.OpenRoles.REQ_SUBMITTER_NAME]),
     requisitionSubmitterEmail: opt(f[F.OpenRoles.REQ_SUBMITTER_EMAIL]),
@@ -259,8 +260,11 @@ export function openRoleToAirtable(r: Partial<OpenRole>) {
     [F.OpenRoles.NOTES]: r.notes,
     [F.OpenRoles.INTERNAL_FILL]: r.internalFill,
     [F.OpenRoles.INTERNAL_FILL_NAME]: r.internalFillName,
+    // "" is a deliberate unlink (back to "Not yet raised" / "Not needed"),
+    // which link() alone would drop as "leave unchanged".
     [F.OpenRoles.REPLACEMENT_REQUISITION]:
-      r.replacementRequisitionId !== undefined ? link(r.replacementRequisitionId) : undefined,
+      r.replacementRequisitionId === undefined ? undefined : r.replacementRequisitionId ? link(r.replacementRequisitionId) : [],
+    [F.OpenRoles.REPLACEMENT_NOT_NEEDED]: r.replacementNotNeeded,
     [F.OpenRoles.REQUISITION]: r.requisitionId !== undefined ? link(r.requisitionId) : undefined,
     [F.OpenRoles.REQ_SUBMITTER_NAME]: r.requisitionSubmitterName,
     [F.OpenRoles.REQ_SUBMITTER_EMAIL]: r.requisitionSubmitterEmail,

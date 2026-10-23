@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Branch, OpenRole } from "@/types";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
+import { REPLACEMENT_NOT_NEEDED } from "@/lib/expansion-helpers";
 
 /**
  * Shared editable-state logic for a role's notes / internal-fill / headcount
@@ -181,9 +182,16 @@ export function useRoleEditState(role: OpenRole | null) {
   // Links this internally-filled role to the Requisition raised to backfill
   // the seat it vacated elsewhere — saves immediately (a select, not a
   // text field, so no blur-to-save debounce needed like the fields above).
-  function linkReplacementRequisition(requisitionId: string | undefined) {
+  // `choice` is a requisition id, REPLACEMENT_NOT_NEEDED, or undefined for
+  // "Not yet raised". "" clears the link (undefined would be dropped as
+  // "unchanged" on the way to Airtable).
+  function linkReplacementRequisition(choice: string | undefined) {
     if (!role || !canEdit) return;
-    updateOpenRole(role.id, { replacementRequisitionId: requisitionId });
+    if (choice === REPLACEMENT_NOT_NEEDED) {
+      updateOpenRole(role.id, { replacementNotNeeded: true, replacementRequisitionId: "" });
+    } else {
+      updateOpenRole(role.id, { replacementNotNeeded: false, replacementRequisitionId: choice ?? "" });
+    }
   }
 
   return {

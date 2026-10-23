@@ -199,6 +199,7 @@ export const openRoleSchema = z.object({
   internalFill: z.boolean().optional(),
   internalFillName: z.string().trim().max(150).optional(),
   replacementRequisitionId: z.string().max(50).optional(),
+  replacementNotNeeded: z.boolean().optional(),
   requisitionId: z.string().max(50).optional(),
   requisitionSubmitterName: z.string().trim().max(150).optional(),
   requisitionSubmitterEmail: z.string().trim().max(255).optional(),
