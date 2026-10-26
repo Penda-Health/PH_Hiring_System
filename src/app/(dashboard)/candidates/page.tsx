@@ -25,11 +25,14 @@ export default function CandidatesPage() {
   const {
     candidates,
     openRoles,
+    branches,
     canEdit,
     canDelete,
+    canManageRoles,
     createCandidate,
     updateCandidate,
     updateCandidateStage,
+    hireToBranch,
     updateCandidateJoining,
     deleteCandidate,
     createInterview,
@@ -221,6 +224,8 @@ export default function CandidatesPage() {
         openRoles={openRoles}
         onOpenChange={(open) => !open && setMovingCandidate(null)}
         onMove={updateCandidateStage}
+        branches={branches}
+        onHireToBranch={canManageRoles ? hireToBranch : undefined}
       />
       <JoiningDialog
         candidate={joiningCandidate}

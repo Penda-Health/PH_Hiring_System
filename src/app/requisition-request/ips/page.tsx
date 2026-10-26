@@ -82,7 +82,7 @@ export default function PublicIpsRequisitionRequestPage() {
           setGapReason(draft.gapReason as GapReason);
           setRoleTitle(draft.roleTitle);
           setDepartment(draft.department);
-          setBranchId(draft.branchId || body.branches?.[0]?.id || "");
+          setBranchId(draft.branchId || "");
           setEmploymentType(draft.employmentType as EmploymentType);
           setHeadcount(draft.headcount);
           setCurrentHeadcount(draft.currentHeadcount ?? "");
@@ -91,8 +91,6 @@ export default function PublicIpsRequisitionRequestPage() {
           setExpectedStartDate(draft.expectedStartDate);
           setContext(draft.context);
           setDraftRestored(true);
-        } else if (body.branches?.[0]) {
-          setBranchId(body.branches[0].id);
         }
       })
       .finally(() => setBranchesLoading(false));
@@ -148,7 +146,7 @@ export default function PublicIpsRequisitionRequestPage() {
     setGapReason("New Addition");
     setRoleTitle("");
     setDepartment("");
-    setBranchId(branches[0]?.id ?? "");
+    setBranchId("");
     setEmploymentType("Full-time");
     setHeadcount(1);
     setCurrentHeadcount("");

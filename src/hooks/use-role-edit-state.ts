@@ -4,6 +4,7 @@ import * as React from "react";
 import { Branch, OpenRole } from "@/types";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { REPLACEMENT_NOT_NEEDED } from "@/lib/expansion-helpers";
+import { hiresAwaitingReport } from "@/lib/joining";
 
 /**
  * Shared editable-state logic for a role's notes / internal-fill / headcount
@@ -23,7 +24,7 @@ export function formatHc(n: number): string {
 }
 
 export function useRoleEditState(role: OpenRole | null) {
-  const { updateOpenRole, createOpenRole, branches, canEdit, canManageRoles } = useRecruitmentData();
+  const { updateOpenRole, createOpenRole, branches, candidates, canEdit, canManageRoles } = useRecruitmentData();
 
   const [title, setTitle] = React.useState(role?.title ?? "");
   const [notes, setNotes] = React.useState(role?.notes ?? "");
@@ -56,8 +57,13 @@ export function useRoleEditState(role: OpenRole | null) {
     const filled = Math.max(0, Math.min(roundToHalf(newFilled), approved));
     setLocalHcFilled(filled);
     setLocalHcApproved(approved);
+    // A full role still waits for any hired candidate to report before it
+    // closes — the joining tracker closes it once they do.
+    const canClose = hiresAwaitingReport(candidates, role.id).length === 0;
     const newStatus: OpenRole["status"] =
-      filled >= approved ? "Filled" : role.status === "Filled" ? "Open" : role.status;
+      filled >= approved
+        ? canClose ? "Filled" : role.status
+        : role.status === "Filled" ? "Open" : role.status;
     updateOpenRole(role.id, {
       hcFilled: filled,
       hcApproved: approved,

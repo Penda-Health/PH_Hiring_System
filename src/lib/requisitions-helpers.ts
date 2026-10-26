@@ -1,4 +1,14 @@
-import { Branch, OpenRole, Requisition } from "@/types";
+import { Branch, EmploymentType, OpenRole, Requisition } from "@/types";
+
+// Part-time, locum and reliever staff float between clinics, so a request for
+// one doesn't have to name a branch. Raised in-app (by the recruitment team)
+// they also skip approval and become an Open Role straight away; raised from a
+// public link they still go through the normal approvers.
+export const FLOATING_EMPLOYMENT_TYPES: EmploymentType[] = ["Part-time", "Locum", "Reliever"];
+
+export function isFloatingEmploymentType(type: EmploymentType | undefined): boolean {
+  return !!type && FLOATING_EMPLOYMENT_TYPES.includes(type);
+}
 
 export function branchName(branchId: string | undefined, branches: Branch[]): string {
   if (!branchId) return "—";
@@ -29,7 +39,11 @@ export function buildOpenRoleFromRequisition(
     title: req.roleTitle,
     segment: req.segment,
     department: req.department,
-    location: branch ? `${branch.name} (${branch.city})` : "Unassigned",
+    location: branch
+      ? `${branch.name} (${branch.city})`
+      : isFloatingEmploymentType(req.employmentType)
+        ? "Any branch"
+        : "Unassigned",
     branchId: req.branchId,
     priority: req.urgency,
     status: "Open",

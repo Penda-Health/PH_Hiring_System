@@ -14,6 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 import { IPS_FUNCTIONS } from "@/lib/department-options";
 import { ApprovalChainPreview, useWorkflowPreview } from "@/components/requisitions/approval-chain-preview";
+import { isFloatingEmploymentType } from "@/lib/requisitions-helpers";
+
+// Select can't hold an empty value, so "no specific branch" gets a sentinel.
+const NO_BRANCH = "__none";
 
 const GAP_REASONS: { value: GapReason; label: string; description: string }[] = [
   { value: "Transfer", label: "Transfer", description: "Employee moved to a different branch or department" },
@@ -38,7 +42,7 @@ export default function NewIpsGapRequisitionPage() {
 function NewIpsGapRequisitionForm() {
   const router = useRouter();
   const { user } = useAuth();
-  const { createRequisition, updateOpenRole, branches, openRoles } = useRecruitmentData();
+  const { createRequisition, updateOpenRole, branches, openRoles, refresh } = useRecruitmentData();
   const searchParams = useSearchParams();
   // Set when this requisition is being raised to backfill a seat vacated by
   // an internal move into an expansion role — see ReplacementRequisitionPicker.
@@ -57,10 +61,15 @@ function NewIpsGapRequisitionForm() {
   const [gapReason, setGapReason] = React.useState<GapReason>(initialGapReason);
   const [roleTitle, setRoleTitle] = React.useState("");
   const [department, setDepartment] = React.useState("");
-  // This page only raises IPS requisitions — scope the branch picker to IPS
-  // clinics so SO-only locations (Support Office, Telemedicine) don't show up.
-  const ipsBranches = React.useMemo(() => branches.filter((b) => b.segment === "IPS"), [branches]);
-  const [branchId, setBranchId] = React.useState(ipsBranches[0]?.id ?? "");
+  // This page only raises IPS requisitions — scope the branch picker to active
+  // IPS clinics so SO-only locations (Support Office, Telemedicine) and closed
+  // branches don't show up. No branch is preselected: a silent default is
+  // easy to submit by mistake.
+  const ipsBranches = React.useMemo(
+    () => branches.filter((b) => b.segment === "IPS" && b.active).sort((a, b) => a.name.localeCompare(b.name)),
+    [branches]
+  );
+  const [branchId, setBranchId] = React.useState("");
   const [employmentType, setEmploymentType] = React.useState<EmploymentType>("Full-time");
   const [headcount, setHeadcount] = React.useState(1);
   const [urgency, setUrgency] = React.useState<Priority>("Medium");
@@ -69,13 +78,17 @@ function NewIpsGapRequisitionForm() {
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (!branchId && ipsBranches[0]) setBranchId(ipsBranches[0].id);
-  }, [ipsBranches, branchId]);
-
   const workflowPreview = useWorkflowPreview();
 
-  const canSubmit = roleTitle.trim() && department.trim() && branchId && context.trim().length >= 20;
+  // Part-time/Locum/Reliever staff float between clinics: the branch is
+  // optional and, raised in-app, the request skips approval.
+  const floating = isFloatingEmploymentType(employmentType);
+  const hasBranch = !!branchId && branchId !== NO_BRANCH;
+  React.useEffect(() => {
+    if (!floating && branchId === NO_BRANCH) setBranchId("");
+  }, [floating, branchId]);
+
+  const canSubmit = roleTitle.trim() && department.trim() && (hasBranch || floating) && context.trim().length >= 20;
 
   async function handleSubmit() {
     setError(null);
@@ -87,7 +100,7 @@ function NewIpsGapRequisitionForm() {
       department,
       segment: "IPS",
       gapReason,
-      branchId,
+      branchId: hasBranch ? branchId : undefined,
       employmentType,
       headcount,
       justification: context,
@@ -105,6 +118,8 @@ function NewIpsGapRequisitionForm() {
     setSubmitting(true);
     try {
       const created = await createRequisition(req);
+      // The Open Role was created server-side — pull it into the register.
+      if (floating) void refresh();
       if (linkRoleId) {
         updateOpenRole(linkRoleId, { replacementRequisitionId: created.id });
         router.push("/expansion");
@@ -189,11 +204,12 @@ function NewIpsGapRequisitionForm() {
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label>Branch</Label>
-              <Select value={branchId} onValueChange={setBranchId}>
+              <Select value={branchId || undefined} onValueChange={setBranchId}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select a branch" />
                 </SelectTrigger>
                 <SelectContent>
+                  {floating && <SelectItem value={NO_BRANCH}>No specific branch</SelectItem>}
                   {ipsBranches.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.name}
@@ -259,11 +275,17 @@ function NewIpsGapRequisitionForm() {
           <CardTitle>Approval chain</CardTitle>
         </CardHeader>
         <CardContent>
-          <ApprovalChainPreview
-            steps={workflowPreview?.IPS ?? null}
-            type="IPS Gap"
-            branch={ipsBranches.find((b) => b.id === branchId)}
-          />
+          {floating ? (
+            <p className="text-sm text-muted-foreground">
+              No approval needed — {employmentType} requests raised here become an Open Role as soon as you submit.
+            </p>
+          ) : (
+            <ApprovalChainPreview
+              steps={workflowPreview?.IPS ?? null}
+              type="IPS Gap"
+              branch={ipsBranches.find((b) => b.id === branchId)}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -271,7 +293,7 @@ function NewIpsGapRequisitionForm() {
 
       <div className="flex gap-3">
         <Button onClick={handleSubmit} disabled={!canSubmit || submitting} className="bg-penda-blue hover:bg-penda-blue-dark">
-          {submitting ? "Submitting…" : "Submit for approval"}
+          {submitting ? "Submitting…" : floating ? "Create open role" : "Submit for approval"}
         </Button>
         <Button variant="outline" onClick={() => router.push("/requisitions")}>
           Cancel

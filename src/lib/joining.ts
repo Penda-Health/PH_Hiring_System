@@ -19,6 +19,20 @@ export function joiningState(c: Candidate, today = todayIso()): JoiningState {
   return c.expectedJoiningDate < today ? "overdue" : "upcoming";
 }
 
+/**
+ * Hired candidates on a role who haven't been confirmed as reported yet
+ * (still Pending — no Joined / Did Not Join recorded). A role isn't closed as Filled while
+ * any of these remain — signing an offer isn't the same as starting.
+ */
+export function hiresAwaitingReport(candidates: Candidate[], roleId: string): Candidate[] {
+  return candidates.filter((c) => c.roleId === roleId && isAwaitingReport(c));
+}
+
+/** Hired, but neither Joined nor Did Not Join recorded yet ("Pending" or blank). */
+export function isAwaitingReport(c: Candidate): boolean {
+  return c.stage === "Hired" && c.joined !== "Joined" && c.joined !== "Did Not Join";
+}
+
 export function formatShortDate(iso: string | null | undefined): string {
   if (!iso) return "";
   return new Date(`${iso}T00:00:00`).toLocaleDateString("en-KE", { day: "numeric", month: "short" });

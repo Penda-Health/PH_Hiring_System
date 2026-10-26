@@ -13,6 +13,7 @@ import {
 import { RoleStatusBadge } from "./role-status-badge";
 import { headcountPct, ACTIVE_CANDIDATE_STAGE_EXCLUSIONS } from "@/lib/roles-helpers";
 import { headcountRemaining } from "@/lib/pipeline-helpers";
+import { isAwaitingReport } from "@/lib/joining";
 
 export function RolesTable({
   roles,
@@ -30,6 +31,16 @@ export function RolesTable({
     const counts = new Map<string, number>();
     for (const c of candidates) {
       if (!c.roleId || ACTIVE_CANDIDATE_STAGE_EXCLUSIONS.has(c.stage)) continue;
+      counts.set(c.roleId, (counts.get(c.roleId) ?? 0) + 1);
+    }
+    return counts;
+  }, [candidates]);
+
+  // Hired but not yet confirmed as reported — the role stays open until they do.
+  const awaitingByRoleId = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of candidates) {
+      if (!c.roleId || !isAwaitingReport(c)) continue;
       counts.set(c.roleId, (counts.get(c.roleId) ?? 0) + 1);
     }
     return counts;
@@ -68,6 +79,11 @@ export function RolesTable({
             </TableCell>
             <TableCell>
               <RoleStatusBadge status={role.status} />
+              {role.status !== "Filled" && (awaitingByRoleId.get(role.id) ?? 0) > 0 && (
+                <p className="mt-1 text-[11px] text-amber-700 whitespace-nowrap">
+                  {awaitingByRoleId.get(role.id)} hired · awaiting reporting
+                </p>
+              )}
             </TableCell>
             <TableCell className="w-40">
               <div className="flex items-center gap-2">

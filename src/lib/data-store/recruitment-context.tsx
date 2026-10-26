@@ -36,6 +36,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { canEditRecruitmentData, canDeleteRecords, canManageRoles, canSeeSalary } from "@/lib/permissions";
 import { useUndoToast, DEFAULT_UNDO_WINDOW_MS } from "@/components/ui/undo-toast";
 import { reportError } from "@/components/ui/error-toast";
+import { hiresAwaitingReport } from "@/lib/joining";
 
 type RecruitmentDataContextValue = {
   loading: boolean;
@@ -128,8 +129,19 @@ type RecruitmentDataContextValue = {
     stage: Candidate["stage"],
     roleId?: string,
     employmentType?: Candidate["employmentType"],
-    expectedJoiningDate?: string
+    expectedJoiningDate?: string,
+    opts?: { newRole?: OpenRole }
   ) => void;
+  /**
+   * Recruitment Manager only: hires a candidate straight into a branch that
+   * has no open role, without raising a requisition. Creates a one-seat Open
+   * Role for that branch and hires into it, so it's tracked as a gap until
+   * the hire is confirmed as reported (then it closes as Filled).
+   */
+  hireToBranch: (
+    id: string,
+    args: { branchId: string; title: string; employmentType: Candidate["employmentType"]; expectedJoiningDate: string }
+  ) => Promise<void>;
   /**
    * Joining tracker for a hired candidate. `reopenSeat` (only acted on when
    * they newly become "Did Not Join") gives the seat back to their role:
@@ -859,7 +871,8 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       stage: Candidate["stage"],
       roleId?: string,
       employmentType?: Candidate["employmentType"],
-      expectedJoiningDate?: string
+      expectedJoiningDate?: string,
+      opts?: { newRole?: OpenRole }
     ) => {
       if (!guardEdit(canEdit, "updateCandidateStage")) return;
       const now = new Date().toISOString();
@@ -971,16 +984,15 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       // when this line runs, so candidate.roleId is still the pre-update value.
       const effectiveRoleId = roleId ?? candidate.roleId;
       if (effectiveRoleId) {
-        const role = openRoles.find((r) => r.id === effectiveRoleId);
+        // A role created moments ago (hireToBranch) isn't in this render's
+        // openRoles yet, so it's passed in directly.
+        const role =
+          openRoles.find((r) => r.id === effectiveRoleId) ??
+          (opts?.newRole?.id === effectiveRoleId ? opts.newRole : undefined);
         if (role) {
-          const newHcFilled = (role.hcFilled ?? 0) + 1;
-          const newStatus: OpenRole["status"] =
-            newHcFilled >= (role.hcApproved ?? 1) ? "Filled" : role.status;
-          const rolePatch: Partial<OpenRole> = {
-            hcFilled: newHcFilled,
-            status: newStatus,
-            ...(newStatus === "Filled" ? { dateClosed: new Date().toISOString() } : {}),
-          };
+          // The seat counts as taken, but the role stays open until the
+          // hire is confirmed as reported (updateCandidateJoining closes it).
+          const rolePatch: Partial<OpenRole> = { hcFilled: (role.hcFilled ?? 0) + 1 };
           setOpenRoles((prev) =>
             prev.map((r) => (r.id === effectiveRoleId ? { ...r, ...rolePatch } : r))
           );
@@ -989,6 +1001,40 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       }
     },
     [canEdit, candidates, openRoles, branches, createWorkTrial, createLocum, createReliever]
+  );
+
+  const hireToBranch = React.useCallback(
+    async (
+      id: string,
+      args: { branchId: string; title: string; employmentType: Candidate["employmentType"]; expectedJoiningDate: string }
+    ) => {
+      if (!guardEdit(canManageRolesValue, "hireToBranch")) return;
+      const candidate = candidates.find((c) => c.id === id);
+      const branch = branches.find((b) => b.id === args.branchId);
+      if (!candidate || !branch) return;
+      const created = await createOpenRole({
+        id: "",
+        roleId: "",
+        title: args.title.trim(),
+        segment: candidate.segment ?? branch.segment,
+        department: candidate.department?.trim() || args.title.trim(),
+        location: branch.name,
+        branchId: branch.id,
+        branchIds: [branch.id],
+        priority: "Medium",
+        status: "Open",
+        hcApproved: 1,
+        hcFilled: 0,
+        recruiter: user?.name?.trim() || "Unassigned",
+        hiringManager: branch.branchManager || "Unassigned",
+        datePosted: new Date().toISOString(),
+        employmentType: args.employmentType,
+        notes: `Allocated directly to ${branch.name} for ${candidate.name} — no requisition raised. Closes once they report.`,
+      });
+      if (!created) return;
+      updateCandidateStage(id, "Hired", created.id, args.employmentType, args.expectedJoiningDate, { newRole: created });
+    },
+    [canManageRolesValue, candidates, branches, user, createOpenRole, updateCandidateStage]
   );
 
   const updateCandidateJoining = React.useCallback(
@@ -1003,19 +1049,32 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
       persist<Candidate>("candidates", id, patch);
 
+      if (!candidate.roleId) return;
+      const role = openRoles.find((r) => r.id === candidate.roleId);
+      if (!role) return;
+
       // Only on the transition into "Did Not Join" — re-saving an
       // already-dropped candidate must not free a second seat.
       const newlyDropped = patch.joined === "Did Not Join" && candidate.joined !== "Did Not Join";
-      if (!newlyDropped || !opts?.reopenSeat || !candidate.roleId) return;
-      const role = openRoles.find((r) => r.id === candidate.roleId);
-      if (!role) return;
-      const hcFilled = Math.max(0, (role.hcFilled ?? 0) - 1);
-      // Filled → Open goes through PATCH /api/open-roles, which also posts
-      // "reopened" to the requisition's Google Chat thread.
-      const rolePatch: Partial<OpenRole> =
-        role.status === "Filled" && hcFilled < (role.hcApproved ?? 1)
-          ? { hcFilled, status: "Open", dateClosed: null }
-          : { hcFilled };
+      const hcFilled =
+        newlyDropped && opts?.reopenSeat ? Math.max(0, (role.hcFilled ?? 0) - 1) : (role.hcFilled ?? 0);
+      const full = hcFilled >= (role.hcApproved ?? 1);
+      const awaiting = hiresAwaitingReport(
+        candidates.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        role.id
+      );
+
+      let rolePatch: Partial<OpenRole> = hcFilled !== (role.hcFilled ?? 0) ? { hcFilled } : {};
+      if (role.status === "Filled" && !full) {
+        // Filled → Open goes through PATCH /api/open-roles, which also posts
+        // "reopened" to the requisition's Google Chat thread.
+        rolePatch = { ...rolePatch, status: "Open", dateClosed: null };
+      } else if (full && awaiting.length === 0 && role.status !== "Filled" && role.status !== "Cancelled") {
+        // Every hire has now reported — close the role.
+        const closedOn = patch.joined === "Joined" && patch.joinedOn ? new Date(`${patch.joinedOn}T00:00:00`) : new Date();
+        rolePatch = { ...rolePatch, status: "Filled", dateClosed: closedOn.toISOString() };
+      }
+      if (Object.keys(rolePatch).length === 0) return;
       setOpenRoles((prev) => prev.map((r) => (r.id === role.id ? { ...r, ...rolePatch } : r)));
       persist<OpenRole>("open-roles", role.id, rolePatch);
     },
@@ -1097,6 +1156,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       createCandidate,
       updateCandidate,
       updateCandidateStage,
+      hireToBranch,
       updateCandidateJoining,
       deleteCandidate,
       relievers,
@@ -1157,6 +1217,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       createCandidate,
       updateCandidate,
       updateCandidateStage,
+      hireToBranch,
       updateCandidateJoining,
       deleteCandidate,
       relievers,

@@ -2,7 +2,8 @@
 // forms, the quick-add dialog and the public /requisition-request links —
 // is created here as "Pending Approval", walks the approvers configured for
 // its segment in /settings, and only becomes an Open Role once the last one
-// approves.
+// approves. The one exception: in-app Part-time/Locum/Reliever requests
+// (raised by the recruitment team) skip approval and convert straight away.
 //
 // Notifications:
 // - Approval emails are sent by an Airtable automation (SETUP.md §4.5.8),
@@ -24,7 +25,7 @@ import {
 import { nextSequentialId } from "@/lib/airtable/route-handlers";
 import { signRequisitionApprovalToken } from "@/lib/forms/tokens";
 import { postToGoogleChat } from "@/lib/notifications/google-chat";
-import { buildOpenRoleFromRequisition, branchName } from "@/lib/requisitions-helpers";
+import { buildOpenRoleFromRequisition, branchName, isFloatingEmploymentType } from "@/lib/requisitions-helpers";
 import { approverTypeOf, resolveStep, sameEmail, stepsForType } from "@/lib/requisitions/workflow";
 import {
   Branch,
@@ -132,7 +133,8 @@ export type NewRequisitionInput = Omit<
 
 /**
  * Creates a requisition and starts its approval workflow. Used by every
- * entry path (in-app and public link) so none of them can skip approval.
+ * entry path (in-app and public link) so none of them can skip approval —
+ * except in-app Part-time/Locum/Reliever requests, which convert directly.
  */
 export async function createRequisitionWithApproval(input: NewRequisitionInput): Promise<Requisition> {
   const [{ workflows, chatWebhookUrl }, reqId, branches] = await Promise.all([
@@ -140,6 +142,9 @@ export async function createRequisitionWithApproval(input: NewRequisitionInput):
     nextSequentialId(TABLE_NAMES.Requisitions, { airtableField: F.Requisitions.REQ_ID, prefix: "REQ", pad: 3, min: 6 }, {}),
     loadBranches(),
   ]);
+  if (input.source === "internal" && isFloatingEmploymentType(input.employmentType)) {
+    return createWithoutApproval(input, reqId, branches, chatWebhookUrl);
+  }
   const branch = branches.find((b) => b.id === input.branchId);
   const configured = stepsForType(workflows?.[input.segment], input.type).map((s) =>
     resolveStep(s, branch, workflows?.regionalManagers)
@@ -201,6 +206,55 @@ export async function createRequisitionWithApproval(input: NewRequisitionInput):
   lines.push(`${appUrl()}/requisitions`);
   await postToGoogleChat(chatWebhookUrl, lines.join("\n"), threadKey(requisition));
 
+  return requisition;
+}
+
+async function createWithoutApproval(
+  input: NewRequisitionInput,
+  reqId: string,
+  branches: Branch[],
+  chatWebhookUrl: string | null
+): Promise<Requisition> {
+  const submittedAt = new Date().toISOString();
+  const created = await createRecord(
+    TABLE_NAMES.Requisitions,
+    requisitionToAirtable({
+      ...input,
+      reqId,
+      status: "Converted to Open Role",
+      approvalSteps: [],
+      approverChain: [],
+      currentApproverIndex: 0,
+      approvalLog: [
+        {
+          stepIndex: -1,
+          label: "Approval",
+          approverEmail: "",
+          decision: "Skipped",
+          decidedBy: "system",
+          decidedAt: submittedAt,
+          comment: `${input.employmentType} request raised in-app — no approval needed`,
+          via: "system",
+        },
+      ],
+    })
+  );
+  const requisition = requisitionFromAirtable(created);
+  const where = requisition.branchId ? branchName(requisition.branchId, branches) : "any branch";
+  const header = `📝 *New ${requisition.segment} ${requisition.employmentType} requisition — ${requisition.reqId}* (no approval needed)`;
+  const role = `Role: ${requisition.roleTitle} ×${requisition.headcount} (${where})`;
+  const by = `Raised by: ${requisition.submitterName || requisition.submittedBy}`;
+  try {
+    const openRoleId = await createOpenRoleFromRequisition(requisition, branches);
+    await postToGoogleChat(chatWebhookUrl, [header, role, by, `🟢 Open Role *${openRoleId}* created.`].join("\n"), threadKey(requisition));
+  } catch (err) {
+    console.error(`[requisition-approval] Open Role creation failed for ${reqId}:`, err);
+    await postToGoogleChat(
+      chatWebhookUrl,
+      [header, role, by, "⚠️ Creating its Open Role failed — please create it manually."].join("\n"),
+      threadKey(requisition)
+    );
+  }
   return requisition;
 }
 
