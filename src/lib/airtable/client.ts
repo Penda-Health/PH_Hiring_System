@@ -94,12 +94,29 @@ async function airtableRequest(
 }
 
 export async function listRecords(tableName: string): Promise<AirtableRecord[]> {
+  try {
+    return await listAllPages(tableName, {});
+  } catch (err) {
+    // Each page's `offset` is a short-lived Airtable iterator. Pages are read
+    // through the Data Cache, so page 1 can be served from cache (on Netlify,
+    // possibly well past its 30s revalidate) carrying an offset that has
+    // already expired — page 2 then 422s with LIST_RECORDS_ITERATOR_NOT_AVAILABLE
+    // and the whole table fails to load. Re-list uncached so every offset is
+    // fresh.
+    if (err instanceof Error && err.message.includes("LIST_RECORDS_ITERATOR_NOT_AVAILABLE")) {
+      return listAllPages(tableName, { cache: "no-store" });
+    }
+    throw err;
+  }
+}
+
+async function listAllPages(tableName: string, options: RequestInit): Promise<AirtableRecord[]> {
   const records: AirtableRecord[] = [];
   let offset: string | undefined;
   do {
     const params = new URLSearchParams({ pageSize: "100" });
     if (offset) params.set("offset", offset);
-    const json = await airtableRequest(`${encodeURIComponent(tableName)}?${params.toString()}`, tableName);
+    const json = await airtableRequest(`${encodeURIComponent(tableName)}?${params.toString()}`, tableName, options);
     records.push(...(json.records ?? []));
     offset = json.offset;
   } while (offset);
