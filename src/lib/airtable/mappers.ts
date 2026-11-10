@@ -488,6 +488,9 @@ export function workTrialFromAirtable(r: AirtableRecord): WorkTrial {
     roleCategory: opt<WorkTrialRoleCategory>(f[F.WorkTrials.ROLE_CATEGORY]),
     specialty: opt<string>(f[F.WorkTrials.SPECIALTY]),
     aiInsights: workTrialAiInsightsFromAirtable(f),
+    dayNumber: opt<number>(f[F.WorkTrials.DAY_NUMBER]) ?? undefined,
+    parentTrialId: opt<string>(f[F.WorkTrials.PARENT_TRIAL]) || undefined,
+    needsAnotherDay: bool(f[F.WorkTrials.NEEDS_ANOTHER_DAY]),
   };
 }
 export function workTrialToAirtable(w: Partial<WorkTrial>) {
@@ -525,6 +528,9 @@ export function workTrialToAirtable(w: Partial<WorkTrial>) {
     // call, not a plain field PATCH.
     [F.WorkTrials.ROLE_CATEGORY]: w.roleCategory ?? undefined,
     [F.WorkTrials.SPECIALTY]: w.specialty ?? undefined,
+    [F.WorkTrials.DAY_NUMBER]: w.dayNumber,
+    [F.WorkTrials.PARENT_TRIAL]: w.parentTrialId,
+    [F.WorkTrials.NEEDS_ANOTHER_DAY]: w.needsAnotherDay,
     ...workTrialAiInsightsToAirtable(w.aiInsights),
   });
 }

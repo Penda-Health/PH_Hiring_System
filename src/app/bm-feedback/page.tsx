@@ -34,6 +34,8 @@ const BRAND: FormShellBrand = {
 
 type FormData = {
   candidateName: string;
+  dayNumber: number;
+  needsAnotherDay: boolean;
   roleTitle: string;
   branchName: string;
   supervisor: string;
@@ -72,6 +74,29 @@ const CATEGORIES = [
 ] as const;
 
 type ScoreKey = (typeof CATEGORIES)[number]["key"];
+
+// Multi-day trials (mostly dental): the supervisor can ask for another day
+// instead of making a final call today. The recruiter is then prompted on
+// the trial card to add the next day, which gets its own scoring link.
+function NeedsAnotherDayField({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-start gap-3 rounded-lg border border-border p-3 text-sm cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-4 w-4 accent-penda-blue"
+      />
+      <span>
+        <span className="font-medium">The candidate needs another trial day</span>
+        <span className="block text-xs text-muted-foreground mt-0.5">
+          Tick this if one day wasn&apos;t enough to make a final call. Today&apos;s scores are still saved, and the
+          recruitment team will schedule the next day — the final result will come from that day.
+        </span>
+      </span>
+    </label>
+  );
+}
 
 function DraftRestoredBanner({ step, onDiscard }: { step: "method" | "scoring" | "feedback" | "upload"; onDiscard: () => void }) {
   return (
@@ -144,6 +169,7 @@ function BmFeedbackForm() {
     areasOfDevelopment: "",
     overallRecommendation: "",
   });
+  const [needsAnotherDay, setNeedsAnotherDay] = React.useState(false);
   const [approvalSubmitting, setApprovalSubmitting] = React.useState(false);
   const [approvalResult, setApprovalResult] = React.useState<{ total: number; passFail: "Pass" | "Fail" } | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -291,7 +317,12 @@ function BmFeedbackForm() {
     );
   }
 
-  const header = [data.candidateName, data.roleTitle, data.branchName, data.trialDate]
+  const header = [
+    data.candidateName,
+    data.roleTitle,
+    data.branchName,
+    data.dayNumber > 1 ? `Day ${data.dayNumber} · ${data.trialDate}` : data.trialDate,
+  ]
     .filter(Boolean)
     .join(" · ");
 
@@ -346,6 +377,7 @@ function BmFeedbackForm() {
             areasOfDevelopment: comments.areasOfDevelopment || undefined,
             overallRecommendation: comments.overallRecommendation || undefined,
           },
+          needsAnotherDay,
         }),
       });
       if (!res.ok) {
@@ -393,6 +425,7 @@ function BmFeedbackForm() {
       form.set("scoreCulture", String(scores.culture));
       form.set("overallRecommendation", uploadRecommendation);
       form.set("file", uploadFile);
+      form.set("needsAnotherDay", needsAnotherDay ? "true" : "false");
 
       // No Content-Type header here — the browser sets multipart/form-data
       // with the correct boundary itself when the body is a FormData.
@@ -722,6 +755,8 @@ function BmFeedbackForm() {
             </div>
           </div>
 
+          <NeedsAnotherDayField checked={needsAnotherDay} onChange={setNeedsAnotherDay} />
+
           {selectedRole === "Incharge" && (
             <div className="rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-900 dark:text-amber-100">
               These scores will be sent to the Branch Manager for approval before being finalised.
@@ -848,6 +883,8 @@ function BmFeedbackForm() {
               minLength={UPLOADED_RECOMMENDATION_MIN_LENGTH}
             />
           </div>
+
+          <NeedsAnotherDayField checked={needsAnotherDay} onChange={setNeedsAnotherDay} />
 
           {selectedRole === "Incharge" && (
             <div className="rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-900 dark:text-amber-100">
@@ -994,6 +1031,9 @@ function BmFeedbackForm() {
               {scoreResult.passFail}
             </Badge>
           </p>
+          {needsAnotherDay && (
+            <p>You asked for another trial day — the recruitment team will schedule it and send you a new scoring link.</p>
+          )}
           <p>The recruitment team has been notified. Thank you.</p>
         </FormStatusCard>
       </FormShell>

@@ -260,7 +260,9 @@ export async function POST(request: NextRequest) {
       const allTrials = await listRecords(TABLE_NAMES.WorkTrials);
       const existingTrial = allTrials
         .map(workTrialFromAirtable)
-        .find((t) => t.candidateId === candidate!.id);
+        // Day 1 only — extra days of a multi-day trial (parentTrialId set)
+        // are added by the recruiter, never booked through this link.
+        .find((t) => t.candidateId === candidate!.id && !t.parentTrialId);
 
       let workTrialId: string;
       let alreadyScheduled = false;

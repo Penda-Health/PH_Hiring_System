@@ -417,6 +417,17 @@ export interface WorkTrial {
   specialty?: string;
   /** Persisted AI analysis of the scores + written feedback, null until generated (or if generation has never succeeded). */
   aiInsights: WorkTrialAiInsights | null;
+  /**
+   * Multi-day trials (e.g. dental): each extra day is its own WorkTrial
+   * record — own supervisor link, scores and reminders — pointing back at
+   * Day 1 through parentTrialId. Day 1 has no parent and dayNumber 1 (or
+   * unset, for trials created before this existed). The overall result is
+   * the latest day's verdict; see work-trial-days.ts.
+   */
+  dayNumber?: number;
+  parentTrialId?: string;
+  /** Set by the supervisor on the scoring form when the candidate needs another day before a final call. Cleared once the recruiter adds that day. */
+  needsAnotherDay?: boolean;
 }
 
 /**

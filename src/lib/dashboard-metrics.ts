@@ -1,4 +1,5 @@
 import { dropOffRate } from "@/lib/joining";
+import { latestDayOf } from "@/lib/work-trial-days";
 import { Candidate, CandidateStage, Interview, Locum, NewEmployee, Offer, OpenRole, Reliever, Segment, WorkTrial } from "@/types";
 import { getCoverageRate } from "@/lib/pools-helpers";
 import { DashboardPeriod, PERIOD_LABELS } from "@/lib/dashboard-filters";
@@ -99,7 +100,10 @@ export function getAllMetrics(data: {
   // the Offers table this used to read is barely used, so it sat at 0%.
   const postOfferDropRate = dropOffRate(candidates).rate ?? 0;
 
+  // One result per trial: for multi-day trials only the latest day counts
+  // (its verdict is the overall result), so Day 1 + Day 2 isn't two trials.
   const ipsWorkTrials = workTrials.filter((wt) => {
+    if (latestDayOf(wt, workTrials).id !== wt.id) return false;
     const candidate = candidateById.get(wt.candidateId);
     const segment = candidate ? (candidate.segment ?? roleById.get(candidate.roleId ?? "")?.segment) : undefined;
     return segment === "IPS";

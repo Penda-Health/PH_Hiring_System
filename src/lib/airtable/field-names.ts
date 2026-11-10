@@ -196,6 +196,12 @@ export const F = {
     ROLE_CATEGORY: "Role Category",
     SPECIALTY: "Specialty",
     RESCHEDULED_AT: "Rescheduled At",
+    // Multi-day trials — see WorkTrial.dayNumber in types.ts. Parent Trial
+    // holds Day 1's record ID as plain text (not a self-link) so it reads
+    // back as a bare ID with no extra lookup.
+    DAY_NUMBER: "Day Number",
+    PARENT_TRIAL: "Parent Trial",
+    NEEDS_ANOTHER_DAY: "Needs Another Day",
     // AI "intelligence and insights layer" (src/lib/ai/work-trial-summary.ts)
     // — same convention as ReferenceChecks' AI_* block above: persisted so it
     // shows on the review dialog without regenerating on every view. Array-

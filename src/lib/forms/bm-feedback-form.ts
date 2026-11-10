@@ -26,6 +26,9 @@ async function notifyWorkTrialPassed(workTrialId: string): Promise<void> {
 
 export type BmFeedbackFormData = {
   candidateName: string;
+  /** 1 for a single-day trial; 2+ for an extra day added to a multi-day trial. */
+  dayNumber: number;
+  needsAnotherDay: boolean;
   roleTitle: string;
   branchName: string;
   supervisor: string;
@@ -77,6 +80,8 @@ export async function loadBmFeedbackFormData(workTrialId: string): Promise<BmFee
 
   return {
     candidateName: candidate.name,
+    dayNumber: trial.dayNumber ?? 1,
+    needsAnotherDay: Boolean(trial.needsAnotherDay),
     roleTitle,
     branchName: branch?.name ?? "",
     supervisor: trial.supervisor,
@@ -119,7 +124,8 @@ export async function submitScores(
   workTrialId: string,
   scores: { technical: number; patient: number; culture: number },
   submittedByRole: "BM" | "Incharge",
-  comments?: ScoreComments
+  comments?: ScoreComments,
+  needsAnotherDay = false
 ): Promise<{ total: number; passFail: "Pass" | "Fail" }> {
   const total = computeWeightedTotal(scores);
   const passFail = computePassFail(scores);
@@ -136,6 +142,7 @@ export async function submitScores(
     [F.WorkTrials.FORM_SUBMITTED_AT]: new Date().toISOString(),
     [F.WorkTrials.SUBMITTED_BY_ROLE]: submittedByRole,
     [F.WorkTrials.SUBMISSION_METHOD]: "Online",
+    [F.WorkTrials.NEEDS_ANOTHER_DAY]: needsAnotherDay,
     ...(comments?.commentCulture    ? { [F.WorkTrials.COMMENT_CULTURE]:       comments.commentCulture    } : {}),
     ...(comments?.commentPatient    ? { [F.WorkTrials.COMMENT_PATIENT]:       comments.commentPatient    } : {}),
     ...(comments?.commentTechnical  ? { [F.WorkTrials.COMMENT_TECHNICAL]:     comments.commentTechnical  } : {}),
@@ -146,7 +153,8 @@ export async function submitScores(
   // Only a BM's own submission finalizes passFail immediately (Incharge
   // submissions stay "Pending" until approveBmScores below), so only that
   // case can newly unblock the candidate's offer.
-  if (submittedByRole === "BM" && passFail === "Pass") {
+  // A day flagged "needs another day" isn't a final pass — see isFinalDay.
+  if (submittedByRole === "BM" && passFail === "Pass" && !needsAnotherDay) {
     await notifyWorkTrialPassed(workTrialId);
   }
   return { total, passFail };
@@ -164,7 +172,8 @@ export async function submitUploadedScores(
   scores: { technical: number; patient: number; culture: number },
   submittedByRole: "BM" | "Incharge",
   overallRecommendation: string,
-  file: { filename: string; contentType: string; base64: string }
+  file: { filename: string; contentType: string; base64: string },
+  needsAnotherDay = false
 ): Promise<{ total: number; passFail: "Pass" | "Fail" }> {
   const total = computeWeightedTotal(scores);
   const passFail = computePassFail(scores);
@@ -192,11 +201,13 @@ export async function submitUploadedScores(
     [F.WorkTrials.FORM_SUBMITTED_AT]: new Date().toISOString(),
     [F.WorkTrials.SUBMITTED_BY_ROLE]: submittedByRole,
     [F.WorkTrials.SUBMISSION_METHOD]: "Uploaded",
+    [F.WorkTrials.NEEDS_ANOTHER_DAY]: needsAnotherDay,
     [F.WorkTrials.OVERALL_RECOMMENDATION]: overallRecommendation,
   });
   // Same reasoning as submitScores above — only a BM's own submission
   // finalizes passFail immediately.
-  if (submittedByRole === "BM" && passFail === "Pass") {
+  // A day flagged "needs another day" isn't a final pass — see isFinalDay.
+  if (submittedByRole === "BM" && passFail === "Pass" && !needsAnotherDay) {
     await notifyWorkTrialPassed(workTrialId);
   }
   return { total, passFail };

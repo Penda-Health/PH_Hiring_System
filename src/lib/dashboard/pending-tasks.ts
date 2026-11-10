@@ -63,6 +63,21 @@ export function getPendingTasks(user: User, data: PendingTasksInput): PendingTas
     });
   }
 
+  // Supervisor asked for another trial day (multi-day trials, mostly dental)
+  // and the recruiter hasn't added it yet — the flag clears once they do.
+  for (const wt of data.workTrials) {
+    if (!wt.needsAnotherDay) continue;
+    if (!matchesUser(roleForCandidate(wt.candidateId)?.recruiter, user)) continue;
+    const name = data.candidates.find((c) => c.id === wt.candidateId)?.name ?? wt.wtId;
+    tasks.push({
+      id: `wt-day-${wt.id}`,
+      label: `Schedule another work trial day for ${name}`,
+      detail: "Supervisor asked for another day before a final call",
+      severity: "due-soon",
+      href: "/work-trials",
+    });
+  }
+
   // Offers past their decision deadline, still open.
   for (const offer of data.offers) {
     if (offer.outcome !== "Pending" && offer.outcome !== "Negotiating") continue;

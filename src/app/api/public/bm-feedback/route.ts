@@ -79,6 +79,7 @@ const scoringSchema = z.object({
     areasOfDevelopment: writtenAssessmentField,
     overallRecommendation: writtenAssessmentField,
   }),
+  needsAnotherDay: z.boolean().optional(),
 });
 
 const approvalSchema = z.object({
@@ -95,6 +96,7 @@ const uploadFieldsSchema = z.object({
   scorePatient: z.coerce.number().min(0).max(100),
   scoreCulture: z.coerce.number().min(0).max(100),
   overallRecommendation: uploadedRecommendationField,
+  needsAnotherDay: z.enum(["true", "false"]).optional(),
 });
 
 // The "upload a completed form" path — multipart because it carries a file,
@@ -115,6 +117,7 @@ async function handleUploadStep(request: NextRequest) {
     scorePatient: form.get("scorePatient"),
     scoreCulture: form.get("scoreCulture"),
     overallRecommendation: form.get("overallRecommendation"),
+    needsAnotherDay: form.get("needsAnotherDay") ?? undefined,
   });
   if (!result.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
 
@@ -147,7 +150,8 @@ async function handleUploadStep(request: NextRequest) {
       { technical: result.data.scoreTechnical, patient: result.data.scorePatient, culture: result.data.scoreCulture },
       result.data.submittedByRole,
       result.data.overallRecommendation,
-      { filename, contentType: file.type, base64 }
+      { filename, contentType: file.type, base64 },
+      result.data.needsAnotherDay === "true"
     );
     return NextResponse.json({ ok: true, total, passFail, submittedByRole: result.data.submittedByRole });
   } catch (err) {
@@ -206,7 +210,8 @@ export async function POST(request: NextRequest) {
       payload.workTrialId,
       result.data.scores,
       result.data.submittedByRole,
-      result.data.comments as ScoreComments | undefined
+      result.data.comments as ScoreComments | undefined,
+      result.data.needsAnotherDay ?? false
     );
     return NextResponse.json({ ok: true, total, passFail, submittedByRole: result.data.submittedByRole });
   } catch (err) {

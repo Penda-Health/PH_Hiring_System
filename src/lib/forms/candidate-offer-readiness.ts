@@ -10,6 +10,7 @@
 import { getRecord, listRecords, updateRecord, cleanFields } from "@/lib/airtable/client";
 import { TABLE_NAMES, F } from "@/lib/airtable/field-names";
 import { candidateFromAirtable, referenceCheckFromAirtable, workTrialFromAirtable } from "@/lib/airtable/mappers";
+import { isFinalDay } from "@/lib/work-trial-days";
 
 // Full-table scan rather than a filterByFormula lookup, same reasoning as
 // reference-check-request-form.ts's alreadySubmitted check: Airtable's
@@ -17,10 +18,15 @@ import { candidateFromAirtable, referenceCheckFromAirtable, workTrialFromAirtabl
 // is more fragile than comparing the resolved candidateId in JS once
 // records are back, and neither table is large enough for the scan to
 // matter. A candidate can have more than one Work Trial record (e.g. a
-// retry after an earlier fail) — any one of them passing is enough.
+// retry after an earlier fail) — any one of them passing is enough. For a
+// multi-day trial only the final day counts (see isFinalDay): a Day 1 pass
+// that was followed by a Day 2, or flagged "needs another day", isn't a pass
+// yet.
 export async function candidateHasPassedWorkTrial(candidateId: string): Promise<boolean> {
-  const allTrials = await listRecords(TABLE_NAMES.WorkTrials);
-  return allTrials.map(workTrialFromAirtable).some((t) => t.candidateId === candidateId && t.passFail === "Pass");
+  const trials = (await listRecords(TABLE_NAMES.WorkTrials))
+    .map(workTrialFromAirtable)
+    .filter((t) => t.candidateId === candidateId);
+  return trials.some((t) => t.passFail === "Pass" && isFinalDay(t, trials));
 }
 
 export async function findReferenceCheckForCandidate(candidateId: string) {

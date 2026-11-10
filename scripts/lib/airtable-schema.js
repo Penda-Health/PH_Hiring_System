@@ -253,6 +253,9 @@ const F = {
     OVERALL_RECOMMENDATION: "Overall Recommendation",
     SUBMISSION_METHOD: "Submission Method",
     UPLOADED_FORM: "Uploaded Form",
+    DAY_NUMBER: "Day Number",
+    PARENT_TRIAL: "Parent Trial",
+    NEEDS_ANOTHER_DAY: "Needs Another Day",
     AI_OVERALL_STATUS: "AI Overall Status",
     AI_SUMMARY: "AI Summary",
     AI_CONFIDENCE_SCORE: "AI Confidence Score",
@@ -813,6 +816,9 @@ const TABLES = [
       { name: F.WorkTrials.OVERALL_RECOMMENDATION, type: "multilineText" },
       { name: F.WorkTrials.SUBMISSION_METHOD, type: "singleSelect", options: choices(["Online", "Uploaded"]) },
       { name: F.WorkTrials.UPLOADED_FORM, type: "multipleAttachments" },
+      { name: F.WorkTrials.DAY_NUMBER, type: "number", options: intOpts },
+      { name: F.WorkTrials.PARENT_TRIAL, type: "singleLineText" },
+      { name: F.WorkTrials.NEEDS_ANOTHER_DAY, type: "checkbox", options: checkboxOpts },
       // AI "intelligence and insights layer" (src/lib/ai/work-trial-summary.ts)
       // — same convention as Reference Checks' AI_* block below.
       {

@@ -303,6 +303,9 @@ export const workTrialSchema = z.object({
   uploadedFormFiles: z.array(z.object({ url: z.string().max(2000), filename: z.string().max(300) })).optional(),
   roleCategory: z.enum(["General", "Specialist"]).optional(),
   specialty: z.string().trim().max(150).optional(),
+  dayNumber: z.number().int().min(1).max(10).optional(),
+  parentTrialId: z.string().max(30).optional(),
+  needsAnotherDay: z.boolean().optional(),
 });
 
 const refereeStatusSchema = z.object({

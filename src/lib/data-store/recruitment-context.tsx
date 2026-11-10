@@ -19,6 +19,8 @@ import { computeWeightedTotal, computePassFail } from "@/lib/work-trial-helpers"
 // Keep one record per candidate — prefer the record with the most data set
 // (branch + date + score), then fall back to newest wtId.
 function dedupWorkTrials(trials: WorkTrial[]): WorkTrial[] {
+  // Keyed per candidate *and day* — a multi-day trial legitimately has one
+  // record per day (see work-trial-days.ts), and those must not collapse.
   const byCandidate = new Map<string, WorkTrial>();
   const orphaned: WorkTrial[] = [];
   function score(t: WorkTrial) {
@@ -26,8 +28,9 @@ function dedupWorkTrials(trials: WorkTrial[]): WorkTrial[] {
   }
   for (const t of trials) {
     if (!t.candidateId) { orphaned.push(t); continue; }
-    const existing = byCandidate.get(t.candidateId);
-    if (!existing || score(t) > score(existing)) byCandidate.set(t.candidateId, t);
+    const key = `${t.candidateId}:${t.parentTrialId ? (t.dayNumber ?? 2) : 1}`;
+    const existing = byCandidate.get(key);
+    if (!existing || score(t) > score(existing)) byCandidate.set(key, t);
   }
   return Array.from(byCandidate.values()).concat(orphaned);
 }
@@ -37,6 +40,7 @@ import { canEditRecruitmentData, canDeleteRecords, canManageRoles, canSeeSalary 
 import { useUndoToast, DEFAULT_UNDO_WINDOW_MS } from "@/components/ui/undo-toast";
 import { reportError } from "@/components/ui/error-toast";
 import { hiresAwaitingReport } from "@/lib/joining";
+import { daysOfTrial, nextDayNumber } from "@/lib/work-trial-days";
 
 type RecruitmentDataContextValue = {
   loading: boolean;
@@ -78,6 +82,8 @@ type RecruitmentDataContextValue = {
 
   workTrials: WorkTrial[];
   createWorkTrial: (trial: WorkTrial) => Promise<void>;
+  /** Adds Day 2/3/… to `trial`'s work trial (own date, supervisor and scoring link) and clears any "needs another day" flag on the earlier days. */
+  addWorkTrialDay: (trial: WorkTrial, day: { date: string; branchId: string; supervisor: string }) => Promise<void>;
   updateWorkTrial: (id: string, patch: Partial<WorkTrial>) => void;
   deleteWorkTrial: (id: string) => void;
   submitWorkTrialScores: (
@@ -490,6 +496,57 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       setWorkTrials((prev) => [created, ...prev]);
     },
     [canEdit]
+  );
+
+  const addWorkTrialDay = React.useCallback(
+    async (trial: WorkTrial, day: { date: string; branchId: string; supervisor: string }) => {
+      if (!guardEdit(canEdit, "addWorkTrialDay")) return;
+      const days = daysOfTrial(trial, workTrials);
+      const dayOne = days[0] ?? trial;
+      const created = await createResource<WorkTrial>("work-trials", {
+        id: `wt-${Date.now()}`,
+        wtId: "",
+        candidateId: trial.candidateId,
+        roleId: trial.roleId,
+        branchId: day.branchId,
+        date: day.date,
+        supervisor: day.supervisor,
+        createdAt: new Date().toISOString(),
+        arrivalMarked: null,
+        scoreTechnical: null,
+        scorePatient: null,
+        scoreSafety: null,
+        scoreCulture: null,
+        total: null,
+        passFail: "Pending",
+        formSubmittedAt: null,
+        submittedByRole: null,
+        bmApprovedAt: null,
+        reminder12hSent: false,
+        escalation24hSent: false,
+        submissionMethod: null,
+        roleCategory: dayOne.roleCategory,
+        specialty: dayOne.specialty,
+        aiInsights: null,
+        dayNumber: nextDayNumber(trial, workTrials),
+        parentTrialId: dayOne.id,
+      });
+      // Day 1 created before multi-day existed has no Day Number — stamp it
+      // so the two cards read "Day 1" / "Day 2".
+      const flagged = days.filter((d) => d.needsAnotherDay).map((d) => d.id);
+      const stampDayOne = !dayOne.dayNumber;
+      setWorkTrials((prev) => [
+        created,
+        ...prev.map((t) =>
+          flagged.includes(t.id) || (stampDayOne && t.id === dayOne.id)
+            ? { ...t, ...(flagged.includes(t.id) ? { needsAnotherDay: false } : {}), ...(stampDayOne && t.id === dayOne.id ? { dayNumber: 1 } : {}) }
+            : t
+        ),
+      ]);
+      for (const id of flagged) persist<WorkTrial>("work-trials", id, { needsAnotherDay: false });
+      if (stampDayOne) persist<WorkTrial>("work-trials", dayOne.id, { dayNumber: 1 });
+    },
+    [canEdit, workTrials]
   );
 
   const updateWorkTrial = React.useCallback(
@@ -1133,6 +1190,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       createInterview,
       workTrials,
       createWorkTrial,
+      addWorkTrialDay,
       updateWorkTrial,
       deleteWorkTrial,
       submitWorkTrialScores,
@@ -1194,6 +1252,7 @@ export function RecruitmentDataProvider({ children }: { children: React.ReactNod
       createInterview,
       workTrials,
       createWorkTrial,
+      addWorkTrialDay,
       updateWorkTrial,
       deleteWorkTrial,
       submitWorkTrialScores,

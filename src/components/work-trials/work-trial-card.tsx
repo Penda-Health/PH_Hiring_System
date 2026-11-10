@@ -31,7 +31,8 @@ import {
 import { ScoreEntryDialog } from "./score-entry-dialog";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { AI_STATUS_STYLES } from "@/lib/reference-check-helpers";
-import { Check, ChevronDown, ClipboardCheck, Copy, Download, Pencil, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { CalendarPlus, Check, ChevronDown, ClipboardCheck, Copy, Download, Pencil, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { daysOfTrial, dayNumberOf, latestDayOf } from "@/lib/work-trial-days";
 
 const STATUS_STYLES: Record<string, string> = {
   "Awaiting Arrival": "bg-muted text-muted-foreground border-transparent",
@@ -437,6 +438,111 @@ export function ManualReviewDialog({
 
 // ── Edit Details Dialog ───────────────────────────────────────────────────────
 
+// Adds Day 2/3/… for candidates (mostly dental) who need more than one day
+// before the supervisor can make a call. The new day is its own record —
+// own supervisor scoring link, scores and reminders — linked to Day 1.
+function AddTrialDayDialog({
+  trial,
+  nextDay,
+  open,
+  onOpenChange,
+}: {
+  trial: WorkTrial;
+  nextDay: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { branches, addWorkTrialDay } = useRecruitmentData();
+  const [form, setForm] = React.useState({ date: "", branchId: trial.branchId, supervisor: trial.supervisor });
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setForm({ date: "", branchId: trial.branchId, supervisor: trial.supervisor });
+      setError(null);
+    }
+  }, [open, trial]);
+
+  const activeBranches = React.useMemo(
+    () => branches.filter((b) => b.active !== false || b.id === trial.branchId).sort((a, b) => a.name.localeCompare(b.name)),
+    [branches, trial.branchId]
+  );
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await addWorkTrialDay(trial, { date: form.date, branchId: form.branchId, supervisor: form.supervisor.trim() });
+      onOpenChange(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't add the day. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Add Day {nextDay}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          <p className="text-xs text-muted-foreground">
+            Day {nextDay} gets its own supervisor scoring link and scores. The candidate&apos;s overall result is the
+            latest day&apos;s verdict.
+          </p>
+          <div className="space-y-1.5">
+            <Label>Date</Label>
+            <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Branch</Label>
+            <Select
+              value={form.branchId || undefined}
+              onValueChange={(branchId) => {
+                const branch = branches.find((b) => b.id === branchId);
+                setForm((f) => ({
+                  ...f,
+                  branchId,
+                  supervisor: branchId === f.branchId ? f.supervisor : branch?.branchManager ?? f.supervisor,
+                }));
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder="Select branch" /></SelectTrigger>
+              <SelectContent>
+                {activeBranches.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Supervisor</Label>
+            <Input
+              value={form.supervisor}
+              onChange={(e) => setForm((f) => ({ ...f, supervisor: e.target.value }))}
+              placeholder="Supervisor name"
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !form.date || !form.branchId || !form.supervisor.trim()}
+            className="bg-penda-blue hover:bg-penda-blue-dark"
+          >
+            {saving ? "Adding…" : `Add Day ${nextDay}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function EditWorkTrialDialog({
   trial,
   open,
@@ -562,8 +668,9 @@ export function WorkTrialCard({
   onUpdate?: (id: string, patch: Partial<WorkTrial>) => void;
   onDelete?: (id: string) => void;
 }) {
-  const { candidates, branches, openRoles, canEdit, canDelete, updateCandidateStage } = useRecruitmentData();
+  const { candidates, branches, openRoles, workTrials, canEdit, canDelete, updateCandidateStage } = useRecruitmentData();
   const [scoreDialogOpen, setScoreDialogOpen] = React.useState(false);
+  const [addDayOpen, setAddDayOpen] = React.useState(false);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = React.useState(false);
   const [copied, setCopied] = React.useState<string | null>(null);
@@ -583,6 +690,16 @@ export function WorkTrialCard({
   // an Incharge submitted but the BM hasn't approved yet (see pendingApproval
   // above), so there's no finished pass/fail to put in a report.
   const reportReady = trial.total !== null && trial.passFail !== "Pending";
+
+  // Multi-day trials — see work-trial-days.ts.
+  const days = daysOfTrial(trial, workTrials);
+  const dayNumber = dayNumberOf(trial);
+  const isMultiDay = days.length > 1;
+  const latestDay = latestDayOf(trial, workTrials);
+  const supersededBy = latestDay.id !== trial.id ? dayNumberOf(latestDay) : null;
+  const nextDay = Math.max(...days.map(dayNumberOf), 1) + 1;
+  // Only offered from the latest day, so Day 3 always follows Day 2.
+  const canAddDay = canEdit && !isOrphaned && !supersededBy && trial.arrivalMarked !== false;
 
   async function copyLink(type: "work-trial" | "bm-feedback") {
     setLinkError(null);
@@ -634,6 +751,11 @@ export function WorkTrialCard({
     const msg = candidate
       ? `Delete ${candidateName}'s work trial?\n\nThey will be moved back to First Interview so they don't reappear here. You can adjust their stage from the Candidates page.`
       : "Delete this unlinked work trial record? You'll have 30 seconds to undo before it's permanent.";
+    if (isMultiDay) {
+      if (!window.confirm(`Delete Day ${dayNumber} of ${candidateName}'s work trial? The other days are kept.`)) return;
+      onDelete?.(trial.id);
+      return;
+    }
     if (!window.confirm(msg)) return;
     onDelete?.(trial.id);
     // Move the candidate out of Work Trial stage — without this the auto-sync
@@ -646,8 +768,11 @@ export function WorkTrialCard({
       <Card className={isOrphaned ? "border-destructive/40" : undefined}>
         <CardHeader className="flex flex-row items-start justify-between pb-2">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-base">
+            <CardTitle className="text-base flex items-center gap-2">
               {candidate?.name ?? <span className="text-destructive/80">Unlinked record</span>}
+              {(isMultiDay || trial.needsAnotherDay) && (
+                <Badge variant="outline" className="text-[10px] font-medium">Day {dayNumber}</Badge>
+              )}
             </CardTitle>
             {role ? (
               <p className="text-xs font-medium text-penda-blue/80">{role.title} · {role.department}</p>
@@ -704,6 +829,18 @@ export function WorkTrialCard({
                   <span className={trial.arrivalMarked ? "text-penda-blue font-medium" : "text-destructive font-medium"}>
                     {trial.arrivalMarked ? "Arrived" : "Did not arrive"}
                   </span>
+                </p>
+              )}
+
+              {trial.needsAnotherDay && (
+                <p className="text-xs rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-1.5">
+                  Supervisor asked for another day before a final call — add Day {nextDay}.
+                </p>
+              )}
+
+              {supersededBy && (
+                <p className="text-xs rounded-md border border-border bg-muted px-2 py-1.5 text-muted-foreground">
+                  Followed by Day {supersededBy} — the overall result is Day {supersededBy}&apos;s verdict.
                 </p>
               )}
 
@@ -772,8 +909,20 @@ export function WorkTrialCard({
                     Submit Scores
                   </Button>
                 )}
-                {/* Quick review on complete trials (to advance stage) */}
-                {canEdit && status === "Complete" && (
+                {canAddDay && (
+                  <Button
+                    size="sm"
+                    variant={trial.needsAnotherDay ? "default" : "outline"}
+                    onClick={() => setAddDayOpen(true)}
+                    className={trial.needsAnotherDay ? "gap-1 bg-penda-blue hover:bg-penda-blue-dark" : "gap-1"}
+                  >
+                    <CalendarPlus className="h-3.5 w-3.5" />
+                    Add Day {nextDay}
+                  </Button>
+                )}
+                {/* Quick review on complete trials (to advance stage) — only
+                    from the latest day, since that day's verdict is the result. */}
+                {canEdit && status === "Complete" && !supersededBy && (
                   <Button size="sm" variant="outline" onClick={() => setReviewDialogOpen(true)} className="gap-1">
                     <ClipboardCheck className="h-3.5 w-3.5" />
                     Review &amp; Advance
@@ -830,6 +979,10 @@ export function WorkTrialCard({
         open={reviewDialogOpen}
         onOpenChange={setReviewDialogOpen}
       />
+
+      {canAddDay && (
+        <AddTrialDayDialog trial={trial} nextDay={nextDay} open={addDayOpen} onOpenChange={setAddDayOpen} />
+      )}
     </>
   );
 }
