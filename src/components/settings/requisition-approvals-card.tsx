@@ -90,10 +90,13 @@ function roleHint(type: ApprovalStepApproverType): string {
     : "Goes to the Branch Manager of the request's branch, using the BM email in Settings → Branches.";
 }
 
+const OTHER_PERSON = "__other";
+
 function StepRow({
   step,
   index,
   segment,
+  people,
   isDragging,
   onChange,
   onRemove,
@@ -104,6 +107,8 @@ function StepRow({
   step: RequisitionApprovalStep;
   index: number;
   segment: WorkflowKey;
+  /** App users, picked from rather than typing an email. */
+  people: User[];
   isDragging: boolean;
   onChange: (patch: Partial<RequisitionApprovalStep>) => void;
   onRemove: () => void;
@@ -112,6 +117,10 @@ function StepRow({
   rowProps: React.HTMLAttributes<HTMLDivElement> & { draggable: boolean };
 }) {
   const type = approverTypeOf(step);
+  const pickedUser = people.find((p) => p.email.toLowerCase() === step.approverEmail.trim().toLowerCase());
+  // "Someone else" stays chosen while its email is being typed, before it matches anyone.
+  const [typingOther, setTypingOther] = React.useState(false);
+  const showManual = typingOther || (!pickedUser && !!(step.approverName || step.approverEmail));
   return (
     <div
       {...rowProps}
@@ -187,22 +196,51 @@ function StepRow({
       <div className="mt-2 pl-12">
         {type === "person" ? (
           <div className="flex flex-wrap items-center gap-2">
-            <Input
-              value={step.approverName}
-              onChange={(e) => onChange({ approverName: e.target.value })}
-              placeholder="Approver name"
-              className="w-52"
-              aria-label="Approver name"
-            />
-            <Input
-              type="email"
-              list="staff-emails"
-              value={step.approverEmail}
-              onChange={(e) => onChange({ approverEmail: e.target.value })}
-              placeholder="Google account, e.g. name@pendahealth.com"
-              className="min-w-56 flex-1"
-              aria-label="Approver Google account"
-            />
+            <Select
+              value={pickedUser && !typingOther ? pickedUser.email : showManual ? OTHER_PERSON : ""}
+              onValueChange={(v) => {
+                if (v === OTHER_PERSON) {
+                  setTypingOther(true);
+                  if (pickedUser) onChange({ approverName: "", approverEmail: "" });
+                  return;
+                }
+                setTypingOther(false);
+                const user = people.find((p) => p.email === v);
+                if (user) onChange({ approverName: user.name, approverEmail: user.email.toLowerCase() });
+              }}
+            >
+              <SelectTrigger className="w-64" aria-label="Approver">
+                <SelectValue placeholder="Pick who signs off" />
+              </SelectTrigger>
+              <SelectContent>
+                {people.map((p) => (
+                  <SelectItem key={p.id} value={p.email}>
+                    {p.name} · {p.email}
+                  </SelectItem>
+                ))}
+                <SelectItem value={OTHER_PERSON}>Someone not on the app…</SelectItem>
+              </SelectContent>
+            </Select>
+            {showManual && (
+              <>
+                <Input
+                  value={step.approverName}
+                  onChange={(e) => onChange({ approverName: e.target.value })}
+                  placeholder="Approver name"
+                  className="w-52"
+                  aria-label="Approver name"
+                />
+                <Input
+                  type="email"
+                  list="staff-emails"
+                  value={step.approverEmail}
+                  onChange={(e) => onChange({ approverEmail: e.target.value })}
+                  placeholder="Google account, e.g. name@pendahealth.com"
+                  className="min-w-56 flex-1"
+                  aria-label="Approver Google account"
+                />
+              </>
+            )}
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <input
                 type="checkbox"
@@ -224,11 +262,13 @@ function StepRow({
 /** Drag-and-drop list of one segment's steps. Reorders live as you drag over rows. */
 function StepList({
   segment,
+  people,
   steps,
   onSteps,
   onChangeStep,
 }: {
   segment: WorkflowKey;
+  people: User[];
   steps: RequisitionApprovalStep[];
   onSteps: (fn: (steps: RequisitionApprovalStep[]) => RequisitionApprovalStep[]) => void;
   onChangeStep: (id: string, patch: Partial<RequisitionApprovalStep>) => void;
@@ -259,6 +299,7 @@ function StepList({
           step={step}
           index={i}
           segment={segment}
+          people={people}
           isDragging={draggingId === step.id}
           onChange={(patch) => onChangeStep(step.id, patch)}
           onRemove={() => onSteps((current) => current.filter((s) => s.id !== step.id))}
@@ -512,6 +553,11 @@ export function RequisitionApprovalsCard({ profiles, branches }: { profiles: Use
     }
   }
 
+  const people = React.useMemo(
+    () => profiles.filter((p) => p.email).sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email)),
+    [profiles]
+  );
+
   const workflowsDirty = workflows !== null && JSON.stringify(workflows) !== savedWorkflows;
 
   return (
@@ -576,6 +622,7 @@ export function RequisitionApprovalsCard({ profiles, branches }: { profiles: Use
                 )}
                 <StepList
                   segment={segment}
+                  people={people}
                   steps={stepsOf(workflows, segment)}
                   onSteps={(fn) => updateSteps(segment, fn)}
                   onChangeStep={(id, patch) => changeStep(segment, id, patch)}
