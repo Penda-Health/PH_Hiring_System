@@ -52,6 +52,8 @@ export function RequisitionApprovalDialog({
   const steps = requisition.approvalSteps ?? [];
   const log = requisition.approvalLog ?? [];
   const pending = requisition.status === "Pending Approval";
+  // The Call Centre HRBP step: a sign-off there means "the gap is real".
+  const confirmsGap = mode !== "override" && !!steps[requisition.currentApproverIndex]?.confirmsGap;
 
   async function decide(decision: "Approved" | "Rejected") {
     if (decision === "Rejected" && !comment.trim()) {
@@ -108,6 +110,7 @@ export function RequisitionApprovalDialog({
                     <div className="min-w-0 flex-1 text-sm">
                       <p className="font-medium leading-tight">
                         {i + 1}. {step.label}
+                        {step.confirmsGap && <span className="ml-1 text-xs font-normal text-muted-foreground">(confirms the gap)</span>}
                         {isCurrent && <span className="ml-2 text-xs font-normal text-amber-700">Waiting</span>}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
@@ -172,14 +175,20 @@ export function RequisitionApprovalDialog({
         {pending && mode !== "view" && (
           <DialogFooter>
             <Button variant="outline" disabled={!!submitting} onClick={() => decide("Rejected")}>
-              {submitting === "Rejected" ? "Rejecting…" : "Reject"}
+              {submitting === "Rejected" ? "Rejecting…" : confirmsGap ? "Gap doesn't exist" : "Reject"}
             </Button>
             <Button
               disabled={!!submitting}
               onClick={() => decide("Approved")}
               className="bg-penda-blue hover:bg-penda-blue-dark"
             >
-              {submitting === "Approved" ? "Approving…" : mode === "override" ? "Approve (override)" : "Approve"}
+              {submitting === "Approved"
+                ? "Approving…"
+                : mode === "override"
+                  ? "Approve (override)"
+                  : confirmsGap
+                    ? "Confirm gap"
+                    : "Approve"}
             </Button>
           </DialogFooter>
         )}

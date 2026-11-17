@@ -1,5 +1,5 @@
-// Public, no-login route backing /requisition-request/so and
-// /requisition-request/ips. Unlike the other public/* routes, these links
+// Public, no-login route backing /requisition-request/so,
+// /requisition-request/ips and /requisition-request/call-centre. Unlike the other public/* routes, these links
 // are static and reusable (not minted per-submission). The submitter proves
 // who they are with a Google sign-in (a Penda account), and every valid POST
 // creates a "Pending Approval" Requisition that walks the segment's
@@ -11,21 +11,45 @@ import { verifyGoogleIdToken } from "@/lib/forms/google-verify";
 import { loadActiveBranches, loadRoleTitleSuggestions, submitPublicRequisitionRequest } from "@/lib/forms/requisition-request-form";
 import { rateLimit } from "@/lib/rate-limit";
 import { loadApprovalSettings } from "@/lib/requisitions/approval";
-import { toWorkflowPreview } from "@/lib/requisitions/workflow";
+import { callCentreBranch, isCallCentreRequest, toWorkflowPreview } from "@/lib/requisitions/workflow";
+import { listRecords } from "@/lib/airtable/client";
+import { TABLE_NAMES } from "@/lib/airtable/field-names";
+import { branchFromAirtable } from "@/lib/airtable/mappers";
 
 export async function GET(request: NextRequest) {
   const limited = rateLimit(request, "public:requisition-request:get", { limit: 60, windowMs: 10 * 60 * 1000 });
   if (limited) return limited;
 
   try {
-    const segment = request.nextUrl.searchParams.get("segment") === "SO" ? "SO" : "IPS";
+    const param = request.nextUrl.searchParams.get("segment");
+    if (param === "CallCentre") {
+      // The call centre form has one branch — the call centre's — and its own chain.
+      const [{ workflows }, branchRecords, roleTitles] = await Promise.all([
+        loadApprovalSettings(),
+        listRecords(TABLE_NAMES.Branches),
+        loadRoleTitleSuggestions("SO"),
+      ]);
+      const b = callCentreBranch(workflows?.CallCentre, branchRecords.map(branchFromAirtable));
+      const branches = b
+        ? [{ id: b.id, name: b.name, city: b.city, regionalManager: b.regionalManager, branchManager: b.branchManager }]
+        : [];
+      return NextResponse.json({ branches, roleTitles, approvers: toWorkflowPreview(workflows).CallCentre });
+    }
+    const segment = param === "SO" ? "SO" : "IPS";
     const [branches, roleTitles, { workflows }] = await Promise.all([
       loadActiveBranches(segment),
       loadRoleTitleSuggestions(segment),
       loadApprovalSettings(),
     ]);
     // Labels and names only (no emails) for the form's "who approves this" strip.
-    return NextResponse.json({ branches, roleTitles, approvers: toWorkflowPreview(workflows)[segment] });
+    const preview = toWorkflowPreview(workflows);
+    // The SO form also gets the Call Centre chain, shown when that department is picked.
+    return NextResponse.json({
+      branches,
+      roleTitles,
+      approvers: preview[segment],
+      ...(segment === "SO" ? { callCentreApprovers: preview.CallCentre } : {}),
+    });
   } catch (err) {
     console.error("[api/public/requisition-request] GET failed:", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
@@ -48,17 +72,18 @@ export async function POST(request: NextRequest) {
   if (result.data.honeypot) {
     return NextResponse.json({ ok: true });
   }
-  if (result.data.segment === "SO" && !result.data.budgetEvaluationConfirmed) {
+  // A call centre gap (from the call centre form, with staffing figures) is
+  // confirmed by the HRBP instead of a budget evaluation.
+  const hasStaffing = result.data.currentHeadcount !== undefined && result.data.labourModelHeadcount !== undefined;
+  const callCentreGap = isCallCentreRequest(result.data) && hasStaffing;
+  if (result.data.segment === "SO" && !callCentreGap && !result.data.budgetEvaluationConfirmed) {
     return NextResponse.json(
       { error: "invalid_request", issues: [{ message: "Budget evaluation confirmation is required for SO requests" }] },
       { status: 422 }
     );
   }
 
-  if (
-    result.data.segment === "IPS" &&
-    (result.data.currentHeadcount === undefined || result.data.labourModelHeadcount === undefined)
-  ) {
+  if (result.data.segment === "IPS" && !hasStaffing) {
     return NextResponse.json(
       {
         error: "invalid_request",

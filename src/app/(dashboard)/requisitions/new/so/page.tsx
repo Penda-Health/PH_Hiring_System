@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 import { ApprovalChainPreview, useWorkflowPreview } from "@/components/requisitions/approval-chain-preview";
 import { SO_DEPARTMENTS } from "@/lib/department-options";
+import { isCallCentreRequest } from "@/lib/requisitions/workflow";
 
 const SO_TYPES: { value: RequisitionType; label: string; description: string }[] = [
   { value: "SO New Role", label: "New Role", description: "A brand-new support office role that doesn't replace anyone" },
@@ -318,7 +319,10 @@ function NewSoRequisitionForm() {
           <CardTitle>Approval chain</CardTitle>
         </CardHeader>
         <CardContent>
-          <ApprovalChainPreview steps={workflowPreview?.SO ?? null} type={type} />
+          <ApprovalChainPreview
+            steps={(isCallCentreRequest({ department }) ? workflowPreview?.CallCentre : workflowPreview?.SO) ?? null}
+            type={type}
+          />
         </CardContent>
       </Card>
 

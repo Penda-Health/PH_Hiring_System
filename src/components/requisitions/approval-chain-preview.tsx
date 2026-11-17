@@ -5,7 +5,7 @@
 import * as React from "react";
 import { RequisitionType } from "@/types";
 import { Badge } from "@/components/ui/badge";
-import { WorkflowPreviewStep } from "@/lib/requisitions/workflow";
+import { WorkflowPreview, WorkflowPreviewStep } from "@/lib/requisitions/workflow";
 
 /** Who a step means, as far as the form can tell before submitting. */
 function stepWho(step: WorkflowPreviewStep, branch?: { regionalManager?: string; branchManager?: string }): string {
@@ -39,6 +39,7 @@ export function ApprovalChainPreview({
         <React.Fragment key={`${step.label}-${i}`}>
           <Badge variant="outline" className="font-normal">
             <span className="font-medium">{step.label}</span>
+            {step.confirmsGap ? <span className="ml-1 text-muted-foreground">(confirms gap)</span> : null}
             {stepWho(step, branch) ? <span className="ml-1 text-muted-foreground">· {stepWho(step, branch)}</span> : null}
           </Badge>
           {i < applicable.length - 1 && <span className="text-muted-foreground">→</span>}
@@ -49,8 +50,8 @@ export function ApprovalChainPreview({
 }
 
 /** Fetches the signed-in preview once; `null` while loading (and on failure, which just keeps the loading copy). */
-export function useWorkflowPreview(): Record<"IPS" | "SO", WorkflowPreviewStep[]> | null {
-  const [preview, setPreview] = React.useState<Record<"IPS" | "SO", WorkflowPreviewStep[]> | null>(null);
+export function useWorkflowPreview(): WorkflowPreview | null {
+  const [preview, setPreview] = React.useState<WorkflowPreview | null>(null);
   React.useEffect(() => {
     fetch("/api/requisitions/workflows")
       .then((res) => (res.ok ? res.json() : null))

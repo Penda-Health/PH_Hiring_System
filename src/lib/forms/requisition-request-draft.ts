@@ -60,6 +60,29 @@ export interface SoRequisitionDraft extends DraftBase {
 
 const ipsStore = makeDraftStore<IpsRequisitionDraft>("requisition-request-ips", DRAFT_VERSION);
 const soStore = makeDraftStore<SoRequisitionDraft>("requisition-request-so", DRAFT_VERSION);
+// The call centre form shares the IPS gap form's shape but keeps its own slot.
+const callCentreStore = makeDraftStore<IpsRequisitionDraft>("requisition-request-call-centre", DRAFT_VERSION);
+
+type GapDraftStore = {
+  load: () => IpsRequisitionDraft | null;
+  save: (draft: Omit<IpsRequisitionDraft, "version" | "savedAt">) => void;
+  clear: () => void;
+};
+
+// Module-level so the functions are stable across renders (they sit in effect deps).
+const GAP_STORES: Record<"ips" | "call-centre", GapDraftStore> = {
+  ips: { load: () => ipsStore.load(DRAFT_KEY), save: (d) => ipsStore.save(DRAFT_KEY, d), clear: () => ipsStore.clear(DRAFT_KEY) },
+  "call-centre": {
+    load: () => callCentreStore.load(DRAFT_KEY),
+    save: (d) => callCentreStore.save(DRAFT_KEY, d),
+    clear: () => callCentreStore.clear(DRAFT_KEY),
+  },
+};
+
+/** Draft slot for the shared gap form (src/components/requisitions/gap-request-form.tsx). */
+export function gapDraftStore(variant: "ips" | "call-centre"): GapDraftStore {
+  return GAP_STORES[variant];
+}
 
 export function loadIpsDraft(): IpsRequisitionDraft | null {
   return ipsStore.load(DRAFT_KEY);

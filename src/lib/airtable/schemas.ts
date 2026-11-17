@@ -142,6 +142,7 @@ const approvalStepSchema = z
     approverName: z.string().trim().max(150),
     approverEmail: z.string().trim().toLowerCase().max(255),
     appliesTo: z.array(z.enum(["SO New Role", "SO Replacement", "IPS Gap"])).max(3).optional(),
+    confirmsGap: z.boolean().optional(),
   })
   .superRefine((step, ctx) => {
     if ((step.approverType ?? "person") !== "person") return;
@@ -167,6 +168,13 @@ export const requisitionWorkflowsSchema = z.object({
         message: "SO steps must be specific people — SO requests have no branch to look an RM or BM up from",
       }),
   }),
+  // Call centre requests carry the call centre's branch, so RM/BM steps work.
+  CallCentre: z
+    .object({
+      steps: z.array(approvalStepSchema).max(10),
+      branchId: z.string().trim().max(100).optional(),
+    })
+    .optional(),
   regionalManagers: z.array(regionalManagerSchema).max(50).optional(),
 });
 

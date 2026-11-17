@@ -11,6 +11,7 @@ import { FormShell, FormStatusCard, DraftRestoredBanner, type FormShellBrand } f
 import { RoleTitleInput } from "@/components/requisitions/role-title-input";
 import { RequesterGoogleIdentity, RequesterSignInGate, type RequesterIdentity } from "@/components/requisitions/requester-google-identity";
 import { ApprovalChainPreview } from "@/components/requisitions/approval-chain-preview";
+import { isCallCentreRequest } from "@/lib/requisitions/workflow";
 import type { WorkflowPreviewStep } from "@/lib/requisitions/workflow";
 import { SO_DEPARTMENTS } from "@/lib/department-options";
 import { loadSoDraft, saveSoDraft, clearSoDraft } from "@/lib/forms/requisition-request-draft";
@@ -37,6 +38,7 @@ export default function PublicSoRequisitionRequestPage() {
   const [identity, setIdentity] = React.useState<RequesterIdentity | null>(null);
   const submitterEmail = identity?.email ?? "";
   const [approvers, setApprovers] = React.useState<WorkflowPreviewStep[] | null>(null);
+  const [callCentreApprovers, setCallCentreApprovers] = React.useState<WorkflowPreviewStep[] | null>(null);
   const [submitterRole, setSubmitterRole] = React.useState("");
   const [honeypot, setHoneypot] = React.useState("");
 
@@ -69,6 +71,7 @@ export default function PublicSoRequisitionRequestPage() {
       .then((body) => {
         setRoleTitleSuggestions(body.roleTitles ?? []);
         setApprovers(body.approvers ?? []);
+        setCallCentreApprovers(body.callCentreApprovers ?? []);
       })
       .catch(() => {});
 
@@ -492,10 +495,19 @@ export default function PublicSoRequisitionRequestPage() {
 
         <div className="space-y-2 rounded-lg border border-border p-4">
           <p className="text-sm font-medium">Who approves this</p>
-          <ApprovalChainPreview steps={approvers} type={type} />
+          <ApprovalChainPreview steps={isCallCentreRequest({ department }) ? callCentreApprovers : approvers} type={type} />
           <p className="text-xs text-muted-foreground">
             Each approver gets an email in turn. It becomes an open role once the last one approves.
           </p>
+          {isCallCentreRequest({ department }) && (
+            <p className="text-xs text-muted-foreground">
+              Raising a call centre staffing gap? The{" "}
+              <a href="/requisition-request/call-centre" className="underline">
+                call centre form
+              </a>{" "}
+              is shorter.
+            </p>
+          )}
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

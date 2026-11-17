@@ -1,7 +1,7 @@
 "use client";
 
 // Settings → Requisition approvals. A Recruitment Manager sets, separately
-// for IPS and SO, the ordered approvers every requisition walks through.
+// for IPS, SO and the Call Centre, the ordered approvers every requisition walks through.
 // A step is either a specific Google account (e.g. the Deputy Head of IPS)
 // or a role looked up from the request's branch (its Regional Manager or
 // Branch Manager). Steps reorder by drag and drop. Also holds the Regional
@@ -18,7 +18,6 @@ import {
   RequisitionApprovalStep,
   RequisitionType,
   RequisitionWorkflows,
-  Segment,
   User,
 } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,16 +27,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   APPROVER_TYPE_LABELS,
   approverTypeOf,
+  callCentreBranch,
+  CALL_CENTRE_DEPARTMENT,
   defaultSteps,
   findRegionalManager,
   newStepId,
   regionalManagerNames,
+  type WorkflowKey,
 } from "@/lib/requisitions/workflow";
 
-const SEGMENTS: { segment: Segment; title: string; blurb: string }[] = [
+const SEGMENTS: { segment: WorkflowKey; title: string; blurb: string }[] = [
   { segment: "IPS", title: "IPS (clinics)", blurb: "IPS Gap requests from branches." },
   { segment: "SO", title: "SO (support office)", blurb: "Support office new roles and replacements." },
+  { segment: "CallCentre", title: "Call Centre", blurb: `Every ${CALL_CENTRE_DEPARTMENT} request, instead of the SO chain.` },
 ];
+
+/** A workflow's steps, treating a never-saved Call Centre chain as empty. */
+function stepsOf(workflows: RequisitionWorkflows, key: WorkflowKey): RequisitionApprovalStep[] {
+  return workflows[key]?.steps ?? [];
+}
 
 // SO is the only segment with more than one requisition type, so it's the
 // only one where a step can be limited to some of them.
@@ -47,7 +55,8 @@ const SO_SCOPES: { value: string; label: string; appliesTo?: RequisitionType[] }
   { value: "replacement", label: "Replacements only", appliesTo: ["SO Replacement"] },
 ];
 
-// Branch-based approvers need a branch on the request, which only IPS has.
+// Branch-based approvers need a branch on the request: IPS requests carry
+// one, and Call Centre requests use the call centre's branch.
 const IPS_APPROVER_TYPES: ApprovalStepApproverType[] = ["person", "regional_manager", "branch_manager"];
 
 function scopeValue(step: RequisitionApprovalStep): string {
@@ -59,10 +68,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validate(workflows: RequisitionWorkflows): string | null {
   for (const { segment } of SEGMENTS) {
-    const steps = workflows[segment].steps;
+    const steps = stepsOf(workflows, segment);
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
-      const where = `${segment} step ${i + 1}`;
+      const where = `${segment === "CallCentre" ? "Call Centre" : segment} step ${i + 1}`;
       if (!step.label.trim()) return `${where} needs a label (e.g. "Deputy Head of IPS").`;
       if (approverTypeOf(step) !== "person") continue;
       if (!step.approverName.trim()) return `${where} needs the approver's name.`;
@@ -94,7 +103,7 @@ function StepRow({
 }: {
   step: RequisitionApprovalStep;
   index: number;
-  segment: Segment;
+  segment: WorkflowKey;
   isDragging: boolean;
   onChange: (patch: Partial<RequisitionApprovalStep>) => void;
   onRemove: () => void;
@@ -132,7 +141,7 @@ function StepRow({
           className="w-52"
           aria-label="Step label"
         />
-        {segment === "IPS" ? (
+        {segment !== "SO" ? (
           <Select
             value={type}
             onValueChange={(v) =>
@@ -177,7 +186,7 @@ function StepRow({
       </div>
       <div className="mt-2 pl-12">
         {type === "person" ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Input
               value={step.approverName}
               onChange={(e) => onChange({ approverName: e.target.value })}
@@ -194,6 +203,15 @@ function StepRow({
               className="min-w-56 flex-1"
               aria-label="Approver Google account"
             />
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                className="h-3.5 w-3.5"
+                checked={!!step.confirmsGap}
+                onChange={(e) => onChange({ confirmsGap: e.target.checked || undefined })}
+              />
+              Confirms the gap
+            </label>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">{roleHint(type)}</p>
@@ -210,7 +228,7 @@ function StepList({
   onSteps,
   onChangeStep,
 }: {
-  segment: Segment;
+  segment: WorkflowKey;
   steps: RequisitionApprovalStep[];
   onSteps: (fn: (steps: RequisitionApprovalStep[]) => RequisitionApprovalStep[]) => void;
   onChangeStep: (id: string, patch: Partial<RequisitionApprovalStep>) => void;
@@ -347,7 +365,10 @@ export function RequisitionApprovalsCard({ profiles, branches }: { profiles: Use
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data: AppSettings) => {
-        const initial = data.requisitionWorkflows ?? { IPS: { steps: defaultSteps("IPS") }, SO: { steps: defaultSteps("SO") } };
+        const saved = data.requisitionWorkflows;
+        const initial: RequisitionWorkflows = saved
+          ? { ...saved, CallCentre: saved.CallCentre ?? { steps: [] } }
+          : { IPS: { steps: defaultSteps("IPS") }, SO: { steps: defaultSteps("SO") }, CallCentre: { steps: defaultSteps("CallCentre") } };
         setConfigured(!!data.requisitionWorkflows);
         setWorkflows(initial);
         setSavedWorkflows(JSON.stringify(initial));
@@ -372,12 +393,17 @@ export function RequisitionApprovalsCard({ profiles, branches }: { profiles: Use
     setMessage(null);
   }
 
-  function updateSteps(segment: Segment, fn: (steps: RequisitionApprovalStep[]) => RequisitionApprovalStep[]) {
-    setWorkflows((prev) => (prev ? { ...prev, [segment]: { steps: fn(prev[segment].steps) } } : prev));
+  function updateSteps(segment: WorkflowKey, fn: (steps: RequisitionApprovalStep[]) => RequisitionApprovalStep[]) {
+    setWorkflows((prev) => (prev ? { ...prev, [segment]: { ...prev[segment], steps: fn(stepsOf(prev, segment)) } } : prev));
     setMessage(null);
   }
 
-  function changeStep(segment: Segment, id: string, patch: Partial<RequisitionApprovalStep>) {
+  function setCallCentreBranch(branchId: string) {
+    setWorkflows((prev) => (prev ? { ...prev, CallCentre: { steps: stepsOf(prev, "CallCentre"), branchId } } : prev));
+    setMessage(null);
+  }
+
+  function changeStep(segment: WorkflowKey, id: string, patch: Partial<RequisitionApprovalStep>) {
     updateSteps(segment, (steps) =>
       steps.map((s) => {
         if (s.id !== id) return s;
@@ -415,6 +441,10 @@ export function RequisitionApprovalsCard({ profiles, branches }: { profiles: Use
     const cleaned: RequisitionWorkflows = {
       IPS: { steps: workflows.IPS.steps.map((s) => ({ ...cleanStep(s), appliesTo: undefined })) },
       SO: { steps: workflows.SO.steps.map(cleanStep) },
+      CallCentre: {
+        steps: stepsOf(workflows, "CallCentre").map((s) => ({ ...cleanStep(s), appliesTo: undefined })),
+        branchId: workflows.CallCentre?.branchId || callCentreBranch(undefined, branches)?.id,
+      },
       // RMs without an email yet aren't saved — they reappear from Branches.
       regionalManagers: directory
         .map((rm) => ({ name: rm.name.trim(), email: rm.email.trim().toLowerCase() }))
@@ -433,7 +463,7 @@ export function RequisitionApprovalsCard({ profiles, branches }: { profiles: Use
       setWorkflows(saved);
       setSavedWorkflows(JSON.stringify(saved));
       setConfigured(true);
-      const usesRm = saved.IPS.steps.some((s) => approverTypeOf(s) === "regional_manager");
+      const usesRm = [...saved.IPS.steps, ...(saved.CallCentre?.steps ?? [])].some((s) => approverTypeOf(s) === "regional_manager");
       const missingRm = directory.filter((rm) => rm.name.trim() && !rm.email.trim()).length;
       setMessage({
         tone: "ok",
@@ -521,9 +551,32 @@ export function RequisitionApprovalsCard({ profiles, branches }: { profiles: Use
                   <p className="text-sm font-medium">{title}</p>
                   <p className="text-xs text-muted-foreground">{blurb}</p>
                 </div>
+                {segment === "CallCentre" && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>Branch Manager and Regional Manager steps use</span>
+                    <Select
+                      value={workflows.CallCentre?.branchId || callCentreBranch(undefined, branches)?.id || ""}
+                      onValueChange={setCallCentreBranch}
+                    >
+                      <SelectTrigger className="h-8 w-56" aria-label="Call centre branch">
+                        <SelectValue placeholder="Pick the call centre's branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches
+                          .filter((b) => b.active)
+                          .map((b) => (
+                            <SelectItem key={b.id} value={b.id}>
+                              {b.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <span>(its BM and RM in Settings → Branches).</span>
+                  </div>
+                )}
                 <StepList
                   segment={segment}
-                  steps={workflows[segment].steps}
+                  steps={stepsOf(workflows, segment)}
                   onSteps={(fn) => updateSteps(segment, fn)}
                   onChangeStep={(id, patch) => changeStep(segment, id, patch)}
                 />

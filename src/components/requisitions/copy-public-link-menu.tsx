@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function CopyPublicLinkMenu() {
-  const [copied, setCopied] = React.useState<"so" | "ips" | null>(null);
+  const [copied, setCopied] = React.useState<"so" | "ips" | "call-centre" | null>(null);
 
-  async function handleCopy(kind: "so" | "ips") {
+  async function handleCopy(kind: "so" | "ips" | "call-centre") {
     const url = `${window.location.origin}/requisition-request/${kind}`;
     await navigator.clipboard.writeText(url);
     setCopied(kind);
@@ -36,6 +36,10 @@ export function CopyPublicLinkMenu() {
         <DropdownMenuItem onClick={() => handleCopy("ips")}>
           {copied === "ips" ? <Check className="h-4 w-4 mr-2" /> : null}
           IPS gap link
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleCopy("call-centre")}>
+          {copied === "call-centre" ? <Check className="h-4 w-4 mr-2" /> : null}
+          Call centre gap link
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

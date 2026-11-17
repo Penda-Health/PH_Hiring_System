@@ -1,7 +1,8 @@
 // Server-only. The requisition approval workflow: every requisition — in-app
 // forms, the quick-add dialog and the public /requisition-request links —
 // is created here as "Pending Approval", walks the approvers configured for
-// its segment in /settings, and only becomes an Open Role once the last one
+// its segment in /settings (or the Call Centre chain for the call centre
+// department — workflow.ts workflowFor), and only becomes an Open Role once the last one
 // approves. The one exception: in-app Part-time/Locum/Reliever requests
 // (raised by the recruitment team) skip approval and convert straight away.
 //
@@ -26,7 +27,15 @@ import { nextSequentialId } from "@/lib/airtable/route-handlers";
 import { signRequisitionApprovalToken } from "@/lib/forms/tokens";
 import { postToGoogleChat } from "@/lib/notifications/google-chat";
 import { buildOpenRoleFromRequisition, branchName, isFloatingEmploymentType } from "@/lib/requisitions-helpers";
-import { approverTypeOf, resolveStep, sameEmail, stepsForType } from "@/lib/requisitions/workflow";
+import {
+  approverTypeOf,
+  callCentreBranch,
+  isCallCentreRequest,
+  resolveStep,
+  sameEmail,
+  stepsForType,
+  workflowFor,
+} from "@/lib/requisitions/workflow";
 import {
   Branch,
   OpenRole,
@@ -66,6 +75,9 @@ function personLine(step: RequisitionApprovalStep, branchLabel?: string): string
   if (step.approverEmail) return `*${step.label}*: ${step.approverName} (${step.approverEmail})`;
   // A branch-based step with nobody on file — say exactly what to fix.
   const who = step.approverName ? `${step.approverName} — ` : "";
+  if (approverTypeOf(step) === "person") {
+    return `*${step.label}*: ${who}⚠️ no Google account on file, so no email was sent. To fix: add their Google account to this step in Settings → Requisition approvals, then click "Resend email" on the request.`;
+  }
   const fix =
     approverTypeOf(step) === "branch_manager"
       ? `add the BM email for ${branchLabel ?? "the branch"} in Settings → Branches`
@@ -145,8 +157,14 @@ export async function createRequisitionWithApproval(input: NewRequisitionInput):
   if (input.source === "internal" && isFloatingEmploymentType(input.employmentType)) {
     return createWithoutApproval(input, reqId, branches, chatWebhookUrl);
   }
+  // Call centre requests resolve their BM/RM from the call centre's branch,
+  // and carry it so the Open Role lands there too.
+  const callCentre = isCallCentreRequest(input);
+  if (callCentre && !input.branchId) {
+    input = { ...input, branchId: callCentreBranch(workflows?.CallCentre, branches)?.id };
+  }
   const branch = branches.find((b) => b.id === input.branchId);
-  const configured = stepsForType(workflows?.[input.segment], input.type).map((s) =>
+  const configured = stepsForType(workflowFor(workflows, input), input.type).map((s) =>
     resolveStep(s, branch, workflows?.regionalManagers)
   );
   // Nobody approves their own request: a step whose approver is the
@@ -183,7 +201,7 @@ export async function createRequisitionWithApproval(input: NewRequisitionInput):
 
   const branchLabel = branch ? branchName(branch.id, branches) : undefined;
   const lines = [
-    `📝 *New ${requisition.segment} requisition — ${requisition.reqId}*`,
+    `📝 *New ${callCentre ? "Call Centre" : requisition.segment} requisition — ${requisition.reqId}*`,
     `Role: ${requisition.roleTitle} ×${requisition.headcount}${requisition.branchId ? ` (${branchName(requisition.branchId, branches)})` : ""}`,
     `Type: ${requisition.type} · Urgency: ${requisition.urgency}`,
     `Requested by: ${requisition.submitterName || requisition.submittedBy}${requisition.submitterEmail ? ` (${requisition.submitterEmail})` : ""}`,
@@ -201,7 +219,7 @@ export async function createRequisitionWithApproval(input: NewRequisitionInput):
       ? `➡️ Awaiting approval — ${personLine(steps[0], branchLabel)}`
       : configured.length > 0
         ? `⚠️ Every approver on this workflow is the requester, so a Recruitment Manager needs to approve it in the app.`
-        : `⚠️ No ${requisition.segment} approval workflow is set up. A Recruitment Manager needs to add approvers in Settings → Requisition approvals, then approve this request in the app.`
+        : `⚠️ No ${callCentre ? "Call Centre" : requisition.segment} approval workflow is set up. A Recruitment Manager needs to add approvers in Settings → Requisition approvals, then approve this request in the app.`
   );
   lines.push(`${appUrl()}/requisitions`);
   await postToGoogleChat(chatWebhookUrl, lines.join("\n"), threadKey(requisition));
@@ -331,6 +349,9 @@ export async function decideRequisition(args: {
       ? `${args.actorEmail} (Recruitment Manager override${step ? ` for ${step.label}` : ""})`
       : `${step!.label} — ${step!.approverName}`;
   const commentLine = comment ? `\nComment: ${truncate(comment, 500)}` : "";
+  // A gap-confirming step (the Call Centre HRBP) reads as such in Chat.
+  const approvedVerb = step?.confirmsGap && entry.via !== "override" ? "gap confirmed by" : "approved by";
+  const rejectedVerb = step?.confirmsGap && entry.via !== "override" ? "gap not confirmed by" : "rejected by";
 
   if (!isFinal) {
     await updateRecord(TABLE_NAMES.Requisitions, req.id, requisitionToAirtable({ approvalLog }));
@@ -339,7 +360,7 @@ export async function decideRequisition(args: {
     const branchLabel = req.branchId ? branchName(req.branchId, await loadBranches()) : undefined;
     await postToGoogleChat(
       chatWebhookUrl,
-      `✅ *${req.reqId}* (${req.roleTitle}) approved by ${actorLine}${commentLine}\n➡️ Next — ${personLine(refreshed[nextIndex], branchLabel)}`,
+      `✅ *${req.reqId}* (${req.roleTitle}) ${approvedVerb} ${actorLine}${commentLine}\n➡️ Next — ${personLine(refreshed[nextIndex], branchLabel)}`,
       threadKey(req)
     );
     return { ok: true, requisition: updated };
@@ -362,7 +383,7 @@ export async function decideRequisition(args: {
   if (args.decision === "Rejected") {
     await postToGoogleChat(
       chatWebhookUrl,
-      `❌ *${req.reqId}* (${req.roleTitle}) rejected by ${actorLine}${commentLine}`,
+      `❌ *${req.reqId}* (${req.roleTitle}) ${rejectedVerb} ${actorLine}${commentLine}`,
       threadKey(req)
     );
     return { ok: true, requisition: finalReq };
@@ -435,7 +456,12 @@ export async function loadApprovalView(requisitionId: string) {
     submittedAt: req.submittedAt,
     status: req.status,
     currentApproverIndex: req.currentApproverIndex,
-    steps: (req.approvalSteps ?? []).map((s) => ({ label: s.label, approverName: s.approverName, approverEmail: s.approverEmail })),
+    steps: (req.approvalSteps ?? []).map((s) => ({
+      label: s.label,
+      approverName: s.approverName,
+      approverEmail: s.approverEmail,
+      confirmsGap: !!s.confirmsGap,
+    })),
     log: req.approvalLog ?? [],
   };
 }

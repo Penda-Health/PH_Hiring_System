@@ -241,6 +241,12 @@ export interface RequisitionApprovalStep {
   approverEmail: string;
   /** Requisition types this step applies to; empty/missing = every type in the segment. */
   appliesTo?: RequisitionType[];
+  /**
+   * This approver's job is to confirm the gap really exists (e.g. the Call
+   * Centre's HRBP) — the approval page and Chat phrase their decision as
+   * "Confirm gap" rather than "Approve". Mechanically it's an approval.
+   */
+  confirmsGap?: boolean;
 }
 
 export interface RequisitionApprovalWorkflow {
@@ -253,9 +259,20 @@ export interface RegionalManagerContact {
   email: string;
 }
 
+/**
+ * The Call Centre's own approval chain (BM → HRBP → RM). It applies to any
+ * requisition in the "Pigia Penda / Call Centre" department, whichever form
+ * raised it; `branchId` is the call centre's Branches row, whose BM and RM
+ * the branch-based steps resolve to.
+ */
+export interface CallCentreApprovalWorkflow extends RequisitionApprovalWorkflow {
+  branchId?: string;
+}
+
 export interface RequisitionWorkflows {
   IPS: RequisitionApprovalWorkflow;
   SO: RequisitionApprovalWorkflow;
+  CallCentre?: CallCentreApprovalWorkflow;
   regionalManagers?: RegionalManagerContact[];
 }
 

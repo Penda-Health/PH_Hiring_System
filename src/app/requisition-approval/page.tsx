@@ -65,7 +65,7 @@ function StepList({ view }: { view: ApprovalView }) {
               </p>
               {entry ? (
                 <p className="text-xs text-muted-foreground">
-                  {entry.decision} {new Date(entry.decidedAt).toLocaleDateString("en-KE", { dateStyle: "medium" })}
+                  {step.confirmsGap && entry.decision === "Approved" ? "Gap confirmed" : entry.decision} {new Date(entry.decidedAt).toLocaleDateString("en-KE", { dateStyle: "medium" })}
                   {entry.comment ? ` — “${entry.comment}”` : ""}
                 </p>
               ) : isCurrent ? (
@@ -192,6 +192,8 @@ function RequisitionApprovalInner() {
 
   const { view, isCurrentStep, expectedEmail, stepIndex } = state;
   const step = view.steps[stepIndex];
+  // e.g. the Call Centre HRBP: their sign-off is confirming the gap is real.
+  const confirmsGap = !!step?.confirmsGap;
 
   if (outcome) {
     const finalApproval = outcome.decision === "Approved" && outcome.status === "Converted to Open Role";
@@ -199,7 +201,15 @@ function RequisitionApprovalInner() {
       <FormShell brand={BRAND}>
         <FormStatusCard
           variant={outcome.decision === "Approved" ? "success" : "info"}
-          title={outcome.decision === "Approved" ? "Approved — thank you" : "Rejected"}
+          title={
+            outcome.decision === "Approved"
+              ? confirmsGap
+                ? "Gap confirmed — thank you"
+                : "Approved — thank you"
+              : confirmsGap
+                ? "Gap not confirmed"
+                : "Rejected"
+          }
           subtitle={`${view.reqId} · ${view.roleTitle}`}
         >
           <p>
@@ -233,9 +243,20 @@ function RequisitionApprovalInner() {
     <FormShell
       brand={BRAND}
       title={`${view.reqId} · ${view.roleTitle}`}
-      subtitle={`${view.segment} requisition awaiting your approval as ${step?.label ?? "approver"}.`}
+      subtitle={
+        confirmsGap
+          ? `As ${step?.label ?? "HRBP"}, please confirm this staffing gap really exists.`
+          : `${view.segment} requisition awaiting your approval as ${step?.label ?? "approver"}.`
+      }
     >
       <div className="space-y-6">
+        {confirmsGap && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+            Check the headcount below against your records. <span className="font-medium">Confirm gap</span> if the
+            vacancy is real and it moves on for approval; <span className="font-medium">Gap doesn&apos;t exist</span>{" "}
+            stops the request (add a reason).
+          </div>
+        )}
         <div className="space-y-3 rounded-lg border border-border p-4">
           <p className="text-sm font-medium">The request</p>
           <dl className="grid grid-cols-2 gap-3">
@@ -292,7 +313,7 @@ function RequisitionApprovalInner() {
             <>
               <p className="text-xs text-muted-foreground">Signed in as {signedInEmail}</p>
               <div className="space-y-1.5">
-                <Label htmlFor="comment">Comment (required to reject)</Label>
+                <Label htmlFor="comment">{confirmsGap ? "Comment (required if the gap doesn't exist)" : "Comment (required to reject)"}</Label>
                 <Textarea id="comment" value={comment} onChange={(e) => setComment(e.target.value)} rows={3} maxLength={1000} />
               </div>
               <div className="flex gap-3">
@@ -301,10 +322,10 @@ function RequisitionApprovalInner() {
                   disabled={!!submitting}
                   className="flex-1 bg-penda-blue hover:bg-penda-blue-dark"
                 >
-                  {submitting === "Approved" ? "Approving…" : "Approve"}
+                  {submitting === "Approved" ? (confirmsGap ? "Confirming…" : "Approving…") : confirmsGap ? "Confirm gap" : "Approve"}
                 </Button>
                 <Button variant="outline" onClick={() => decide("Rejected")} disabled={!!submitting} className="flex-1">
-                  {submitting === "Rejected" ? "Rejecting…" : "Reject"}
+                  {submitting === "Rejected" ? "Rejecting…" : confirmsGap ? "Gap doesn't exist" : "Reject"}
                 </Button>
               </div>
             </>
