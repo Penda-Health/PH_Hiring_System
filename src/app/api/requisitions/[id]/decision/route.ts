@@ -22,7 +22,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const json = await request.json().catch(() => null);
   const result = bodySchema.safeParse(json);
   if (!result.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
-  if (result.data.decision === "Rejected" && !result.data.comment) {
+  // Every decision is justified — approvals too, not just rejections.
+  if (!result.data.comment?.trim()) {
     return NextResponse.json({ error: "comment_required" }, { status: 400 });
   }
 

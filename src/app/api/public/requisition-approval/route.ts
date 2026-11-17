@@ -68,7 +68,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ verified: sameEmail(expectedEmail, identity.email), googleEmail: identity.email, expectedEmail });
     }
 
-    if (result.data.decision === "Rejected" && !result.data.comment) {
+    // Every decision is justified — approvals too, not just rejections.
+    if (!result.data.comment?.trim()) {
       return NextResponse.json({ error: "comment_required" }, { status: 400 });
     }
 

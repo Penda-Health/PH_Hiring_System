@@ -18,7 +18,7 @@ const DECISION_ERRORS: Record<string, string> = {
   not_approver: "Only the approver named on this step can act on it.",
   stale_step: "This step was already decided — refresh to see where the request is now.",
   not_pending: "This request is no longer pending approval.",
-  comment_required: "Add a reason for rejecting.",
+  comment_required: "Add a justification for your decision.",
 };
 
 function formatWhen(iso: string): string {
@@ -56,7 +56,7 @@ export function RequisitionApprovalDialog({
   const confirmsGap = mode !== "override" && !!steps[requisition.currentApproverIndex]?.confirmsGap;
 
   async function decide(decision: "Approved" | "Rejected") {
-    if (decision === "Rejected" && !comment.trim()) {
+    if (!comment.trim()) {
       setError(DECISION_ERRORS.comment_required);
       return;
     }
@@ -136,7 +136,7 @@ export function RequisitionApprovalDialog({
             .filter((e) => e.decision === "Skipped")
             .map((entry, i) => (
               <p key={`skip-${i}`} className="text-xs text-muted-foreground">
-                {entry.label} step skipped — the requester is that approver.
+                {entry.label} step skipped — {entry.comment === "Same approver as the next step" ? "same approver as the next step" : "the requester is that approver"}.
               </p>
             ))}
 
@@ -159,7 +159,7 @@ export function RequisitionApprovalDialog({
                   and shown in Google Chat as an override.
                 </p>
               )}
-              <Label htmlFor="approval-comment">Comment (required to reject)</Label>
+              <Label htmlFor="approval-comment">Justification (required)</Label>
               <Textarea
                 id="approval-comment"
                 value={comment}

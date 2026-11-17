@@ -79,7 +79,7 @@ function StepList({ view }: { view: ApprovalView }) {
         .filter((e) => e.decision === "Skipped")
         .map((e, i) => (
           <li key={`skip-${i}`} className="text-xs text-muted-foreground">
-            {e.label} step skipped — the requester is that approver.
+            {e.label} step skipped — {e.comment === "Same approver as the next step" ? "same approver as the next step" : "the requester is that approver"}.
           </li>
         ))}
     </ol>
@@ -140,8 +140,8 @@ function RequisitionApprovalInner() {
 
   async function decide(decision: "Approved" | "Rejected") {
     if (!credential) return;
-    if (decision === "Rejected" && !comment.trim()) {
-      setError("Add a reason so the requester knows why.");
+    if (!comment.trim()) {
+      setError(decision === "Rejected" ? "Add a reason so the requester knows why." : "Add a justification for your approval.");
       return;
     }
     setSubmitting(decision);
@@ -254,7 +254,7 @@ function RequisitionApprovalInner() {
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
             Check the headcount below against your records. <span className="font-medium">Confirm gap</span> if the
             vacancy is real and it moves on for approval; <span className="font-medium">Gap doesn&apos;t exist</span>{" "}
-            stops the request (add a reason).
+            stops the request.
           </div>
         )}
         <div className="space-y-3 rounded-lg border border-border p-4">
@@ -313,7 +313,7 @@ function RequisitionApprovalInner() {
             <>
               <p className="text-xs text-muted-foreground">Signed in as {signedInEmail}</p>
               <div className="space-y-1.5">
-                <Label htmlFor="comment">{confirmsGap ? "Comment (required if the gap doesn't exist)" : "Comment (required to reject)"}</Label>
+                <Label htmlFor="comment">{confirmsGap ? "Justification (required) — how you confirmed the gap, or why it doesn't exist" : "Justification for your decision (required)"}</Label>
                 <Textarea id="comment" value={comment} onChange={(e) => setComment(e.target.value)} rows={3} maxLength={1000} />
               </div>
               <div className="flex gap-3">

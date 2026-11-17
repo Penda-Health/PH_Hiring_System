@@ -171,7 +171,11 @@ export async function createRequisitionWithApproval(input: NewRequisitionInput):
   // requester (e.g. an RM raising a gap for their own region) is dropped
   // and logged as skipped, and the request goes to the next approver.
   const skipped = configured.filter((s) => sameEmail(s.approverEmail, input.submitterEmail));
-  const steps = configured.filter((s) => !skipped.includes(s));
+  const remaining = configured.filter((s) => !skipped.includes(s));
+  // One person on two steps in a row (e.g. Esther as a branch's RM and then
+  // as the labour-model check) signs once: the earlier step is skipped.
+  const merged = remaining.filter((s, i) => s.approverEmail && sameEmail(s.approverEmail, remaining[i + 1]?.approverEmail));
+  const steps = remaining.filter((s) => !merged.includes(s));
   const submittedAt = new Date().toISOString();
   const skipLog: RequisitionApprovalLogEntry[] = skipped.map((s) => ({
     stepIndex: -1,
@@ -183,6 +187,18 @@ export async function createRequisitionWithApproval(input: NewRequisitionInput):
     comment: "The requester is this step's approver",
     via: "system",
   }));
+  for (const s of merged) {
+    skipLog.push({
+      stepIndex: -1,
+      label: s.label,
+      approverEmail: s.approverEmail,
+      decision: "Skipped",
+      decidedBy: "system",
+      decidedAt: submittedAt,
+      comment: "Same approver as the next step",
+      via: "system",
+    });
+  }
 
   const created = await createRecord(
     TABLE_NAMES.Requisitions,
@@ -214,6 +230,7 @@ export async function createRequisitionWithApproval(input: NewRequisitionInput):
   const reason = truncate(requisition.context || requisition.justification, 300);
   if (reason) lines.push(`Reason: ${reason}`);
   for (const s of skipped) lines.push(`⏭️ ${s.label} step skipped — ${s.approverName} raised this request.`);
+  for (const s of merged) lines.push(`⏭️ ${s.label} step skipped — ${s.approverName} signs off at the next step.`);
   lines.push(
     steps.length > 0
       ? `➡️ Awaiting approval — ${personLine(steps[0], branchLabel)}`
