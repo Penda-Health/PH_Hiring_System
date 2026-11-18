@@ -1,6 +1,7 @@
 import { Branch, Candidate, Interview, Locum, Offer, OpenRole, Reliever, Segment, WorkTrial } from "@/types";
+import { isRoleClosed } from "@/lib/role-status";
 
-export type DashboardPeriod = "all" | "7d" | "30d" | "mtd" | "qtd";
+export type DashboardPeriod = "all" | "7d" | "30d" | "mtd" | "qtd" | "3m";
 
 export interface DashboardFilterState {
   segment: "All" | Segment;
@@ -15,7 +16,7 @@ export const DEFAULT_DASHBOARD_FILTERS: DashboardFilterState = {
   branchId: "All",
   department: "All",
   role: "All",
-  period: "all",
+  period: "3m",
 };
 
 export const PERIOD_LABELS: Record<DashboardPeriod, string> = {
@@ -24,7 +25,15 @@ export const PERIOD_LABELS: Record<DashboardPeriod, string> = {
   "30d": "Last 30 Days",
   mtd: "Month to Date",
   qtd: "Quarter to Date",
+  "3m": "Last 3 Months",
 };
+
+/**
+ * "Last 3 Months" keeps anything still in flight regardless of age: a role
+ * that hasn't been closed (and its candidates, interviews, offers and work
+ * trials) always shows, so a slow-to-fill role never drops off the dashboard.
+ */
+const KEEPS_OPEN_ROLES: DashboardPeriod[] = ["3m"];
 
 function periodStart(period: DashboardPeriod): Date | null {
   const now = new Date();
@@ -43,6 +52,11 @@ function periodStart(period: DashboardPeriod): Date | null {
       return new Date(now.getFullYear(), now.getMonth(), 1);
     case "qtd":
       return new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+    case "3m": {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 3);
+      return d;
+    }
     default:
       return null;
   }
@@ -53,7 +67,8 @@ function withinPeriod(dateStr: string | null | undefined, period: DashboardPerio
   if (!dateStr) return false;
   const start = periodStart(period);
   if (!start) return true;
-  return new Date(`${dateStr}T00:00:00`).getTime() >= start.getTime();
+  const t = new Date(dateStr.length === 10 ? `${dateStr}T00:00:00` : dateStr).getTime();
+  return Number.isNaN(t) ? false : t >= start.getTime();
 }
 
 export type DashboardSourceData = {
@@ -95,26 +110,44 @@ export function filterDashboardData(
       .map((r) => r.id)
   );
 
-  const openRolesFiltered = roleFilterActive ? openRoles.filter((r) => matchedRoleIds.has(r.id)) : openRoles;
+  const keepOpen = KEEPS_OPEN_ROLES.includes(filters.period);
+  // Roles not yet closed — everything tied to them bypasses the period cut.
+  const openRoleIds = new Set(keepOpen ? openRoles.filter((r) => !isRoleClosed(r.status)).map((r) => r.id) : []);
+
+  const openRolesFiltered = openRoles.filter((r) => {
+    if (roleFilterActive && !matchedRoleIds.has(r.id)) return false;
+    if (!keepOpen) return true;
+    // Closed roles stay only if they were posted or closed within the window.
+    return openRoleIds.has(r.id) || withinPeriod(r.dateClosed, filters.period) || withinPeriod(r.datePosted, filters.period);
+  });
 
   const roleMatchedCandidateIds = new Set(
     candidates.filter((c) => !roleFilterActive || matchedRoleIds.has(c.roleId ?? "")).map((c) => c.id)
   );
+  const candidateOnOpenRole = new Set(
+    // Only candidates still in play — an old hire or rejection on a long-open
+    // role is history, and stays subject to the period like everything else.
+    candidates
+      .filter((c) => c.roleId && openRoleIds.has(c.roleId) && !["Hired", "Rejected", "Withdrawn"].includes(c.stage))
+      .map((c) => c.id)
+  );
+  const inWindow = (dateStr: string | null | undefined, candidateId: string) =>
+    candidateOnOpenRole.has(candidateId) || withinPeriod(dateStr, filters.period);
 
   const candidatesFiltered = candidates.filter(
-    (c) => roleMatchedCandidateIds.has(c.id) && withinPeriod(c.createdAt, filters.period)
+    (c) => roleMatchedCandidateIds.has(c.id) && inWindow(c.createdAt, c.id)
   );
 
   const interviewsFiltered = interviews.filter(
-    (i) => (!roleFilterActive || matchedRoleIds.has(i.roleId)) && withinPeriod(i.date, filters.period)
+    (i) => (!roleFilterActive || matchedRoleIds.has(i.roleId)) && inWindow(i.date, i.candidateId)
   );
 
   const offersFiltered = offers.filter(
-    (o) => roleMatchedCandidateIds.has(o.candidateId) && withinPeriod(o.dateSent, filters.period)
+    (o) => roleMatchedCandidateIds.has(o.candidateId) && inWindow(o.dateSent, o.candidateId)
   );
 
   const workTrialsFiltered = workTrials.filter(
-    (wt) => roleMatchedCandidateIds.has(wt.candidateId) && withinPeriod(wt.date, filters.period)
+    (wt) => roleMatchedCandidateIds.has(wt.candidateId) && inWindow(wt.date, wt.candidateId)
   );
 
   return {

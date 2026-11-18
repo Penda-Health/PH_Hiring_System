@@ -33,12 +33,20 @@ export function NewRequisitionDialog({
   onCreate,
   submittedBy,
   branches,
+  open: openProp,
+  onOpenChange,
 }: {
   onCreate: (req: Requisition) => Promise<Requisition>;
   submittedBy: string;
   branches: Branch[];
+  /** When given, the parent opens the dialog (e.g. from a menu) and no trigger button is rendered. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [openState, setOpenState] = React.useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : openState;
+  const setOpen = (v: boolean) => (controlled ? onOpenChange?.(v) : setOpenState(v));
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const initialType: RequisitionType = "IPS Gap";
@@ -131,9 +139,11 @@ export function NewRequisitionDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSubmitError(null); }}>
-      <DialogTrigger asChild>
-        <Button className="bg-penda-blue hover:bg-penda-blue-dark">New Requisition</Button>
-      </DialogTrigger>
+      {!controlled && (
+        <DialogTrigger asChild>
+          <Button className="bg-penda-blue hover:bg-penda-blue-dark">New Requisition</Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>New Requisition</DialogTitle>

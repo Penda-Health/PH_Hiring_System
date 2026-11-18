@@ -12,7 +12,7 @@ import {
 } from "@/lib/dashboard-filters";
 import { Segment } from "@/types";
 
-const PERIODS: DashboardPeriod[] = ["all", "7d", "30d", "mtd", "qtd"];
+const PERIODS: DashboardPeriod[] = ["3m", "7d", "30d", "mtd", "qtd", "all"];
 const SEGMENTS: Segment[] = ["IPS", "SO"];
 
 export function DashboardFilters({
@@ -96,7 +96,7 @@ export function DashboardFilters({
       </Select>
 
       <Select value={filters.period} onValueChange={(v) => onChange({ ...filters, period: v as DashboardPeriod })}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-40" title={filters.period === "3m" ? "Last 3 months, plus every role not yet closed" : undefined}>
           <SelectValue placeholder="Time Period" />
         </SelectTrigger>
         <SelectContent>
