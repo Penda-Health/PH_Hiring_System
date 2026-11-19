@@ -66,9 +66,11 @@ export default function RequisitionsPage() {
   );
 
   const branchOptions = React.useMemo(() => {
+    // Every active branch (new ones like Githurai 44 / Kinoo included, even
+    // before their first requisition), plus any inactive one that has requisitions.
     const used = new Set(requisitions.map((r) => r.branchId).filter(Boolean));
     return branches
-      .filter((b) => used.has(b.id) && (filters.segment === "All" || b.segment === filters.segment))
+      .filter((b) => (b.active || used.has(b.id)) && (filters.segment === "All" || b.segment === filters.segment))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [branches, requisitions, filters.segment]);
 
