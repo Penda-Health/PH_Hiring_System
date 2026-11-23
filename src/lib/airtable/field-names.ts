@@ -196,6 +196,18 @@ export const F = {
     ROLE_CATEGORY: "Role Category",
     SPECIALTY: "Specialty",
     RESCHEDULED_AT: "Rescheduled At",
+    // In-app "Resend email" (POST /api/work-trials/[id]/resend). The app
+    // fills the recipient/address/link, then bumps RESEND_REQUESTED_AT —
+    // the only field the Airtable "Resend" automation watches.
+    RESEND_RECIPIENT: "Resend Recipient",
+    RESEND_TO_EMAIL: "Resend To Email",
+    RESEND_LINK: "Resend Link",
+    RESEND_NOTE: "Resend Note",
+    RESEND_REQUESTED_BY: "Resend Requested By",
+    RESEND_REQUESTED_AT: "Resend Requested At",
+    // Read-only lookups (through Branch / Candidate) used to prefill Resend.
+    BM_EMAIL_LOOKUP: "BM Email",
+    CANDIDATE_EMAIL_LOOKUP: "Candidate Email",
     // Multi-day trials — see WorkTrial.dayNumber in types.ts. Parent Trial
     // holds Day 1's record ID as plain text (not a self-link) so it reads
     // back as a bare ID with no extra lookup.

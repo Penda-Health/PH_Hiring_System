@@ -31,7 +31,8 @@ import {
 import { ScoreEntryDialog } from "./score-entry-dialog";
 import { useRecruitmentData } from "@/lib/data-store/recruitment-context";
 import { AI_STATUS_STYLES } from "@/lib/reference-check-helpers";
-import { CalendarPlus, Check, ChevronDown, ClipboardCheck, Copy, Download, Pencil, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { CalendarPlus, Check, ChevronDown, ClipboardCheck, Copy, Download, Mail, Pencil, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { ResendEmailDialog } from "./resend-email-dialog";
 import { daysOfTrial, dayNumberOf, latestDayOf } from "@/lib/work-trial-days";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -673,6 +674,7 @@ export function WorkTrialCard({
   const [addDayOpen, setAddDayOpen] = React.useState(false);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = React.useState(false);
+  const [resendOpen, setResendOpen] = React.useState(false);
   const [copied, setCopied] = React.useState<string | null>(null);
   const [linkError, setLinkError] = React.useState<string | null>(null);
   const [downloadingReport, setDownloadingReport] = React.useState(false);
@@ -947,6 +949,12 @@ export function WorkTrialCard({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                {canEdit && (
+                  <Button size="sm" variant="outline" onClick={() => setResendOpen(true)} className="gap-1">
+                    <Mail className="h-3.5 w-3.5" />
+                    Resend email
+                  </Button>
+                )}
                 {reportReady && (
                   <Button size="sm" variant="outline" onClick={downloadReport} disabled={downloadingReport} className="gap-1">
                     <Download className="h-3.5 w-3.5" />
@@ -979,6 +987,16 @@ export function WorkTrialCard({
         open={reviewDialogOpen}
         onOpenChange={setReviewDialogOpen}
       />
+
+      {canEdit && (
+        <ResendEmailDialog
+          trial={trial}
+          candidate={candidate}
+          branch={branch}
+          open={resendOpen}
+          onOpenChange={setResendOpen}
+        />
+      )}
 
       {canAddDay && (
         <AddTrialDayDialog trial={trial} nextDay={nextDay} open={addDayOpen} onOpenChange={setAddDayOpen} />
