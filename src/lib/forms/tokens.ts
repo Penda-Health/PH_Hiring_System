@@ -197,7 +197,23 @@ export async function signRequisitionApprovalToken(
     .sign(secret());
 }
 
+/**
+ * Approval links carry the JWT hex-encoded, so the URL is only [0-9a-f].
+ * A raw JWT contains "_" and "-", and email clients and Markdown renderers
+ * cut links short at those characters.
+ */
+export function encodeApprovalTokenForLink(token: string): string {
+  return Buffer.from(token, "utf8").toString("hex");
+}
+
+/** Accepts both the hex link form and a raw JWT (links sent before the switch). */
+function decodeApprovalToken(token: string): string {
+  const t = token.trim();
+  return /^[0-9a-f]+$/i.test(t) && t.length % 2 === 0 ? Buffer.from(t, "hex").toString("utf8") : t;
+}
+
 export async function verifyRequisitionApprovalToken(token: string): Promise<RequisitionApprovalTokenPayload | null> {
+  token = decodeApprovalToken(token);
   try {
     const { payload } = await jwtVerify(token, secret());
     if (payload.type !== "requisition-approval") return null;

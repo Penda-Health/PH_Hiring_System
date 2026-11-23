@@ -24,7 +24,7 @@ import {
   requisitionToAirtable,
 } from "@/lib/airtable/mappers";
 import { nextSequentialId } from "@/lib/airtable/route-handlers";
-import { signRequisitionApprovalToken } from "@/lib/forms/tokens";
+import { encodeApprovalTokenForLink, signRequisitionApprovalToken } from "@/lib/forms/tokens";
 import { postToGoogleChat } from "@/lib/notifications/google-chat";
 import { buildOpenRoleFromRequisition, branchName, isFloatingEmploymentType } from "@/lib/requisitions-helpers";
 import {
@@ -133,7 +133,10 @@ async function requestStep(requisitionId: string, stepIndex: number, step: Requi
       approvalRequestedAt: new Date().toISOString(),
       approvalEmailSent: false,
     }),
-    [F.Requisitions.APPROVAL_LINK]: `${appUrl()}/requisition-approval?token=${encodeURIComponent(token)}`,
+    // Hex, not the raw JWT: base64url tokens contain "_", and email
+    // formatting read it as italics and cut the link short (Esther's
+    // REQ-027 link arrived truncated at its first underscore).
+    [F.Requisitions.APPROVAL_LINK]: `${appUrl()}/requisition-approval?token=${encodeApprovalTokenForLink(token)}`,
   });
   return requisitionFromAirtable(record);
 }
