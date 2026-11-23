@@ -1,7 +1,7 @@
 // Server-only. Signs/verifies the JWTs embedded in public form links
 // (candidate work-trial selection, branch-manager feedback). No Supabase
 // session exists on these routes — the token itself is the auth.
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT, errors, jwtVerify } from "jose";
 
 function secret() {
   const value = process.env.PUBLIC_FORM_JWT_SECRET;
@@ -187,10 +187,13 @@ export type RequisitionApprovalTokenPayload = {
 export async function signRequisitionApprovalToken(
   payload: Omit<RequisitionApprovalTokenPayload, "type">
 ): Promise<string> {
+  // No expiry, at HR's request: approvers sometimes open the email weeks
+  // later. The link still can't be misused, because it only works while its
+  // step is the current one and the approver must sign in with that step's
+  // Google account.
   return new SignJWT({ type: "requisition-approval", ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("30d")
     .sign(secret());
 }
 
@@ -199,7 +202,13 @@ export async function verifyRequisitionApprovalToken(token: string): Promise<Req
     const { payload } = await jwtVerify(token, secret());
     if (payload.type !== "requisition-approval") return null;
     return payload as unknown as RequisitionApprovalTokenPayload;
-  } catch {
+  } catch (err) {
+    // Links sent before expiry was removed carry a 30-day exp. jose checks
+    // the signature before the claims, so a JWTExpired here is still a
+    // genuine token. Accept it.
+    if (err instanceof errors.JWTExpired && err.payload.type === "requisition-approval") {
+      return err.payload as unknown as RequisitionApprovalTokenPayload;
+    }
     return null;
   }
 }
