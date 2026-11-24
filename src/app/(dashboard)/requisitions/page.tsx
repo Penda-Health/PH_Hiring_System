@@ -106,6 +106,13 @@ export default function RequisitionsPage() {
               <DropdownMenuItem asChild>
                 <Link href="/requisitions/new/so">SO requisition form</Link>
               </DropdownMenuItem>
+              {/* Telemedicine is an SO location with its own chain (BM → HRBP → RM),
+                  so it has its own form rather than a branch on the IPS one. */}
+              <DropdownMenuItem asChild>
+                <Link href="/requisition-request/call-centre" target="_blank" rel="noopener">
+                  Telemedicine / call centre gap form
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setNewDialogOpen(true)}>Quick add…</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

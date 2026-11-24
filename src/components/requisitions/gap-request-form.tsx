@@ -32,12 +32,12 @@ const VARIANTS = {
   },
   "call-centre": {
     brand: {
-      eyebrow: "Penda Health · Call Centre Requisition",
-      headline: "Raise a call centre staffing gap.",
+      eyebrow: "Penda Health · Telemedicine / Call Centre Requisition",
+      headline: "Raise a Telemedicine / call centre staffing gap.",
       lede: `${LEDE} The HRBP confirms the gap along the way.`,
       footer: "Questions? careers@pendahealth.com",
     },
-    title: "Call Centre Requisition Request",
+    title: "Telemedicine / Call Centre Requisition Request",
     apiSegment: "CallCentre",
     roleSuggestions: ["Call Centre Agent"],
     place: "call centre",

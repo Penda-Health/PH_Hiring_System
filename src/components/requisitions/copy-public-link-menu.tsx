@@ -39,7 +39,7 @@ export function CopyPublicLinkMenu() {
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleCopy("call-centre")}>
           {copied === "call-centre" ? <Check className="h-4 w-4 mr-2" /> : null}
-          Call centre gap link
+          Telemedicine / call centre gap link
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

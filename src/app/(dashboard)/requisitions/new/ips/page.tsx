@@ -217,6 +217,13 @@ function NewIpsGapRequisitionForm() {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Telemedicine?{" "}
+                <a href="/requisition-request/call-centre" target="_blank" rel="noopener" className="text-penda-blue hover:underline">
+                  Use the Telemedicine / call centre form
+                </a>
+                , which has its own approvers.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label>Employment type</Label>
